@@ -13,7 +13,10 @@ const PORT = 3000;
 app.use(express.json());
 
 // Initialize Supabase Admin Client
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const rawUrl = process.env.VITE_SUPABASE_URL;
+const isValidUrl = rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'));
+
+const supabaseUrl = isValidUrl ? rawUrl : 'https://placeholder-please-configure-secrets.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key';
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
