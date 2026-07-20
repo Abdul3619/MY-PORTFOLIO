@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Quote, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
+import { useTestimonials } from "@/hooks/useApi";
+import { useTranslation } from "react-i18next";
+import { ClientReviewsSection } from "@/components/ClientReviewsSection";
 
 const testimonials = [
   {
@@ -29,23 +32,26 @@ const testimonials = [
 ];
 
 export default function Testimonials() {
+  const { t } = useTranslation();
+  const { data: testimonialsData } = useTestimonials();
+  const displayTestimonials = testimonialsData && testimonialsData.length > 0 ? testimonialsData : testimonials;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
 
   const nextTestimonial = () => {
     setDirection(1);
-    setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+    setCurrentIndex((prev) => (prev + 1) % displayTestimonials.length);
   };
 
   const prevTestimonial = () => {
     setDirection(-1);
-    setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+    setCurrentIndex((prev) => (prev - 1 + displayTestimonials.length) % displayTestimonials.length);
   };
 
   useEffect(() => {
     const interval = setInterval(nextTestimonial, 8000);
     return () => clearInterval(interval);
-  }, []);
+  }, [displayTestimonials.length]);
 
   const variants = {
     enter: (direction: number) => ({
@@ -77,7 +83,7 @@ export default function Testimonials() {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
-            CLIENT <span className="text-gradient">VOICES</span>
+            {t("testimonials.client_title_part1", "CLIENT")} <span className="text-gradient">{t("testimonials.client_title_part2", "VOICES")}</span>
           </h1>
         </motion.div>
 
@@ -110,20 +116,24 @@ export default function Testimonials() {
                   
                   <div className="flex flex-col items-center text-center">
                     <p className="text-xl md:text-2xl text-gray-300 leading-relaxed italic mb-8 font-serif">
-                      "{testimonials[currentIndex].review}"
+                      "{t(`testimonials.review_${displayTestimonials[currentIndex].id}`, displayTestimonials[currentIndex].review) as string}"
                     </p>
                     
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gold">
                         <img 
-                          src={testimonials[currentIndex].photo} 
-                          alt={testimonials[currentIndex].name}
+                          src={displayTestimonials[currentIndex].photo || displayTestimonials[currentIndex].avatar} 
+                          alt={displayTestimonials[currentIndex].name}
                           className="w-full h-full object-cover"
                         />
                       </div>
                       <div className="text-left">
-                        <h4 className="text-lg font-bold text-white">{testimonials[currentIndex].name}</h4>
-                        <p className="text-gold text-sm">{testimonials[currentIndex].position}</p>
+                        <h4 className="text-lg font-bold text-white">
+                          {t(`testimonials.name_${displayTestimonials[currentIndex].id}`, displayTestimonials[currentIndex].name) as string}
+                        </h4>
+                        <p className="text-gold text-sm">
+                          {t(`testimonials.role_${displayTestimonials[currentIndex].id}`, displayTestimonials[currentIndex].position || displayTestimonials[currentIndex].role) as string}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -142,7 +152,7 @@ export default function Testimonials() {
         </div>
         
         <div className="flex justify-center gap-3 mt-8">
-          {testimonials.map((_, idx) => (
+          {displayTestimonials.map((_, idx) => (
             <button
               key={idx}
               onClick={() => {
@@ -155,6 +165,9 @@ export default function Testimonials() {
             />
           ))}
         </div>
+
+        {/* Brand-new Client Reviews and Star Ratings Moderation Board */}
+        <ClientReviewsSection />
       </div>
     </PageTransition>
   );

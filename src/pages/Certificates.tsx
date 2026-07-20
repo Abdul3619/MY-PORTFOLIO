@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Search } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
+import { useCertificates } from "@/hooks/useApi";
+import { useTranslation } from "react-i18next";
 
 const certificates = [
   {
@@ -29,7 +31,10 @@ const certificates = [
 ];
 
 export default function Certificates() {
-  const [selectedCert, setSelectedCert] = useState<typeof certificates[0] | null>(null);
+  const { t } = useTranslation();
+  const { data: certsData } = useCertificates();
+  const displayCerts = certsData && certsData.length > 0 ? certsData : certificates;
+  const [selectedCert, setSelectedCert] = useState<any | null>(null);
 
   return (
     <PageTransition className="w-full">
@@ -41,15 +46,15 @@ export default function Certificates() {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
-            ACHIEVEMENTS <span className="text-gradient">&</span> PROOF
+            {t("certificates.title_part1", "ACHIEVEMENTS")} <span className="text-gradient">{t("certificates.title_part2", "& PROOF")}</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Verified knowledge across engineering and software development.
+            {t("certificates.subtitle", "Verified knowledge across engineering and software development.")}
           </p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {certificates.map((cert, index) => (
+          {displayCerts.map((cert, index) => (
             <motion.div
               key={cert.id}
               initial={{ opacity: 0, y: 30 }}
@@ -68,15 +73,19 @@ export default function Certificates() {
                     </div>
                   </div>
                   <img 
-                    src={cert.image} 
+                    src={(cert.image_url || cert.image)} 
                     alt={cert.title} 
                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-105"
                   />
                 </div>
                 <div className="p-6 flex-1 flex flex-col">
-                  <span className="text-gold text-sm font-medium tracking-wider mb-2">{cert.date}</span>
-                  <h3 className="text-xl font-display font-semibold text-white mb-2">{cert.title}</h3>
-                  <p className="text-gray-400 text-sm mt-auto">{cert.issuer}</p>
+                  <span className="text-gold text-sm font-medium tracking-wider mb-2">{(cert.date_issued || cert.date)}</span>
+                  <h3 className="text-xl font-display font-semibold text-white mb-2">
+                    {t(`certificates.cert_title_${cert.id}`, cert.title) as string}
+                  </h3>
+                  <p className="text-gray-400 text-sm mt-auto">
+                    {t(`certificates.cert_issuer_${cert.id}`, cert.issuer) as string}
+                  </p>
                 </div>
               </GlassCard>
             </motion.div>
@@ -109,13 +118,17 @@ export default function Certificates() {
                 </button>
                 <div className="rounded-2xl overflow-hidden border border-white/20 shadow-[0_0_50px_rgba(212,175,55,0.2)] bg-bg-darker">
                   <img 
-                    src={selectedCert.image} 
+                    src={selectedCert.image_url || selectedCert.image} 
                     alt={selectedCert.title} 
                     className="w-full max-h-[80vh] object-contain"
                   />
                   <div className="p-6 bg-gradient-to-t from-bg-dark to-transparent absolute bottom-0 left-0 right-0">
-                    <h2 className="text-2xl font-display font-bold text-white">{selectedCert.title}</h2>
-                    <p className="text-gold">{selectedCert.issuer}</p>
+                    <h2 className="text-2xl font-display font-bold text-white">
+                      {t(`certificates.cert_title_${selectedCert.id}`, selectedCert.title) as string}
+                    </h2>
+                    <p className="text-gold">
+                      {t(`certificates.cert_issuer_${selectedCert.id}`, selectedCert.issuer) as string}
+                    </p>
                   </div>
                 </div>
               </motion.div>

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { useTranslation } from "react-i18next";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { 
@@ -29,8 +28,6 @@ import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
 import { projectsData } from "@/data/projects";
-import * as Icons from "lucide-react";
-import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects } from "@/hooks/useApi";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -111,27 +108,6 @@ const homeTestimonials = [
 ];
 
 export default function Home() {
-  const { t } = useTranslation();
-  const { data: profile } = useProfile();
-  const { data: services } = useServices();
-  const { data: testimonials } = useTestimonials();
-  const { data: certificates } = useCertificates();
-  const { data: projects } = useProjects();
-  const { data: contact } = useContactInfo();
-
-  const dynamicRoles = profile?.title ? profile.title.split(',').map((s: string) => s.trim()) : roles;
-  const displayServices = services && services.length > 0 ? services : differentCards;
-  const displayTestimonials = testimonials && testimonials.length > 0 ? testimonials : homeTestimonials;
-  const displayCertificates = certificates && certificates.length > 0 ? certificates : homeCertificates;
-  const displayProjects = projects && projects.length > 0 ? projects.slice(0,4) : projectsData.slice(0,4);
-  const socialLinks = {
-    github: contact?.github_url || "#",
-    linkedin: contact?.linkedin_url || "#",
-    twitter: contact?.twitter_url || "#",
-    instagram: contact?.instagram_url || "#",
-    email: contact?.email || "abdulwahababdullah3619@gmail.com"
-  };
-
   const [currentRoleIndex, setCurrentRoleIndex] = useState(0);
   const aboutSectionRef = useRef<HTMLDivElement>(null);
   const skillsSectionRef = useRef<HTMLDivElement>(null);
@@ -139,7 +115,7 @@ export default function Home() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentRoleIndex((prev) => (prev + 1) % dynamicRoles.length);
+      setCurrentRoleIndex((prev) => (prev + 1) % roles.length);
     }, 3000);
     return () => clearInterval(interval);
   }, []);
@@ -229,8 +205,8 @@ export default function Home() {
             >
               <div className="absolute inset-0 bg-gradient-to-tr from-gold/30 via-transparent to-transparent mix-blend-overlay z-10" />
               <img 
-                src={profile?.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop"} 
-                alt={profile?.name || "Abdul Wahab"} 
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop" 
+                alt="Abdul Wahab" 
                 className="w-full h-full object-cover grayscale contrast-110 hover:grayscale-0 transition-all duration-700"
               />
             </motion.div>
@@ -244,7 +220,7 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-xs font-semibold tracking-wider uppercase mb-6"
               >
                 <Zap size={12} className="animate-pulse" />
-                <span>{t("home.status_tag", "Now Open for Select Commissions")}</span>
+                <span>Now Open for Select Commissions</span>
               </motion.div>
               
               <motion.p 
@@ -253,7 +229,7 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.6 }}
               >
-                {profile?.name || "Abdul Wahab"}
+                Abdul Wahab
               </motion.p>
               
               <motion.h1 
@@ -262,9 +238,9 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
               >
-                {t("home.self_taught_label", "SELF-TAUGHT")}
+                SELF-TAUGHT
                 <br />
-                <span className="text-gradient font-extrabold">{t("home.developer_label", "DEVELOPER")}</span>
+                <span className="text-gradient font-extrabold">DEVELOPER</span>
               </motion.h1>
 
               {/* Typing/Rotating Roles */}
@@ -283,7 +259,7 @@ export default function Home() {
                     transition={{ type: "spring", stiffness: 260, damping: 25 }}
                     className="text-xl md:text-2xl text-gray-400 font-display font-medium absolute text-center lg:text-left"
                   >
-                    {dynamicRoles[currentRoleIndex]}
+                    {roles[currentRoleIndex]}
                   </motion.span>
                 </AnimatePresence>
               </motion.div>
@@ -295,7 +271,7 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35, duration: 0.6 }}
               >
-                {profile?.bio || t("home.hero_subtitle", "I build fast, responsive, and reliable websites that combine clean, modern design with practical functionality. From custom business platforms to management systems, my focus is on delivering premium web experiences that perform exceptionally and solve real problems.")}
+                I build fast, responsive, and reliable websites that combine clean, modern design with practical functionality. From custom business platforms to management systems, my focus is on delivering premium web experiences that perform exceptionally and solve real problems.
               </motion.p>
               
               <motion.div 
@@ -307,21 +283,21 @@ export default function Home() {
                 <Link to="/projects" className="interactive">
                   <MagneticButton variant="primary">
                     <FolderOpen size={18} />
-                    <span>{t("home.cta_projects", "View Projects")}</span>
+                    <span>View Projects</span>
                   </MagneticButton>
                 </Link>
                 
                 <Link to="/resume" className="interactive">
                   <MagneticButton variant="secondary">
                     <Download size={18} />
-                    <span>{t("home.cta_resume", "Download Resume")}</span>
+                    <span>Download Resume</span>
                   </MagneticButton>
                 </Link>
                 
                 <Link to="/contact" className="interactive">
                   <MagneticButton variant="outline">
                     <Mail size={18} />
-                    <span>{t("home.cta_hire", "Get In Touch")}</span>
+                    <span>Get In Touch</span>
                   </MagneticButton>
                 </Link>
               </motion.div>
@@ -339,17 +315,17 @@ export default function Home() {
             {/* Left intro details */}
             <div className="lg:col-span-5 space-y-6">
               <div className="gsap-about-animate inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase opacity-0">
-                <span>{t("about.storyteller_tag", "The Storyteller")}</span>
+                <span>The Storyteller</span>
               </div>
               <h2 className="gsap-about-animate text-4xl md:text-5xl font-display font-bold text-white tracking-tight leading-tight opacity-0">
-                {t("about.title_crafting_part1", "Crafting With")} <br /><span className="text-gradient font-extrabold">{t("about.title_crafting_part2", "Intent & Passion")}</span>
+                Crafting With <br /><span className="text-gradient font-extrabold">Intent & Passion</span>
               </h2>
               <p className="gsap-about-animate text-gray-400 leading-relaxed text-sm md:text-base opacity-0">
-                {t("about.journey_description", "From mounting physical solar arrays on the hot roofs of renewable infrastructure, to engineering clean responsive algorithms behind sleek web interfaces. Abdul's journey is one of non-traditional excellence.")}
+                From mounting physical solar arrays on the hot roofs of renewable infrastructure, to engineering clean responsive algorithms behind sleek web interfaces. Abdul's journey is one of non-traditional excellence.
               </p>
               <div className="gsap-about-animate pt-4 opacity-0">
                 <Link to="/about" className="inline-flex items-center gap-2 group text-gold font-medium hover:text-white transition-colors duration-300 interactive">
-                  <span>{t("about.read_journey", "Read the Full Journey")}</span>
+                  <span>Read the Full Journey</span>
                   <ArrowRight size={18} className="transform group-hover:translate-x-1.5 transition-transform duration-300" />
                 </Link>
               </div>
@@ -363,31 +339,31 @@ export default function Home() {
                     <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
                       <Code size={20} />
                     </div>
-                    <h3 className="text-lg font-bold text-white font-display">{t("about.elite_dev", "Elite Developer")}</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">{t("about.elite_dev_desc", "Dedicated to functional state patterns, crisp micro-interactions, and pristine Tailwind designs.")}</p>
+                    <h3 className="text-lg font-bold text-white font-display">Elite Developer</h3>
+                    <p className="text-xs text-gray-400 leading-relaxed">Dedicated to functional state patterns, crisp micro-interactions, and pristine Tailwind designs.</p>
                   </div>
 
                   <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-3 hover:border-gold/20 transition-colors duration-300">
                     <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
                       <Sun size={20} />
                     </div>
-                    <h3 className="text-lg font-bold text-white font-display">{t("about.solar_spec", "Solar Specialist")}</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">{t("about.solar_spec_desc", "A certified technician with experience building reliable physical off-grid systems and hybrid load layouts.")}</p>
+                    <h3 className="text-lg font-bold text-white font-display">Solar Specialist</h3>
+                    <p className="text-xs text-gray-400 leading-relaxed">A certified technician with experience building reliable physical off-grid systems and hybrid load layouts.</p>
                   </div>
                 </div>
 
                 <div className="border-t border-white/10 pt-6 flex items-center justify-between">
                   <div>
                     <h4 className="text-2xl font-bold font-display text-white">2+ Years</h4>
-                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.coding_exp", "Coding Experience")}</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Coding Experience</p>
                   </div>
                   <div>
                     <h4 className="text-2xl font-bold font-display text-white">100%</h4>
-                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.self_taught", "Self-Taught")}</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Self-Taught</p>
                   </div>
                   <div>
                     <h4 className="text-2xl font-bold font-display text-white">15+</h4>
-                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.completed_proj", "Completed Projects")}</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Completed Projects</p>
                   </div>
                 </div>
               </GlassCard>
@@ -402,13 +378,13 @@ export default function Home() {
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16 gsap-skills-animate opacity-0">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-              <span>{t("skills.expertise", "Expertise")}</span>
+              <span>Expertise</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
-              {t("skills.title_part1", "Technical")} <span className="text-gradient font-extrabold">{t("skills.title_part2", "Capability")}</span>
+              Technical <span className="text-gradient font-extrabold">Capability</span>
             </h2>
             <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
-              {t("skills.subtitle", "Meticulously curated technologies and hardware knowledge built from continuous practice.")}
+              Meticulously curated technologies and hardware knowledge built from continuous practice.
             </p>
           </div>
 
@@ -418,9 +394,9 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
                   <Code size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-white font-display">{t("skills.frontend", "Frontend Engineering")}</h3>
+                <h3 className="text-xl font-bold text-white font-display">Frontend Engineering</h3>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {t("skills.frontend_desc", "Developing pristine modular client solutions with high performance scoring.")}
+                  Developing pristine modular client solutions with high performance scoring.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-2">
                   {["React", "TypeScript", "Tailwind CSS", "Framer Motion", "Next.js"].map((skill) => (
@@ -435,9 +411,9 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
                   <Sun size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-white font-display">{t("skills.solar", "Solar & Electrical")}</h3>
+                <h3 className="text-xl font-bold text-white font-display">Solar & Electrical</h3>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {t("skills.solar_desc", "Robust practical setups, smart monitoring telemetry, diagnostics, and component selection.")}
+                  Robust practical setups, smart monitoring telemetry, diagnostics, and component selection.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-2">
                   {["Inverters", "Lithium Battery", "Sizing", "Solar Arrays", "Diagnostics"].map((skill) => (
@@ -452,9 +428,9 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
                   <Cpu size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-white font-display">{t("skills.ecosystem", "Developer Ecosystem")}</h3>
+                <h3 className="text-xl font-bold text-white font-display">Developer Ecosystem</h3>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {t("skills.ecosystem_desc", "Utilizing top industry-standard environments to manage deployment pipelines cleanly.")}
+                  Utilizing top industry-standard environments to manage deployment pipelines cleanly.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-2">
                   {["Git & GitHub", "Figma", "VS Code", "Vercel", "AI Copilot"].map((skill) => (
@@ -468,7 +444,7 @@ export default function Home() {
           <div className="text-center mt-12 gsap-skills-animate opacity-0">
             <Link to="/skills" className="interactive">
               <MagneticButton variant="secondary">
-                <span>{t("skills.explore_arsenal", "Explore Full Arsenal")}</span>
+                <span>Explore Full Arsenal</span>
                 <ArrowRight size={16} />
               </MagneticButton>
             </Link>
@@ -481,29 +457,27 @@ export default function Home() {
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-              <span>{t("home.strengths_tag", "Distinctive Strengths")}</span>
+              <span>Distinctive Strengths</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
-              {t("home.strengths_title_part1", "What Makes Me")} <span className="text-gradient font-extrabold">{t("home.strengths_title_part2", "Different")}</span>
+              What Makes Me <span className="text-gradient font-extrabold">Different</span>
             </h2>
             <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
-              {t("home.strengths_desc", "A unique fusion of systematic physical engineering discipline and modern full-stack development.")}
+              A unique fusion of systematic physical engineering discipline and modern full-stack development.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {displayServices.map((card: any, index: number) => {
+            {differentCards.map((card, index) => {
               const Icon = card.icon;
               return (
                 <GlassCard key={index} className="p-8 flex flex-col space-y-6 border-white/10" glowOnHover>
-                  <span className="text-xs font-bold text-gold/80 tracking-widest uppercase">{card.tag ? (t(`home.strengths_card_tag_${index}`, card.tag) as string) : ""}</span>
-                  {Icon && (
-                    <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white">
-                      <Icon size={24} />
-                    </div>
-                  )}
-                  <h3 className="text-2xl font-bold font-display text-white">{t(`home.strengths_card_title_${index}`, card.title) as string}</h3>
-                  <p className="text-sm text-gray-400 leading-relaxed flex-grow">{t(`home.strengths_card_desc_${index}`, card.description) as string}</p>
+                  <span className="text-xs font-bold text-gold/80 tracking-widest uppercase">{card.tag}</span>
+                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white">
+                    <Icon size={24} />
+                  </div>
+                  <h3 className="text-2xl font-bold font-display text-white">{card.title}</h3>
+                  <p className="text-sm text-gray-400 leading-relaxed flex-grow">{card.description}</p>
                 </GlassCard>
               );
             })}
@@ -517,33 +491,33 @@ export default function Home() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 gsap-projects-animate opacity-0">
             <div className="space-y-4 text-center md:text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-                <span>{t("projects.selected_pieces", "Selected Pieces")}</span>
+                <span>Selected Pieces</span>
               </div>
               <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
-                {t("projects.featured_title_part1", "Featured")} <span className="text-gradient font-extrabold">{t("projects.featured_title_part2", "Engagements")}</span>
+                Featured <span className="text-gradient font-extrabold">Engagements</span>
               </h2>
             </div>
             <div className="text-center">
               <Link to="/projects" className="inline-flex items-center gap-2 group text-gold font-medium hover:text-white transition-colors duration-300 interactive">
-                <span>{t("projects.browse_all", "Browse All Work")}</span>
+                <span>Browse All Work</span>
                 <ArrowRight size={18} className="transform group-hover:translate-x-1.5 transition-transform duration-300" />
               </Link>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {displayProjects.slice(0, 2).map((project) => (
-              <div key={project.id || project.slug} className="gsap-projects-animate opacity-0">
+            {projectsData.slice(0, 2).map((project) => (
+              <div key={project.id} className="gsap-projects-animate opacity-0">
                 <GlassCard className="group flex flex-col h-full border-white/10" glowOnHover>
                   <div className="relative h-60 overflow-hidden rounded-t-2xl">
                     <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors duration-500 z-10" />
                     <img 
-                      src={project.thumbnail_url || project.hero_image_url || project.image || 'https://via.placeholder.com/600x400?text=No+Image'} 
+                      src={project.image} 
                       alt={project.title}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />
                     <div className="absolute top-4 right-4 z-20 flex gap-2">
-                      {(project.tech_stack || project.techStack || []).slice(0, 2).map((stack: string) => (
+                      {project.techStack.slice(0, 2).map((stack) => (
                         <span key={stack} className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider bg-black/75 backdrop-blur-md text-white rounded-md border border-white/10">
                           {stack}
                         </span>
@@ -556,10 +530,10 @@ export default function Home() {
                     <p className="text-gray-400 text-sm leading-relaxed mb-6 flex-grow">{project.description}</p>
                     
                     <Link 
-                      to={`/projects/${project.slug || project.id}`} 
+                      to={`/projects/${project.id}`} 
                       className="mt-auto inline-flex items-center gap-2 text-sm text-gold hover:text-white transition-colors duration-300 interactive font-medium"
                     >
-                      <span>{t("projects.view_specs", "View Project Specifications")}</span>
+                      <span>View Project Specifications</span>
                       <ArrowRight size={16} />
                     </Link>
                   </div>
@@ -575,15 +549,15 @@ export default function Home() {
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-              <span>{t("certificates.accomplishments", "Accomplishments")}</span>
+              <span>Accomplishments</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
-              {t("certificates.title_part1", "Verified")} <span className="text-gradient font-extrabold">{t("certificates.title_part2", "Credentials")}</span>
+              Verified <span className="text-gradient font-extrabold">Credentials</span>
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {displayCertificates.map((cert, index) => (
+            {homeCertificates.map((cert, index) => (
               <GlassCard key={index} className="p-6 border-white/10 space-y-4 flex flex-col justify-between" glowOnHover>
                 <div className="space-y-2">
                   <div className="w-10 h-10 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center text-gold mb-3">
@@ -593,7 +567,7 @@ export default function Home() {
                   <p className="text-xs text-gray-400">{cert.issuer}</p>
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t border-white/5 text-xs text-gray-500 font-mono">
-                  <span>{t("certificates.issued_date", "Issued Date")}</span>
+                  <span>Issued Date</span>
                   <span>{cert.year}</span>
                 </div>
               </GlassCard>
@@ -603,7 +577,7 @@ export default function Home() {
           <div className="text-center mt-12">
             <Link to="/certificates" className="interactive">
               <MagneticButton variant="outline">
-                <span>{t("certificates.view_all", "View All Certificates")}</span>
+                <span>View All Certificates</span>
                 <ArrowRight size={16} />
               </MagneticButton>
             </Link>
@@ -616,33 +590,33 @@ export default function Home() {
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-              <span>{t("testimonials.endorsements", "Endorsements")}</span>
+              <span>Endorsements</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
-              {t("testimonials.client_title_part1", "Client")} <span className="text-gradient font-extrabold">{t("testimonials.client_title_part2", "Endorsements")}</span>
+              Client <span className="text-gradient font-extrabold">Endorsements</span>
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {displayTestimonials.map((tItem, index) => (
+            {homeTestimonials.map((t, index) => (
               <GlassCard key={index} className="p-8 space-y-6 border-white/15" glowOnHover>
                 <div className="flex items-center gap-1 text-gold">
-                  {Array.from({ length: tItem.rating }).map((_, i) => (
+                  {Array.from({ length: t.rating }).map((_, i) => (
                     <Star key={i} size={14} fill="currentColor" />
                   ))}
                 </div>
                 <p className="text-gray-300 italic text-sm md:text-base leading-relaxed">
-                  "{tItem.review}"
+                  "{t.review}"
                 </p>
                 <div className="flex items-center gap-4 pt-4 border-t border-white/5">
                   <img 
-                    src={tItem.avatar} 
-                    alt={tItem.name}
+                    src={t.avatar} 
+                    alt={t.name}
                     className="w-12 h-12 rounded-full object-cover border border-gold/30"
                   />
                   <div>
-                    <h4 className="text-sm font-bold text-white font-display">{tItem.name}</h4>
-                    <p className="text-xs text-gold font-medium">{tItem.role}</p>
+                    <h4 className="text-sm font-bold text-white font-display">{t.name}</h4>
+                    <p className="text-xs text-gold font-medium">{t.role}</p>
                   </div>
                 </div>
               </GlassCard>
@@ -659,15 +633,15 @@ export default function Home() {
               <Download size={24} />
             </div>
             <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
-              {t("resume.title", "Curriculum Vitae")}
+              Curriculum Vitae
             </h2>
             <p className="text-gray-400 max-w-lg mx-auto text-sm md:text-base">
-              {t("resume.subtitle", "A comprehensive view of my academic qualifications, professional journey, certifications, and complete hardware-software design history.")}
+              A comprehensive view of my academic qualifications, professional journey, certifications, and complete hardware-software design history.
             </p>
             <div className="pt-4 flex justify-center gap-4">
               <Link to="/resume" className="interactive">
                 <MagneticButton variant="primary">
-                  <span>{t("resume.explore_interactive", "Explore Interactive Resume")}</span>
+                  <span>Explore Interactive Resume</span>
                 </MagneticButton>
               </Link>
             </div>
@@ -682,13 +656,13 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-                  <span>{t("contact.title", "Get In Touch")}</span>
+                  <span>Get In Touch</span>
                 </div>
                 <h2 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white tracking-tight leading-tight">
-                  {t("contact.lets_build_part1", "LET'S BUILD")} <br />{t("contact.lets_build_part2", "SOMETHING")} <span className="text-gradient font-extrabold">{t("contact.lets_build_part3", "GREAT.")}</span>
+                  LET'S BUILD <br />SOMETHING <span className="text-gradient font-extrabold">GREAT.</span>
                 </h2>
                 <p className="text-gray-400 max-w-lg mx-auto lg:mx-0 text-sm md:text-base">
-                  {t("contact.subtitle", "Have an outstanding digital software project, an off-grid solar installation design, or a complex technical problem that needs a reliable solver? Let's cooperate.")}
+                  Have an outstanding digital software project, an off-grid solar installation design, or a complex technical problem that needs a reliable solver? Let's cooperate.
                 </p>
               </div>
 
@@ -696,14 +670,14 @@ export default function Home() {
                 <Link to="/contact" className="w-full interactive">
                   <MagneticButton variant="primary" className="w-full py-4 text-base">
                     <Mail size={18} />
-                    <span>{t("contact.initiate_conv", "Initiate Conversation")}</span>
+                    <span>Initiate Conversation</span>
                   </MagneticButton>
                 </Link>
                 <a 
-                  href={`mailto:${socialLinks.email}`}
+                  href="mailto:abdulwahababdullah3619@gmail.com"
                   className="px-6 py-3 text-sm text-gray-400 hover:text-white transition-colors duration-300 font-mono interactive"
                 >
-                  {socialLinks.email}
+                  abdulwahababdullah3619@gmail.com
                 </a>
               </div>
             </div>
@@ -718,30 +692,30 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-2 space-y-4">
               <h3 className="text-xl font-display font-bold text-white">
-                {profile?.name ? profile.name.split(' ')[0] : 'Abdul'} <span className="text-gradient font-extrabold">{profile?.name ? profile.name.split(' ').slice(1).join(' ') : 'Wahab'}</span>
+                Abdul <span className="text-gradient font-extrabold">Wahab</span>
               </h3>
               <p className="text-xs text-gray-400 leading-relaxed max-w-sm">
-                {profile?.bio || t("common.footer_bio", "Self-taught full-stack developer with a background in solar engineering, dedicated to building fast, reliable, and premium web experiences.")}
+                Self-taught full-stack developer with a background in solar engineering, dedicated to building fast, reliable, and premium web experiences.
               </p>
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-xs uppercase tracking-widest text-gold font-bold">{t("common.showroom_links", "Showroom Links")}</h4>
+              <h4 className="text-xs uppercase tracking-widest text-gold font-bold">Showroom Links</h4>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link to="/about" className="hover:text-white transition-colors">{t("nav.about", "About Story")}</Link></li>
-                <li><Link to="/skills" className="hover:text-white transition-colors">{t("nav.skills", "Skills Library")}</Link></li>
-                <li><Link to="/projects" className="hover:text-white transition-colors">{t("nav.projects", "Projects Showroom")}</Link></li>
-                <li><Link to="/certificates" className="hover:text-white transition-colors">{t("nav.certificates", "Certificates")}</Link></li>
+                <li><Link to="/about" className="hover:text-white transition-colors">About Story</Link></li>
+                <li><Link to="/skills" className="hover:text-white transition-colors">Skills Library</Link></li>
+                <li><Link to="/projects" className="hover:text-white transition-colors">Projects Showroom</Link></li>
+                <li><Link to="/certificates" className="hover:text-white transition-colors">Certificates</Link></li>
               </ul>
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-xs uppercase tracking-widest text-gold font-bold">{t("common.connect_directly", "Connect Directly")}</h4>
+              <h4 className="text-xs uppercase tracking-widest text-gold font-bold">Connect Directly</h4>
               <div className="flex gap-4">
-                <a href={socialLinks.github} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
                   <Github size={18} />
                 </a>
-                <a href={socialLinks.linkedin} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
                   <Linkedin size={18} />
                 </a>
               </div>
@@ -749,11 +723,11 @@ export default function Home() {
           </div>
 
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between text-[11px] text-gray-500 font-mono gap-4">
-            <span>© {new Date().getFullYear()} {profile?.name || "Abdul Wahab"}. {t("common.all_rights_reserved", "All Rights Reserved.")}</span>
+            <span>© {new Date().getFullYear()} Abdul Wahab. All Rights Reserved.</span>
             <div className="flex gap-4">
-              <span>{t("common.designed_with_intent", "Designed with Intent")}</span>
+              <span>Designed with Intent</span>
               <span>•</span>
-              <span>{t("common.clean_energy_software", "Clean Energy & Software")}</span>
+              <span>Clean Energy & Software</span>
             </div>
           </div>
 

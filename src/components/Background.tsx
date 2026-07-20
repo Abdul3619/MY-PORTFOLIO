@@ -1,7 +1,76 @@
 import { useRef, useEffect, useState, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, MeshDistortMaterial, Torus, Sphere, Environment, Sparkles } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Float, MeshDistortMaterial, Torus, Sphere, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
+
+function ProceduralEnvironment() {
+  const { gl, scene } = useThree();
+
+  useEffect(() => {
+    // Generate PMREM locally
+    const pmremGenerator = new THREE.PMREMGenerator(gl);
+    pmremGenerator.compileEquirectangularShader();
+
+    // Create virtual scene for the env map
+    const virtualScene = new THREE.Scene();
+    virtualScene.background = new THREE.Color("#050505");
+
+    // Add glowing panels to simulate studio softbox lights
+    // Overhead white softbox
+    const topGeom = new THREE.BoxGeometry(8, 1, 8);
+    const topMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const topMesh = new THREE.Mesh(topGeom, topMat);
+    topMesh.position.set(0, 5, 0);
+    virtualScene.add(topMesh);
+
+    // Warm golden accent light from the right
+    const rightGeom = new THREE.SphereGeometry(2, 16, 16);
+    const rightMat = new THREE.MeshBasicMaterial({ color: 0xd4af37 });
+    const rightMesh = new THREE.Mesh(rightGeom, rightMat);
+    rightMesh.position.set(6, 1, -2);
+    virtualScene.add(rightMesh);
+
+    // Subtle blue accent light from the left
+    const leftGeom = new THREE.SphereGeometry(1.5, 16, 16);
+    const leftMat = new THREE.MeshBasicMaterial({ color: 0x4a90e2 });
+    const leftMesh = new THREE.Mesh(leftGeom, leftMat);
+    leftMesh.position.set(-6, -1, -2);
+    virtualScene.add(leftMesh);
+
+    // Front soft fill light
+    const frontGeom = new THREE.PlaneGeometry(5, 5);
+    const frontMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+    const frontMesh = new THREE.Mesh(frontGeom, frontMat);
+    frontMesh.position.set(0, 0, 5);
+    frontMesh.lookAt(0, 0, 0);
+    virtualScene.add(frontMesh);
+
+    // Generate environment from virtual scene
+    const renderTarget = pmremGenerator.fromScene(virtualScene, 0.04);
+    const generatedTexture = renderTarget.texture;
+
+    // Set as the environment map of our main scene
+    const previousEnv = scene.environment;
+    scene.environment = generatedTexture;
+
+    // Clean up on unmount
+    return () => {
+      scene.environment = previousEnv;
+      renderTarget.dispose();
+      pmremGenerator.dispose();
+      topGeom.dispose();
+      topMat.dispose();
+      rightGeom.dispose();
+      rightMat.dispose();
+      leftGeom.dispose();
+      leftMat.dispose();
+      frontGeom.dispose();
+      frontMat.dispose();
+    };
+  }, [gl, scene]);
+
+  return null;
+}
 
 function Core({ isMobile }: { isMobile: boolean }) {
   const group = useRef<THREE.Group>(null);
@@ -44,7 +113,7 @@ function Core({ isMobile }: { isMobile: boolean }) {
     group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, targetY, 0.05);
 
     // Subtle breathing/floating effect
-    const scale = 1 + Math.sin(state.clock.elapsedTime * 1.5) * 0.03;
+    const scale = 1 + Math.sin(performance.now() * 0.001 * 1.5) * 0.03;
     group.current.scale.set(scale, scale, scale);
   });
 
@@ -121,7 +190,7 @@ export default function Background() {
         <directionalLight position={[10, 10, 5]} intensity={2} color="#D4AF37" />
         <directionalLight position={[-10, -10, -5]} intensity={1} color="#B08D57" />
         
-        <Environment preset="city" />
+        <ProceduralEnvironment />
         
         <Sparkles 
           count={isMobile ? 50 : 150} 

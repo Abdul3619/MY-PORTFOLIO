@@ -6,17 +6,17 @@ interface MagneticButtonProps {
   children: React.ReactNode;
   className?: string;
   variant?: "primary" | "secondary" | "outline";
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
 }
 
 export function MagneticButton({ children, className, variant = "primary", onClick, disabled, type = "button" }: MagneticButtonProps) {
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const controls = useAnimation();
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!buttonRef.current) return;
     
     const { clientX, clientY } = e;
@@ -39,22 +39,23 @@ export function MagneticButton({ children, className, variant = "primary", onCli
   };
 
   return (
-    <motion.button
+    <motion.div
       ref={buttonRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       animate={{ x: position.x, y: position.y }}
       transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
-      onClick={onClick}
-      disabled={disabled}
-      type={type}
+      onClick={disabled ? undefined : onClick}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
       className={cn(
         "px-6 py-3 rounded-full flex items-center justify-center gap-2 transition-colors duration-300",
         variantClasses[variant],
+        disabled && "opacity-50 cursor-not-allowed",
         className
       )}
     >
       {children}
-    </motion.button>
+    </motion.div>
   );
 }

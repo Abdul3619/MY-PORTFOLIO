@@ -1,16 +1,31 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import i18n from 'i18next';
+import { supabase } from '../lib/supabase';
 
 export const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem('sb_access_token');
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  
+  const headers: HeadersInit = {};
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Inject current active language header so backend knows how to translate dynamic content
+  const activeLang = i18n.language || 'en';
+  headers['x-portfolio-lang'] = activeLang.split('-')[0].toLowerCase();
+
+  // If in admin dashboard, send the draft header so the CMS returns live draft data
+  if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/dashboard'))) {
+    headers['x-portfolio-draft'] = 'true';
+  }
+
   const response = await fetch(endpoint, {
+    credentials: "include",
     ...options,
     headers: {
       ...headers,
@@ -18,17 +33,36 @@ export const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     },
   });
 
+  const contentType = response.headers.get("content-type");
+  const isJson = contentType && contentType.includes("application/json");
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    let errorMessage = `Error ${response.status}: ${response.statusText}`;
+    if (isJson) {
+      const errorData = await response.json().catch(() => ({}));
+      errorMessage = errorData.error || errorMessage;
+    } else {
+      if (response.status === 413) {
+        errorMessage = "File is too large to upload. Please try a smaller image.";
+      } else if (response.status === 502) {
+        errorMessage = "Server is currently restarting or unavailable. Please try again.";
+      } else {
+        errorMessage = `Unexpected server error (${response.status}).`;
+      }
+    }
+    throw new Error(errorMessage);
   }
-
+  if (!isJson) {
+    const text = await response.text();
+    console.error("Non-JSON response:", text.substring(0, 200));
+    throw new Error("Unexpected server response format (expected JSON). Server returned: " + text.substring(0, 100));
+  }
   return response.json();
 };
 
 export const useProfile = () => {
+  const lang = i18n.language || 'en';
   return useQuery({
-    queryKey: ['profile'],
+    queryKey: ['profile', lang],
     queryFn: () => fetchApi('/api/profile'),
   });
 };
@@ -42,15 +76,17 @@ export const useUpdateProfile = () => {
 };
 
 export const useProjects = () => {
+  const lang = i18n.language || 'en';
   return useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', lang],
     queryFn: () => fetchApi('/api/projects'),
   });
 };
 
 export const useProject = (slug: string) => {
+  const lang = i18n.language || 'en';
   return useQuery({
-    queryKey: ['projects', slug],
+    queryKey: ['projects', slug, lang],
     queryFn: () => fetchApi(`/api/projects/${slug}`),
     enabled: !!slug,
   });
@@ -81,8 +117,9 @@ export const useDeleteProject = () => {
 };
 
 export const useCertificates = () => {
+  const lang = i18n.language || 'en';
   return useQuery({
-    queryKey: ['certificates'],
+    queryKey: ['certificates', lang],
     queryFn: () => fetchApi('/api/certificates'),
   });
 };
@@ -104,8 +141,9 @@ export const useDeleteCertificate = () => {
 };
 
 export const useTestimonials = () => {
+  const lang = i18n.language || 'en';
   return useQuery({
-    queryKey: ['testimonials'],
+    queryKey: ['testimonials', lang],
     queryFn: () => fetchApi('/api/testimonials'),
   });
 };
@@ -168,8 +206,7 @@ export const trackEvent = async (eventType: string, pageUrl: string, metadata: a
   }
   
   try {
-    await fetch('/api/analytics/event', {
-      method: 'POST',
+    await fetch('/api/analytics/event', { credentials: 'include', method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         session_id: sessionId,
@@ -181,4 +218,45 @@ export const trackEvent = async (eventType: string, pageUrl: string, metadata: a
   } catch (e) {
     console.error("Failed to track event", e);
   }
+};
+
+// CMS Hooks
+export const useServices = () => {
+  const lang = i18n.language || 'en';
+  return useQuery({ queryKey: ['services', lang], queryFn: () => fetchApi('/api/services') });
+};
+export const useAbout = () => {
+  const lang = i18n.language || 'en';
+  return useQuery({ queryKey: ['about', lang], queryFn: () => fetchApi('/api/about') });
+};
+export const useSkills = () => {
+  const lang = i18n.language || 'en';
+  return useQuery({ queryKey: ['skills', lang], queryFn: () => fetchApi('/api/skills') });
+};
+export const useSeo = () => useQuery({ queryKey: ['seo'], queryFn: () => fetchApi('/api/seo') });
+export const useContactInfo = () => useQuery({ queryKey: ['contact_info'], queryFn: () => fetchApi('/api/contact_info') });
+
+// Admin CMS Mutation Hooks
+export const useUpdateSeo = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => fetchApi('/api/seo', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['seo'] }),
+  });
+};
+export const useUpdateContactInfo = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => fetchApi('/api/contact_info', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contact_info'] }),
+  });
+};
+
+export const useResumeExperience = () => {
+  const lang = i18n.language || 'en';
+  return useQuery({ queryKey: ['resume_experience', lang], queryFn: () => fetchApi('/api/resume_experience') });
+};
+export const useResumeEducation = () => {
+  const lang = i18n.language || 'en';
+  return useQuery({ queryKey: ['resume_education', lang], queryFn: () => fetchApi('/api/resume_education') });
 };

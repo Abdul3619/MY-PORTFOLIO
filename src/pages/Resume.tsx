@@ -3,6 +3,8 @@ import { Download, Briefcase, GraduationCap, Award, FileText } from "lucide-reac
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
+import { useProfile, useResumeExperience, useResumeEducation } from "@/hooks/useApi";
+import { useTranslation } from "react-i18next";
 
 const experience = [
   {
@@ -35,6 +37,13 @@ const education = [
 ];
 
 export default function Resume() {
+  const { t } = useTranslation();
+  const { data: profile } = useProfile();
+  const { data: experienceData } = useResumeExperience();
+  const { data: educationData } = useResumeEducation();
+  
+  const displayExperience = experienceData && experienceData.length > 0 ? experienceData : experience;
+  const displayEducation = educationData && educationData.length > 0 ? educationData : education;
   return (
     <PageTransition className="w-full">
       <div className="max-w-5xl mx-auto">
@@ -46,10 +55,10 @@ export default function Resume() {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-2">
-              MY <span className="text-gradient">RESUME</span>
+              {t("resume.title_part1", "MY")} <span className="text-gradient">{t("resume.title_part2", "RESUME")}</span>
             </h1>
             <p className="text-xl text-gray-400">
-              A track record of building and learning.
+              {t("resume.subtitle", "A track record of building and learning.")}
             </p>
           </motion.div>
 
@@ -58,10 +67,12 @@ export default function Resume() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <MagneticButton variant="primary" className="py-4 px-8 text-lg">
-              <Download size={20} />
-              <span>Download PDF</span>
-            </MagneticButton>
+            <a href={profile?.resume_url || '#'} target="_blank" rel="noopener noreferrer">
+              <MagneticButton variant="primary" className="py-4 px-8 text-lg">
+                <Download size={20} />
+                <span>{t("resume.download_pdf", "Download PDF")}</span>
+              </MagneticButton>
+            </a>
           </motion.div>
         </div>
 
@@ -77,17 +88,23 @@ export default function Resume() {
               <div className="p-2 bg-white/5 rounded-lg text-gold border border-gold/20">
                 <Briefcase size={24} />
               </div>
-              <h2 className="text-3xl font-display font-bold text-white">Experience</h2>
+              <h2 className="text-3xl font-display font-bold text-white">{t("resume.experience", "Experience")}</h2>
             </div>
 
             <div className="space-y-8">
-              {experience.map((exp, i) => (
+              {displayExperience.map((exp, i) => (
                 <GlassCard key={i} className="p-6 border-l-4 border-l-gold">
-                  <span className="text-gold text-sm font-bold tracking-wider mb-2 block">{exp.period}</span>
-                  <h3 className="text-xl font-bold text-white mb-1">{exp.role}</h3>
-                  <p className="text-gray-400 mb-4">{exp.company}</p>
+                  <span className="text-gold text-sm font-bold tracking-wider mb-2 block">
+                    {t(`resume.period_${i}`, exp.period) as string}
+                  </span>
+                  <h3 className="text-xl font-bold text-white mb-1">
+                    {t(`resume.role_${i}`, exp.role) as string}
+                  </h3>
+                  <p className="text-gray-400 mb-4">
+                    {t(`resume.company_${i}`, exp.company) as string}
+                  </p>
                   <p className="text-gray-300 leading-relaxed text-sm">
-                    {exp.description}
+                    {t(`resume.desc_${i}`, exp.description) as string}
                   </p>
                 </GlassCard>
               ))}
@@ -104,17 +121,23 @@ export default function Resume() {
               <div className="p-2 bg-white/5 rounded-lg text-gold border border-gold/20">
                 <GraduationCap size={24} />
               </div>
-              <h2 className="text-3xl font-display font-bold text-white">Education</h2>
+              <h2 className="text-3xl font-display font-bold text-white">{t("resume.education", "Education")}</h2>
             </div>
 
             <div className="space-y-8">
-              {education.map((edu, i) => (
+              {displayEducation.map((edu, i) => (
                 <GlassCard key={i} className="p-6 border-l-4 border-l-bronze">
-                  <span className="text-bronze text-sm font-bold tracking-wider mb-2 block">{edu.period}</span>
-                  <h3 className="text-xl font-bold text-white mb-1">{edu.degree}</h3>
-                  <p className="text-gray-400 mb-4">{edu.institution}</p>
+                  <span className="text-bronze text-sm font-bold tracking-wider mb-2 block">
+                    {t(`resume.edu_period_${i}`, edu.period) as string}
+                  </span>
+                  <h3 className="text-xl font-bold text-white mb-1">
+                    {t(`resume.edu_degree_${i}`, edu.degree) as string}
+                  </h3>
+                  <p className="text-gray-400 mb-4">
+                    {t(`resume.edu_inst_${i}`, edu.institution) as string}
+                  </p>
                   <p className="text-gray-300 leading-relaxed text-sm">
-                    {edu.description}
+                    {t(`resume.edu_desc_${i}`, edu.description) as string}
                   </p>
                 </GlassCard>
               ))}
