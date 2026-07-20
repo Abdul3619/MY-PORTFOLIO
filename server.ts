@@ -1,7 +1,6 @@
 import fs from "fs";
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { z } from 'zod';
@@ -34,8 +33,12 @@ const apiLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 
 // Multer setup
+const uploadDir = process.env.VERCEL ? '/tmp/uploads' : 'uploads/';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 const upload = multer({
-  dest: 'uploads/',
+  dest: uploadDir,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
@@ -1245,11 +1248,9 @@ app.get('/api/projects', async (req, res) => {
       if (error) return res.status(500).json({ error: error.message });
       projects = (data || []).map(deserializeProject).filter(Boolean);
     } else {
-      projects = await getPublishedResource('projects', async () => {
-        const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
-        if (error) throw error;
-        return (data || []).map(deserializeProject).filter(Boolean);
-      });
+      const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
+      if (error) return res.status(500).json({ error: error.message });
+      projects = (data || []).map(deserializeProject).filter(Boolean);
       projects = projects.filter((p: any) => p.status === 'Published');
     }
     const translated = await handleTranslation(projects, req, 'Project');
@@ -1269,18 +1270,15 @@ app.get('/api/projects/:slug', async (req, res) => {
       const translated = await handleTranslation(project, req, 'Project');
       res.json(translated);
     } else {
-      const projects = await getPublishedResource('projects', async () => {
-        const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
-        if (error) throw error;
-        return (data || []).map(deserializeProject).filter(Boolean);
-      });
-      const project = projects.find((p: any) => p && p.slug === req.params.slug && p.status === 'Published');
-      if (!project) return res.status(404).json({ error: 'Project not found' });
+      const { data, error } = await supabaseAdmin.from('projects').select('*').eq('slug', req.params.slug).single();
+      if (error) return res.status(404).json({ error: 'Project not found' });
+      const project = deserializeProject(data);
+      if (!project || project.status !== 'Published') return res.status(404).json({ error: 'Project not found' });
       const translated = await handleTranslation(project, req, 'Project');
       res.json(translated);
     }
   } catch (err: any) {
-    res.status(404).json({ error: 'Project not found' });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1919,7 +1917,8 @@ app.use('/api', (err: any, req: express.Request, res: express.Response, next: ex
 
 // --- VITE MIDDLEWARE ---
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({ server: { middlewareMode: true, hmr: false, watch: null }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
@@ -1933,4 +1932,9 @@ async function startServer() {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
-startServer();
+
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
