@@ -1250,6 +1250,7 @@ app.get('/api/projects', async (req, res) => {
         if (error) throw error;
         return (data || []).map(deserializeProject).filter(Boolean);
       });
+      projects = projects.filter((p: any) => p.status === 'Published');
     }
     const translated = await handleTranslation(projects, req, 'Project');
     res.json(translated);
@@ -1273,7 +1274,7 @@ app.get('/api/projects/:slug', async (req, res) => {
         if (error) throw error;
         return (data || []).map(deserializeProject).filter(Boolean);
       });
-      const project = projects.find((p: any) => p && p.slug === req.params.slug);
+      const project = projects.find((p: any) => p && p.slug === req.params.slug && p.status === 'Published');
       if (!project) return res.status(404).json({ error: 'Project not found' });
       const translated = await handleTranslation(project, req, 'Project');
       res.json(translated);
