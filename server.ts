@@ -1262,43 +1262,90 @@ function serializeProjectDesc(validatedData: any) {
 
 // Projects Routes
 app.get('/api/projects', async (req, res) => {
+  console.log(`[GET /api/projects] Initiated. isDraftRequest: ${isDraftRequest(req)}. Supabase URL: ${supabaseUrl}`);
   try {
     let projects;
-    if (isDraftRequest(req)) {
-      const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
-      projects = (data || []).map(deserializeProject).filter(Boolean);
+    
+    const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
+    
+    if (error) {
+      console.error(`[GET /api/projects] Supabase Select Error:`, {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      return res.status(500).json({ error: `Supabase Error: ${error.message} (${error.code})` });
+    }
+    
+    console.log(`[GET /api/projects] Successfully retrieved ${data?.length || 0} rows from Supabase projects table.`);
+    
+    if (data && data.length > 0) {
+      const firstRow = data[0];
+      const columnNames = Object.keys(firstRow);
+      console.log(`[GET /api/projects] Project Table Columns detected:`, columnNames);
+      console.log(`[GET /api/projects] First Row 'gallery_images' key exists: ${'gallery_images' in firstRow}, type: ${typeof firstRow.gallery_images}, value:`, firstRow.gallery_images);
     } else {
-      const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
-      projects = (data || []).map(deserializeProject).filter(Boolean);
+      console.log(`[GET /api/projects] No project records found in the database.`);
+    }
+
+    try {
+      projects = (data || []).map((row: any) => {
+        try {
+          return deserializeProject(row);
+        } catch (mapErr: any) {
+          console.error(`[GET /api/projects] Error deserializing row ${row?.slug || row?.id}:`, mapErr);
+          throw mapErr;
+        }
+      }).filter(Boolean);
+    } catch (deserErr: any) {
+      console.error(`[GET /api/projects] Deserialization sequence error:`, deserErr);
+      return res.status(500).json({ error: `Deserialization Error: ${deserErr.message}` });
+    }
+
+    if (!isDraftRequest(req)) {
       projects = projects.filter((p: any) => p.status === 'Published');
     }
+    
+    console.log(`[GET /api/projects] Processing translation for ${projects.length} projects...`);
     const translated = await handleTranslation(projects, req, 'Project');
+    console.log(`[GET /api/projects] Success. Returning ${translated?.length || 0} projects.`);
     res.json(translated);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error(`[GET /api/projects] Unhandled server error:`, err);
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 });
 
 app.get('/api/projects/:slug', async (req, res) => {
+  console.log(`[GET /api/projects/:slug] Querying slug: ${req.params.slug}. isDraftRequest: ${isDraftRequest(req)}`);
   try {
-    if (isDraftRequest(req)) {
-      const { data, error } = await supabaseAdmin.from('projects').select('*').eq('slug', req.params.slug).single();
-      if (error) return res.status(404).json({ error: 'Project not found' });
-      const project = deserializeProject(data);
-      if (!project) return res.status(404).json({ error: 'Project not found' });
-      const translated = await handleTranslation(project, req, 'Project');
-      res.json(translated);
-    } else {
-      const { data, error } = await supabaseAdmin.from('projects').select('*').eq('slug', req.params.slug).single();
-      if (error) return res.status(404).json({ error: 'Project not found' });
-      const project = deserializeProject(data);
-      if (!project || project.status !== 'Published') return res.status(404).json({ error: 'Project not found' });
-      const translated = await handleTranslation(project, req, 'Project');
-      res.json(translated);
+    const { data, error } = await supabaseAdmin.from('projects').select('*').eq('slug', req.params.slug).single();
+    if (error) {
+      console.error(`[GET /api/projects/:slug] Supabase Single Fetch Error for slug "${req.params.slug}":`, {
+        code: error.code,
+        message: error.message,
+        details: error.details
+      });
+      return res.status(404).json({ error: `Project not found: ${error.message}` });
     }
+    
+    console.log(`[GET /api/projects/:slug] Project data found. Keys:`, Object.keys(data));
+    const project = deserializeProject(data);
+    if (!project) {
+      console.warn(`[GET /api/projects/:slug] Project deserialized to null/undefined`);
+      return res.status(404).json({ error: 'Project deserialization failed' });
+    }
+    
+    if (!isDraftRequest(req) && project.status !== 'Published') {
+      console.warn(`[GET /api/projects/:slug] Project status is not Published. Status: ${project.status}`);
+      return res.status(404).json({ error: 'Project not found or not published' });
+    }
+    
+    const translated = await handleTranslation(project, req, 'Project');
+    res.json(translated);
   } catch (err: any) {
+    console.error(`[GET /api/projects/:slug] Unhandled error:`, err);
     res.status(500).json({ error: err.message });
   }
 });
