@@ -67,6 +67,10 @@ const supabaseUrl = isValidUrl ? rawUrl : 'https://placeholder-please-configure-
 
 const supabaseServiceKey = getCleanEnv('SUPABASE_SERVICE_ROLE_KEY') || 
                            getCleanEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') || 
+                           getCleanEnv('SUPABASE_SERVICE_ROLE') ||
+                           getCleanEnv('VITE_SUPABASE_SERVICE_ROLE') ||
+                           getCleanEnv('SUPABASE_SERVICE_KEY') ||
+                           getCleanEnv('SERVICE_ROLE_KEY') ||
                            getCleanEnv('SUPABASE_ANON_KEY') || 
                            getCleanEnv('VITE_SUPABASE_ANON_KEY') || 
                            'placeholder_key';
@@ -350,7 +354,7 @@ async function translateObjectFields(fields: Record<string, any>, itemType: stri
     });
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: `You are an expert translator for a professional portfolio website. Translate the following fields of a ${itemType} object into ${targetLangName}. Ensure the tone is highly professional and matches the original context. Return a JSON object with the exact same keys containing the translated text. Do not include markdown codeblocks or comments, only the raw JSON.\n\nInput fields:\n${JSON.stringify(payload)}`,
       config: {
         responseMimeType: 'application/json',
