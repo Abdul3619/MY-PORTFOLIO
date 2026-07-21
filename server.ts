@@ -50,10 +50,27 @@ const upload = multer({
 });
 
 // Initialize Supabase Admin Client
-const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const isValidUrl = rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'));
+const getCleanEnv = (key: string): string => {
+  const val = process.env[key];
+  if (val && val !== 'undefined' && val !== 'null' && val.trim() !== '') {
+    return val.trim();
+  }
+  return '';
+};
+
+let rawUrl = getCleanEnv('SUPABASE_URL') || getCleanEnv('VITE_SUPABASE_URL');
+if (rawUrl && !rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+  rawUrl = 'https://' + rawUrl;
+}
+const isValidUrl = rawUrl && rawUrl.startsWith('https://');
 const supabaseUrl = isValidUrl ? rawUrl : 'https://placeholder-please-configure-secrets.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key';
+
+const supabaseServiceKey = getCleanEnv('SUPABASE_SERVICE_ROLE_KEY') || 
+                           getCleanEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') || 
+                           getCleanEnv('SUPABASE_ANON_KEY') || 
+                           getCleanEnv('VITE_SUPABASE_ANON_KEY') || 
+                           'placeholder_key';
+
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });

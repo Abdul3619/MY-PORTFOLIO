@@ -37,10 +37,55 @@ export default function Projects() {
     );
   }
 
-  if (error || !projectsData) {
+  if (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    let diagnosticTitle = t("projects.failed_load", "Failed to load projects.");
+    let diagnosticHelp = "The server returned an error when fetching project records from Supabase.";
+
+    if (errorMsg.includes("404")) {
+      diagnosticTitle = "API Route Not Found (404)";
+      diagnosticHelp = "The projects API endpoint could not be reached. This usually indicates a routing issue or serverless configuration error on Vercel.";
+    } else if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
+      diagnosticTitle = "Network Connection Failed";
+      diagnosticHelp = "Unable to connect to the backend server. The backend might be offline, restarting, or blocked by CORS/security policies.";
+    } else if (errorMsg.includes("401") || errorMsg.includes("403") || errorMsg.includes("Unauthorized") || errorMsg.includes("JWT")) {
+      diagnosticTitle = "Access Denied / Permission Error";
+      diagnosticHelp = "The server refused access. Please verify your Supabase API keys and ensure that Row Level Security (RLS) policies allow public SELECT queries.";
+    } else if (errorMsg.includes("database") || errorMsg.includes("relation") || errorMsg.includes("table") || errorMsg.includes("column")) {
+      diagnosticTitle = "Database Table Not Found";
+      diagnosticHelp = "The 'projects' table or its columns could not be found. Please ensure your Supabase database migrations have been executed successfully.";
+    }
+
+    return (
+      <PageTransition className="w-full min-h-[60vh] flex items-center justify-center p-4">
+        <div className="text-center space-y-5 max-w-md w-full bg-red-950/10 border border-red-900/20 rounded-2xl p-8 backdrop-blur-xl shadow-[0_0_50px_rgba(239,68,68,0.05)]">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto border border-red-500/20">
+            <span className="text-red-400 text-lg font-mono">!</span>
+          </div>
+          <h2 className="text-xl font-display font-semibold text-red-400">{diagnosticTitle}</h2>
+          <p className="text-sm text-gray-400 leading-relaxed">{diagnosticHelp}</p>
+          <div className="p-3 rounded-lg bg-black/40 border border-white/5 text-left text-[11px] font-mono text-gray-400 overflow-x-auto max-h-32">
+            <span className="text-red-400/80 font-bold block mb-1">Diagnostic Log:</span>
+            {errorMsg}
+          </div>
+          <p className="text-[11px] text-gray-500">
+            Please check your Vercel Environment Variables and local database logs.
+          </p>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (!projectsData || projectsData.length === 0) {
     return (
       <PageTransition className="w-full min-h-[50vh] flex items-center justify-center">
-        <div className="text-xl text-red-400">{t("projects.failed_load", "Failed to load projects.")}</div>
+        <div className="text-center space-y-4 max-w-sm px-4">
+          <div className="text-xl text-gray-400 font-display font-semibold">{t("projects.no_projects", "No Published Projects Found")}</div>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            There are no projects currently published to the live site. 
+            Log in to your admin panel and change a project's status to <strong>Published</strong> to show it here.
+          </p>
+        </div>
       </PageTransition>
     );
   }
