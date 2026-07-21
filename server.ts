@@ -50,10 +50,10 @@ const upload = multer({
 });
 
 // Initialize Supabase Admin Client
-const rawUrl = process.env.VITE_SUPABASE_URL;
+const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const isValidUrl = rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'));
 const supabaseUrl = isValidUrl ? rawUrl : 'https://placeholder-please-configure-secrets.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key';
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
@@ -1166,7 +1166,7 @@ function deserializeProject(row: any) {
       sort_order: row.sort_order !== undefined ? row.sort_order : (row.order_index !== undefined ? row.order_index : 0),
       client_name: row.client_name !== undefined && row.client_name !== null ? row.client_name : clientName,
       completion_date: row.completion_date !== undefined && row.completion_date !== null ? row.completion_date : completionDate,
-      status: status || 'Completed',
+      status: (status === 'Draft' || status === 'Archived') ? status : 'Published',
       seo_title: row.seo_title !== undefined && row.seo_title !== null ? row.seo_title : seoTitle,
       seo_description: row.seo_description !== undefined && row.seo_description !== null ? row.seo_description : seoDescription,
       tech_stack: techStack,
@@ -1192,7 +1192,7 @@ function deserializeProject(row: any) {
     sort_order: row.order_index || 0,
     client_name: clientName || null,
     completion_date: completionDate || null,
-    status: status || 'Completed',
+    status: (status === 'Draft' || status === 'Archived') ? status : 'Published',
     seo_title: seoTitle || null,
     seo_description: seoDescription || null,
     tech_stack: techStack,
