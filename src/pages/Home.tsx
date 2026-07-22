@@ -30,7 +30,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
 import { projectsData } from "@/data/projects";
 import * as Icons from "lucide-react";
-import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects } from "@/hooks/useApi";
+import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects, useSkills } from "@/hooks/useApi";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -118,6 +118,7 @@ export default function Home() {
   const { data: certificates } = useCertificates();
   const { data: projects } = useProjects();
   const { data: contact } = useContactInfo();
+  const { data: skillsData } = useSkills();
 
   const dynamicRoles = profile?.title ? profile.title.split(',').map((s: string) => s.trim()) : roles;
   const displayServices = services && services.length > 0 ? services : differentCards;
@@ -214,24 +215,26 @@ export default function Home() {
         <div className="w-full max-w-5xl mx-auto">
           <GlassCard className="p-8 md:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12 border-gold/15" glowOnHover>
             
-            {/* Image Container with Float and Subtle Rotate */}
+            {/* Gen-Z Modern Image Container */}
             <motion.div 
-              className="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-2 border-gold/20 shrink-0 relative shadow-[0_0_30px_rgba(212,175,55,0.15)]"
+              className="w-56 h-64 md:w-72 md:h-80 rounded-[2.5rem] overflow-hidden border border-white/10 shrink-0 relative shadow-[0_0_40px_rgba(212,175,55,0.15)] bg-black/40 backdrop-blur-md cursor-pointer"
+              whileHover={{ scale: 1.02, rotateY: 5, rotateX: -5 }}
               animate={{ 
-                y: [-12, 12, -12],
-                rotateZ: [-3, 3, -3]
+                y: [-8, 8, -8],
               }}
               transition={{
-                duration: 6,
-                repeat: Infinity,
-                ease: "easeInOut"
+                y: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+                scale: { duration: 0.4, ease: "easeOut" },
+                rotateY: { duration: 0.4, ease: "easeOut" },
+                rotateX: { duration: 0.4, ease: "easeOut" }
               }}
+              style={{ transformPerspective: 1000 }}
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-gold/30 via-transparent to-transparent mix-blend-overlay z-10" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-gold/20 via-transparent to-blue-500/10 mix-blend-overlay z-10 pointer-events-none" />
               <img 
                 src={profile?.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop"} 
                 alt={profile?.name || "Abdul Wahab"} 
-                className="w-full h-full object-cover grayscale contrast-110 hover:grayscale-0 transition-all duration-700"
+                className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700"
               />
             </motion.div>
 
@@ -413,56 +416,47 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="gsap-skills-animate opacity-0">
-              <GlassCard className="p-6 md:p-8 space-y-6 h-full" glowOnHover>
-                <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
-                  <Code size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-white font-display">{t("skills.frontend", "Frontend Engineering")}</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  {t("skills.frontend_desc", "Developing pristine modular client solutions with high performance scoring.")}
-                </p>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {["React", "TypeScript", "Tailwind CSS", "Framer Motion", "Next.js"].map((skill) => (
-                    <span key={skill} className="px-2.5 py-1 text-xs rounded-md bg-white/5 border border-white/5 text-gray-300">{skill}</span>
-                  ))}
-                </div>
-              </GlassCard>
-            </div>
+            {(() => {
+              if (!skillsData || skillsData.length === 0) {
+                // Fallback rendering
+                return null;
+              }
+              
+              const grouped = skillsData.reduce((acc: any, skill: any) => {
+                if (!acc[skill.category]) acc[skill.category] = { iconName: skill.icon, skills: [] };
+                acc[skill.category].skills.push(skill.name);
+                return acc;
+              }, {});
 
-            <div className="gsap-skills-animate opacity-0">
-              <GlassCard className="p-6 md:p-8 space-y-6 h-full" glowOnHover>
-                <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
-                  <Sun size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-white font-display">{t("skills.solar", "Solar & Electrical")}</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  {t("skills.solar_desc", "Robust practical setups, smart monitoring telemetry, diagnostics, and component selection.")}
-                </p>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {["Inverters", "Lithium Battery", "Sizing", "Solar Arrays", "Diagnostics"].map((skill) => (
-                    <span key={skill} className="px-2.5 py-1 text-xs rounded-md bg-white/5 border border-white/5 text-gray-300">{skill}</span>
-                  ))}
-                </div>
-              </GlassCard>
-            </div>
+              const categories = Object.keys(grouped).slice(0, 3);
+              const fallbackIcons = [Icons.Code, Icons.Database, Icons.Cpu];
 
-            <div className="gsap-skills-animate opacity-0">
-              <GlassCard className="p-6 md:p-8 space-y-6 h-full" glowOnHover>
-                <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
-                  <Cpu size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-white font-display">{t("skills.ecosystem", "Developer Ecosystem")}</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  {t("skills.ecosystem_desc", "Utilizing top industry-standard environments to manage deployment pipelines cleanly.")}
-                </p>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {["Git & GitHub", "Figma", "VS Code", "Vercel", "AI Copilot"].map((skill) => (
-                    <span key={skill} className="px-2.5 py-1 text-xs rounded-md bg-white/5 border border-white/5 text-gray-300">{skill}</span>
-                  ))}
-                </div>
-              </GlassCard>
-            </div>
+              return categories.map((cat, idx) => {
+                const iconName = grouped[cat].iconName;
+                const IconComp = (iconName ? (Icons as any)[iconName] : null) || fallbackIcons[idx % fallbackIcons.length] || Icons.Code;
+                
+                return (
+                  <div key={cat} className="gsap-skills-animate opacity-0">
+                    <GlassCard className="p-6 md:p-8 space-y-6 h-full" glowOnHover>
+                      <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
+                        <IconComp size={24} />
+                      </div>
+                      <h3 className="text-xl font-bold text-white font-display">{cat}</h3>
+                      <p className="text-xs text-gray-400 leading-relaxed">
+                        Technologies and tools I actively use in production environments.
+                      </p>
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {grouped[cat].skills.slice(0, 8).map((skillName: string) => (
+                          <span key={skillName} className="px-2.5 py-1 text-xs rounded-md bg-white/5 border border-white/5 text-gray-300">
+                            {skillName}
+                          </span>
+                        ))}
+                      </div>
+                    </GlassCard>
+                  </div>
+                );
+              });
+            })()}
           </div>
 
           <div className="text-center mt-12 gsap-skills-animate opacity-0">
