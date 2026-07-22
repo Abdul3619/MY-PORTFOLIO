@@ -30,6 +30,7 @@ import AdminReviews from "./pages/admin/AdminReviews";
 import AdminMedia from "./pages/admin/AdminMedia";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminSiteSettings from "./pages/admin/AdminSiteSettings";
+import AdminSkills from "./pages/admin/AdminSkills";
 import Maintenance from "./pages/Maintenance";
 
 function AnimatedRoutes() {
@@ -105,6 +106,7 @@ function AnimatedRoutes() {
             <Route path="/admin/profile" element={<AdminSettings />} />
             <Route path="/admin/settings" element={<AdminSiteSettings />} />
             <Route path="/admin/projects" element={<AdminProjects />} />
+            <Route path="/admin/skills" element={<AdminSkills />} />
             <Route path="/admin/leads" element={<AdminLeads />} />
             <Route path="/admin/testimonials" element={<AdminTestimonials />} />
             <Route path="/admin/reviews" element={<AdminReviews />} />

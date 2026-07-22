@@ -4,7 +4,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { Sun, Code, Target, Rocket, Lightbulb } from "lucide-react";
 import * as Icons from "lucide-react";
-import { useAbout } from "@/hooks/useApi";
+import { useAbout, useProfile } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 
 const timelineEvents = [
@@ -99,6 +99,8 @@ function TimelineItem({ event, index }: { event: any; index: number }) {
 }
 
 export default function About() {
+  const { data: profile } = useProfile();
+  const eventsToRender = (profile?.journey_events && profile.journey_events.length > 0) ? profile.journey_events : timelineEvents;
   const { t } = useTranslation();
   const { data: aboutData } = useAbout();
   const displayEvents = aboutData && aboutData.length > 0 ? [...aboutData].sort((a: any, b: any) => a.order_index - b.order_index) : timelineEvents;

@@ -20,8 +20,8 @@ const PORT = 3000;
 
 app.use(helmet({ contentSecurityPolicy: false })); // allow dev scripts
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 // Rate Limiter
 const apiLimiter = rateLimit({
@@ -39,7 +39,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 const upload = multer({
   dest: uploadDir,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 100 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
       cb(null, true);
@@ -89,6 +89,7 @@ const profileSchema = z.object({
   bio: z.string().min(1),
   profile_image_url: z.string().optional().nullable(),
   resume_url: z.string().optional().nullable(),
+  journey_events: z.any().optional().nullable(),
 });
 
 const projectSchema = z.object({
@@ -819,7 +820,40 @@ app.delete('/api/about/:id', requireAuth, async (req, res) => {
 });
 
 // Skills Routes (Real database table 'skills' is fully supported!)
+
+const staticSkills = [
+  // Frontend
+  { id: '1', name: 'HTML5', category: 'Frontend Development', icon: 'Monitor', proficiency: 100, order_index: 0 },
+  { id: '2', name: 'CSS3', category: 'Frontend Development', icon: 'Monitor', proficiency: 95, order_index: 1 },
+  { id: '3', name: 'JavaScript (ES6+)', category: 'Frontend Development', icon: 'Monitor', proficiency: 90, order_index: 2 },
+  { id: '4', name: 'TypeScript', category: 'Frontend Development', icon: 'Monitor', proficiency: 90, order_index: 3 },
+  { id: '5', name: 'React', category: 'Frontend Development', icon: 'Monitor', proficiency: 95, order_index: 4 },
+  { id: '6', name: 'Next.js', category: 'Frontend Development', icon: 'Monitor', proficiency: 85, order_index: 5 },
+  { id: '7', name: 'Tailwind CSS', category: 'Frontend Development', icon: 'Monitor', proficiency: 95, order_index: 6 },
+  { id: '8', name: 'Framer Motion', category: 'Frontend Development', icon: 'Monitor', proficiency: 85, order_index: 7 },
+  { id: '9', name: 'Vite', category: 'Frontend Development', icon: 'Monitor', proficiency: 90, order_index: 8 },
+  // Backend
+  { id: '10', name: 'Node.js', category: 'Backend Development', icon: 'Server', proficiency: 90, order_index: 0 },
+  { id: '11', name: 'Express.js', category: 'Backend Development', icon: 'Server', proficiency: 95, order_index: 1 },
+  { id: '12', name: 'REST APIs', category: 'Backend Development', icon: 'Server', proficiency: 95, order_index: 2 },
+  { id: '13', name: 'GraphQL', category: 'Backend Development', icon: 'Server', proficiency: 75, order_index: 3 },
+  // Database
+  { id: '14', name: 'PostgreSQL', category: 'Database & ORM', icon: 'Database', proficiency: 90, order_index: 0 },
+  { id: '15', name: 'Supabase', category: 'Database & ORM', icon: 'Database', proficiency: 90, order_index: 1 },
+  { id: '16', name: 'Prisma', category: 'Database & ORM', icon: 'Database', proficiency: 85, order_index: 2 },
+  { id: '17', name: 'Drizzle', category: 'Database & ORM', icon: 'Database', proficiency: 85, order_index: 3 },
+  { id: '18', name: 'MongoDB', category: 'Database & ORM', icon: 'Database', proficiency: 85, order_index: 4 },
+  { id: '19', name: 'Firebase', category: 'Database & ORM', icon: 'Database', proficiency: 90, order_index: 5 },
+  // Tools
+  { id: '20', name: 'Git', category: 'Tools & DevOps', icon: 'Terminal', proficiency: 95, order_index: 0 },
+  { id: '21', name: 'GitHub Actions', category: 'Tools & DevOps', icon: 'Terminal', proficiency: 85, order_index: 1 },
+  { id: '22', name: 'Docker', category: 'Tools & DevOps', icon: 'Terminal', proficiency: 80, order_index: 2 },
+  { id: '23', name: 'Cloud Run', category: 'Tools & DevOps', icon: 'Terminal', proficiency: 85, order_index: 3 },
+  { id: '24', name: 'Vercel', category: 'Tools & DevOps', icon: 'Terminal', proficiency: 90, order_index: 4 }
+];
+
 app.get('/api/skills', async (req, res) => {
+
   try {
     let skills;
     if (isDraftRequest(req)) {
@@ -833,7 +867,8 @@ app.get('/api/skills', async (req, res) => {
         return data || [];
       });
     }
-    const translated = await handleTranslation(skills, req, 'Skill');
+    const finalSkills = skills.length > 0 ? skills : staticSkills;
+    const translated = await handleTranslation(finalSkills, req, 'Skill');
     res.json(translated || []);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -890,7 +925,8 @@ app.get('/api/profile', async (req, res) => {
           tagline: parsed.tagline || null,
           cover_image_url: parsed.cover_image_url || null,
           created_at: data.created_at,
-          updated_at: data.updated_at
+          updated_at: data.updated_at,
+          journey_events: parsed.journey_events || null
         };
       } else {
         profileObj = data;
@@ -912,7 +948,8 @@ app.get('/api/profile', async (req, res) => {
             tagline: parsed.tagline || null,
             cover_image_url: parsed.cover_image_url || null,
             created_at: data.created_at,
-            updated_at: data.updated_at
+            updated_at: data.updated_at,
+          journey_events: parsed.journey_events || null
           };
         }
         return data;
@@ -938,7 +975,8 @@ app.post('/api/profile', requireAuth, async (req, res) => {
         resume_url: validatedData.resume_url,
         long_bio: validatedData.long_bio,
         tagline: validatedData.tagline,
-        cover_image_url: validatedData.cover_image_url
+        cover_image_url: validatedData.cover_image_url,
+        journey_events: validatedData.journey_events
       };
     });
     res.json({
@@ -965,7 +1003,8 @@ app.put('/api/profile', requireAuth, async (req, res) => {
         resume_url: validatedData.resume_url,
         long_bio: validatedData.long_bio,
         tagline: validatedData.tagline,
-        cover_image_url: validatedData.cover_image_url
+        cover_image_url: validatedData.cover_image_url,
+        journey_events: validatedData.journey_events
       };
     });
     res.json({
@@ -1848,7 +1887,7 @@ app.post('/api/admin/publish', requireAuth, async (req, res) => {
       services: bio.services || [],
       seo: bio.seo_settings || {},
       contact_info: bio.contact_information || {},
-      skills: skills || [],
+      skills: (skills && skills.length > 0) ? skills : staticSkills,
       projects: (projects || []).map(deserializeProject),
       certificates: certificates || [],
       testimonials: testimonials || []

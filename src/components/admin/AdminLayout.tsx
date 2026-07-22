@@ -240,6 +240,7 @@ export const AdminLayout: React.FC = () => {
       title: 'Content',
       items: [
         { name: 'Projects Manager', path: '/admin/projects', icon: <FolderKanban size={18} /> },
+        { name: 'Skills Manager', path: '/admin/skills', icon: <FolderKanban size={18} /> },
         { name: 'Testimonials Control', path: '/admin/testimonials', icon: <MessageSquare size={18} /> },
         { name: 'Client Reviews', path: '/admin/reviews', icon: <Star size={18} /> },
         { name: 'Resume Manager', path: '/admin/resume', icon: <FileText size={18} /> },

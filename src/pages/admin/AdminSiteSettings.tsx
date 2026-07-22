@@ -18,6 +18,7 @@ export default function AdminSiteSettings() {
   const updateContact = useUpdateContactInfo();
 
   // Profile State
+  const [journeyEvents, setJourneyEvents] = useState<any[]>([]);
   const [personal, setPersonal] = useState({
     name: '', title: '', bio: '', long_bio: '', tagline: '', resume_url: '', profile_image_url: '', cover_image_url: ''
   });
@@ -49,7 +50,10 @@ export default function AdminSiteSettings() {
   });
 
   useEffect(() => {
-    if (profile) setPersonal(p => ({ ...p, ...profile }));
+    if (profile) {
+      setPersonal(p => ({ ...p, ...profile }));
+      if (profile.journey_events) setJourneyEvents(profile.journey_events);
+    }
     if (contact) {
       setContactInfo({
         email: contact.email || '', phone: contact.phone || '', whatsapp: contact.whatsapp || '', 
@@ -82,7 +86,7 @@ export default function AdminSiteSettings() {
 
   const handleSave = async () => {
     try {
-      await updateProfile.mutateAsync(personal);
+      await updateProfile.mutateAsync({ ...personal, journey_events: journeyEvents });
       await updateContact.mutateAsync({ ...contactInfo, ...social });
       await updateSeo.mutateAsync({ ...branding, ...seoData, ...analytics });
       triggerToast('Settings Saved', 'Your site settings have been updated successfully.', 'success');
@@ -93,6 +97,7 @@ export default function AdminSiteSettings() {
 
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: <User size={16} /> },
+    { id: 'journey', label: 'Journey', icon: <Share2 size={16} /> },
     { id: 'contact', label: 'Contact', icon: <MapPin size={16} /> },
     { id: 'social', label: 'Social Media', icon: <Share2 size={16} /> },
     { id: 'branding', label: 'Branding', icon: <Palette size={16} /> },
@@ -129,6 +134,76 @@ export default function AdminSiteSettings() {
       </div>
 
       <div className="mt-6">
+        
+        {activeTab === 'journey' && (
+          <GlassCard className="p-6 space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-white font-display">Journey Timeline</h3>
+              <button 
+                onClick={() => setJourneyEvents([...journeyEvents, { id: Date.now().toString(), title: 'New Event', content: '', date: '', icon: 'Lightbulb' }])}
+                className="px-3 py-1 bg-white/10 text-white border border-white/20 rounded hover:bg-white/20 text-xs font-mono"
+              >
+                + Add Event
+              </button>
+            </div>
+            
+            {journeyEvents.length === 0 && (
+              <p className="text-gray-400 text-sm">No journey events yet. Click "Add Event" to start your timeline.</p>
+            )}
+            
+            <div className="space-y-6">
+              {journeyEvents.map((evt, idx) => (
+                <div key={evt.id} className="p-4 bg-black/30 border border-white/10 rounded-lg space-y-4">
+                  <div className="flex justify-between">
+                    <h4 className="text-[#00F0FF] font-mono text-xs">Event {idx + 1}</h4>
+                    <button 
+                      onClick={() => setJourneyEvents(journeyEvents.filter(e => e.id !== evt.id))}
+                      className="text-red-400 hover:text-red-300 text-xs font-mono"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-mono text-gray-400 mb-1">Title</label>
+                      <input type="text" value={evt.title || ''} onChange={e => {
+                        const newEvts = [...journeyEvents];
+                        newEvts[idx].title = e.target.value;
+                        setJourneyEvents(newEvts);
+                      }} className="w-full bg-black/50 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-gray-400 mb-1">Date / Label</label>
+                      <input type="text" value={evt.date || ''} onChange={e => {
+                        const newEvts = [...journeyEvents];
+                        newEvts[idx].date = e.target.value;
+                        setJourneyEvents(newEvts);
+                      }} className="w-full bg-black/50 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" placeholder="e.g. 2023 or 'The Beginning'" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-mono text-gray-400 mb-1">Content</label>
+                      <textarea value={evt.content || ''} onChange={e => {
+                        const newEvts = [...journeyEvents];
+                        newEvts[idx].content = e.target.value;
+                        setJourneyEvents(newEvts);
+                      }} className="w-full bg-black/50 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm h-24 resize-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-gray-400 mb-1">Icon Name (lucide-react)</label>
+                      <input type="text" value={evt.icon || ''} onChange={e => {
+                        const newEvts = [...journeyEvents];
+                        newEvts[idx].icon = e.target.value;
+                        setJourneyEvents(newEvts);
+                      }} className="w-full bg-black/50 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" placeholder="e.g. Code, Sun, Rocket" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        )}
+
+
         {activeTab === 'personal' && (
           <GlassCard className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -232,6 +307,13 @@ export default function AdminSiteSettings() {
             </div>
           </GlassCard>
         )}
+      </div>
+      
+      {/* Bottom Save Button for convenience */}
+      <div className="flex justify-end pt-6 border-t border-white/10 mt-8">
+        <button onClick={handleSave} className="flex items-center gap-2 px-6 py-3 bg-[#00F0FF] text-black font-bold border border-[#00F0FF] rounded-lg hover:bg-[#00F0FF]/80 transition-all font-mono text-sm shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+          <Save size={18} /> Update Settings
+        </button>
       </div>
     </div>
   );

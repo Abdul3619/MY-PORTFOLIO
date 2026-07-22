@@ -45,9 +45,9 @@ export function SingleImageUploader({
       setError('Only JPG, JPEG, PNG, and WEBP formats are allowed.');
       return false;
     }
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 100 * 1024 * 1024; // 100MB
     if (file.size > maxSize) {
-      setError('Maximum file size allowed is 10MB.');
+      setError('Maximum file size allowed is 100MB.');
       return false;
     }
     setError(null);
@@ -215,7 +215,7 @@ export function SingleImageUploader({
               <p className="text-xs font-mono text-gray-300">
                 DRAG & DROP OR <span className="text-[#00F0FF] hover:underline font-semibold">CLICK</span>
               </p>
-              <p className="text-[9px] font-mono text-gray-500">JPG, PNG, WEBP UP TO 10MB</p>
+              <p className="text-[9px] font-mono text-gray-500">JPG, PNG, WEBP UP TO 100MB</p>
             </>
           )}
         </div>
@@ -282,8 +282,8 @@ export function GalleryImageUploader({
         setError('Some files were ignored. Only JPG, JPEG, PNG, and WEBP formats are allowed.');
         return false;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        setError('Some files were ignored. Maximum file size allowed is 10MB.');
+      if (file.size > 100 * 1024 * 1024) {
+        setError('Some files were ignored. Maximum file size allowed is 100MB.');
         return false;
       }
       return true;
@@ -529,7 +529,7 @@ export function GalleryImageUploader({
             <p className="text-xs font-mono text-gray-300">
               DRAG & DROP MULTIPLE IMAGES OR <span className="text-[#00F0FF] hover:underline font-semibold">BROWSE</span>
             </p>
-            <p className="text-[9px] font-mono text-gray-500">JPG, PNG, WEBP UP TO 10MB EACH</p>
+            <p className="text-[9px] font-mono text-gray-500">JPG, PNG, WEBP UP TO 100MB EACH</p>
           </>
         )}
       </div>
@@ -584,9 +584,9 @@ export function ProfileImageUploader({
       setError('Only JPG, JPEG, PNG, and WEBP formats are allowed.');
       return false;
     }
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 100 * 1024 * 1024; // 100MB
     if (file.size > maxSize) {
-      setError('Maximum file size allowed is 10MB.');
+      setError('Maximum file size allowed is 100MB.');
       return false;
     }
     setError(null);
@@ -731,7 +731,7 @@ export function ProfileImageUploader({
               <p className="text-xs font-mono text-gray-300">
                 DRAG & DROP OR <span className="text-[#00F0FF] hover:underline font-semibold">CLICK</span>
               </p>
-              <p className="text-[9px] font-mono text-gray-500">JPG, PNG, WEBP UP TO 10MB</p>
+              <p className="text-[9px] font-mono text-gray-500">JPG, PNG, WEBP UP TO 100MB</p>
             </>
           )}
         </div>
