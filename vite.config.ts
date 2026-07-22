@@ -19,7 +19,7 @@ export default defineConfig(() => {
       watch: null,
     },
     build: {
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 3000,
     },
   };
 });
