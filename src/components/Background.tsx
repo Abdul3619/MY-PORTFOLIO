@@ -27,24 +27,73 @@ export default function Background() {
         </Suspense>
       </div>
 
-      {/* Additional animated colored lights for "living AI" effect */}
-      <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-red-500/10 rounded-full blur-[100px] opacity-20 pointer-events-none mix-blend-screen animate-[pulse_8s_ease-in-out_infinite]" />
-      <div className="absolute bottom-1/4 left-1/2 w-[500px] h-[500px] bg-[#00F0FF]/15 rounded-full blur-[120px] opacity-30 pointer-events-none mix-blend-screen animate-[pulse_6s_ease-in-out_infinite_alternate]" />
-      <div className="absolute top-1/2 right-1/4 w-[450px] h-[450px] bg-purple-500/10 rounded-full blur-[100px] opacity-20 pointer-events-none mix-blend-screen animate-[pulse_10s_ease-in-out_infinite]" />
+      {/* Multi-Colored Living AI Energy Light Strokes & Pulsing Orbs (Red, Blue, Green, Gold) */}
+      <motion.div 
+        className="absolute top-[12%] left-[8%] w-[450px] h-[450px] bg-red-600/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen will-change-transform"
+        animate={{ 
+          scale: [1, 1.3, 1], 
+          opacity: [0.15, 0.35, 0.15],
+          filter: ["blur(110px)", "blur(130px)", "blur(110px)"]
+        }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+      />
+      
+      <motion.div 
+        className="absolute bottom-[18%] right-[12%] w-[550px] h-[550px] bg-emerald-500/18 rounded-full blur-[140px] pointer-events-none mix-blend-screen will-change-transform"
+        animate={{ 
+          scale: [1, 1.25, 1], 
+          opacity: [0.18, 0.38, 0.18] 
+        }}
+        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+      />
+      
+      <motion.div 
+        className="absolute top-[35%] right-[25%] w-[420px] h-[420px] bg-blue-600/20 rounded-full blur-[110px] pointer-events-none mix-blend-screen will-change-transform"
+        animate={{ 
+          scale: [1, 1.35, 1], 
+          opacity: [0.15, 0.32, 0.15] 
+        }}
+        transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
 
+      <motion.div 
+        className="absolute bottom-[25%] left-[20%] w-[480px] h-[480px] bg-gold/18 rounded-full blur-[125px] pointer-events-none mix-blend-screen will-change-transform"
+        animate={{ 
+          scale: [1, 1.28, 1], 
+          opacity: [0.15, 0.3, 0.15] 
+        }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+      />
+
+      {/* Blinking Neon Energy Nodes / Sparks */}
+      <motion.div 
+        className="absolute top-[28%] left-[32%] w-3 h-3 bg-red-500 rounded-full blur-[1px] pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.9)]"
+        animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.4, 0.8] }}
+        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div 
+        className="absolute top-[65%] right-[35%] w-3 h-3 bg-emerald-400 rounded-full blur-[1px] pointer-events-none shadow-[0_0_15px_rgba(52,211,153,0.9)]"
+        animate={{ opacity: [0.1, 1, 0.1], scale: [0.7, 1.3, 0.7] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: 0.7 }}
+      />
+      <motion.div 
+        className="absolute top-[45%] left-[65%] w-2.5 h-2.5 bg-blue-400 rounded-full blur-[1px] pointer-events-none shadow-[0_0_15px_rgba(96,165,250,0.9)]"
+        animate={{ opacity: [0.3, 1, 0.3], scale: [0.9, 1.5, 0.9] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
+      />
+
+      {/* Dynamic Interactive Mouse Radial Gradient */}
       <div 
-        className="absolute inset-0 opacity-20 pointer-events-none mix-blend-screen"
+        className="absolute inset-0 opacity-25 pointer-events-none mix-blend-screen transition-all duration-300"
         style={{
-          background: `radial-gradient(circle 800px at ${mousePosition.x}px ${mousePosition.y}px, rgba(0, 240, 255, 0.12), transparent 40%)`
+          background: `radial-gradient(circle 900px at ${mousePosition.x}px ${mousePosition.y}px, rgba(52, 211, 153, 0.12), rgba(96, 165, 250, 0.1) 40%, rgba(239, 68, 68, 0.08) 70%, transparent 85%)`
         }}
       />
       
-      {/* Background gradients */}
-      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-gold/5 rounded-full blur-[100px] opacity-30 animate-[pulse_5s_ease-in-out_infinite] pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-gold/5 rounded-full blur-[120px] opacity-20 animate-[pulse_7s_ease-in-out_infinite] pointer-events-none" />
-      
-      {/* Static Vignette overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_#050505_100%)] pointer-events-none" />
+      {/* Static Vignette overlay for depth */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_30%,_#050505_90%)] pointer-events-none" />
     </div>
   );
 }
+
+
