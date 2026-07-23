@@ -222,6 +222,22 @@ const skillSchema = z.object({
   order_index: z.number().default(0),
 });
 
+const resumeExperienceSchema = z.object({
+  role: z.string().min(1),
+  company: z.string().min(1),
+  period: z.string().min(1),
+  description: z.string().min(1),
+  order_index: z.number().default(0),
+});
+
+const resumeEducationSchema = z.object({
+  degree: z.string().min(1),
+  institution: z.string().min(1),
+  period: z.string().min(1),
+  description: z.string().min(1),
+  order_index: z.number().default(0),
+});
+
 const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const token = req.headers.authorization?.split('Bearer ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized: Missing token' });
@@ -1156,6 +1172,120 @@ app.get('/api/resume_education', async (req, res) => {
   } catch (err: any) {
     const translated = await handleTranslation(staticEducation, req, 'ResumeEducation');
     res.json(translated);
+  }
+});
+
+// Resume Experience Mutations
+app.post('/api/resume_experience', requireAuth, async (req, res) => {
+  try {
+    const validatedData = resumeExperienceSchema.parse(req.body);
+    const newExp = {
+      id: crypto.randomUUID(),
+      ...validatedData,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    await saveBioJson((current) => {
+      const exp = current.resume_experience || [];
+      exp.push(newExp);
+      return { ...current, resume_experience: exp };
+    });
+    res.status(201).json(newExp);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/resume_experience/:id', requireAuth, async (req, res) => {
+  try {
+    const validatedData = resumeExperienceSchema.parse(req.body);
+    let updatedExp: any = null;
+    await saveBioJson((current) => {
+      const exp = current.resume_experience || [];
+      const idx = exp.findIndex((s: any) => s.id === req.params.id);
+      if (idx !== -1) {
+        exp[idx] = {
+          ...exp[idx],
+          ...validatedData,
+          updated_at: new Date().toISOString()
+        };
+        updatedExp = exp[idx];
+      }
+      return { ...current, resume_experience: exp };
+    });
+    if (!updatedExp) return res.status(404).json({ error: 'Experience not found' });
+    res.json(updatedExp);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/resume_experience/:id', requireAuth, async (req, res) => {
+  try {
+    await saveBioJson((current) => {
+      const exp = (current.resume_experience || []).filter((s: any) => s.id !== req.params.id);
+      return { ...current, resume_experience: exp };
+    });
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Resume Education Mutations
+app.post('/api/resume_education', requireAuth, async (req, res) => {
+  try {
+    const validatedData = resumeEducationSchema.parse(req.body);
+    const newEdu = {
+      id: crypto.randomUUID(),
+      ...validatedData,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    await saveBioJson((current) => {
+      const edu = current.resume_education || [];
+      edu.push(newEdu);
+      return { ...current, resume_education: edu };
+    });
+    res.status(201).json(newEdu);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/resume_education/:id', requireAuth, async (req, res) => {
+  try {
+    const validatedData = resumeEducationSchema.parse(req.body);
+    let updatedEdu: any = null;
+    await saveBioJson((current) => {
+      const edu = current.resume_education || [];
+      const idx = edu.findIndex((s: any) => s.id === req.params.id);
+      if (idx !== -1) {
+        edu[idx] = {
+          ...edu[idx],
+          ...validatedData,
+          updated_at: new Date().toISOString()
+        };
+        updatedEdu = edu[idx];
+      }
+      return { ...current, resume_education: edu };
+    });
+    if (!updatedEdu) return res.status(404).json({ error: 'Education not found' });
+    res.json(updatedEdu);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/resume_education/:id', requireAuth, async (req, res) => {
+  try {
+    await saveBioJson((current) => {
+      const edu = (current.resume_education || []).filter((s: any) => s.id !== req.params.id);
+      return { ...current, resume_education: edu };
+    });
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

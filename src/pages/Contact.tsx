@@ -70,12 +70,16 @@ export default function Contact() {
             <div className="mt-12 lg:mt-0">
               <h3 className="text-xl font-display font-semibold text-white mb-6">{t("contact.connect", "Connect")}</h3>
               <div className="flex gap-4">
-                <a href={contactInfo?.github_url || "#"} className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
-                  <Github size={24} />
-                </a>
-                <a href={contactInfo?.linkedin_url || "#"} className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
-                  <Linkedin size={24} />
-                </a>
+                {contactInfo?.github_url && (
+                  <a href={contactInfo.github_url} target="_blank" rel="noreferrer" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                    <Github size={24} />
+                  </a>
+                )}
+                {contactInfo?.linkedin_url && (
+                  <a href={contactInfo.linkedin_url} target="_blank" rel="noreferrer" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                    <Linkedin size={24} />
+                  </a>
+                )}
               </div>
             </div>
           </motion.div>

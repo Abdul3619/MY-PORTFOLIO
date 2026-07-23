@@ -94,7 +94,10 @@ export function Navbar() {
           {languages.map((lang) => (
             <button
               key={lang.code}
-              onClick={() => i18n.changeLanguage(lang.code)}
+              onClick={() => {
+                localStorage.setItem('app_manual_lang', lang.code);
+                i18n.changeLanguage(lang.code);
+              }}
               className={cn(
                 "px-2 py-1 rounded-full text-[10px] font-bold tracking-wider transition-all duration-300 cursor-pointer",
                 currentLang === lang.code

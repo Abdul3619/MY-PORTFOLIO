@@ -130,13 +130,28 @@ export default function Home() {
     linkedin: contact?.linkedin_url || "#",
     twitter: contact?.twitter_url || "#",
     instagram: contact?.instagram_url || "#",
-    email: contact?.email || "abdulwahababdullah3619@gmail.com"
+    email: contact?.email || "abdulwahababdullah3619@gmail.com",
+    whatsapp: contact?.whatsapp ? `https://wa.me/${contact.whatsapp.replace(/\D/g, '')}` : "#"
   };
 
   const [currentRoleIndex, setCurrentRoleIndex] = useState(0);
   const aboutSectionRef = useRef<HTMLDivElement>(null);
   const skillsSectionRef = useRef<HTMLDivElement>(null);
   const projectsSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Silently preload project images as soon as the data is available
+    // to ensure they are instantly visible when the user scrolls down
+    if (projects && projects.length > 0) {
+      projects.slice(0, 4).forEach((p: any) => {
+        const src = p.thumbnail_url || p.hero_image_url || p.image;
+        if (src) {
+          const img = new Image();
+          img.src = src;
+        }
+      });
+    }
+  }, [projects]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -732,12 +747,16 @@ export default function Home() {
             <div className="space-y-4">
               <h4 className="text-xs uppercase tracking-widest text-gold font-bold">{t("common.connect_directly", "Connect Directly")}</h4>
               <div className="flex gap-4">
-                <a href={socialLinks.github} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
-                  <Github size={18} />
-                </a>
-                <a href={socialLinks.linkedin} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
-                  <Linkedin size={18} />
-                </a>
+                {socialLinks.github !== "#" && (
+                  <a href={socialLinks.github} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                    <Github size={18} />
+                  </a>
+                )}
+                {socialLinks.linkedin !== "#" && (
+                  <a href={socialLinks.linkedin} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                    <Linkedin size={18} />
+                  </a>
+                )}
               </div>
             </div>
           </div>

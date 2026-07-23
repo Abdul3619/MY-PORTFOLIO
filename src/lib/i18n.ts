@@ -17,8 +17,12 @@ i18n
       escapeValue: false // React already escapes values to prevent XSS
     },
     detection: {
+      // Prioritize manually selected language first, then device language (navigator)
       order: ['localStorage', 'navigator'],
-      caches: ['localStorage']
+      // We will only cache to localStorage MANUALLY when the user clicks the language button,
+      // so we remove 'localStorage' from the auto-caches array.
+      caches: [],
+      lookupLocalStorage: 'app_manual_lang',
     }
   });
 
@@ -60,9 +64,6 @@ const handleLanguageSetup = (lang: string) => {
   const dir = cleanLang === 'ar' ? 'rtl' : 'ltr';
   document.documentElement.dir = dir;
   document.documentElement.lang = cleanLang;
-  
-  // Set in localStorage to keep consistent with server header injections
-  localStorage.setItem('i18nextLng', cleanLang);
 };
 
 i18n.on('languageChanged', (lang) => {

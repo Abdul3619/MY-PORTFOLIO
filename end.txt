@@ -1,0 +1,12 @@
+                <div className="w-full h-full flex items-center justify-center font-mono text-gray-600 text-[10px]">No download logs recorded</div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}

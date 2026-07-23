@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAdmin } from '../../components/admin/AdminLayout';
 import { useProfile, useUpdateProfile, useSeo, useUpdateSeo, useContactInfo, useUpdateContactInfo } from '../../hooks/useApi';
-import { Save, User, MapPin, Share2, Palette, Search, BarChart, ShieldAlert } from 'lucide-react';
+import { Save, User, MapPin, Share2, Palette, Search, BarChart, ShieldAlert, AlertCircle } from 'lucide-react';
 import { GlassCard } from '../../components/GlassCard';
 import { ProfileImageUploader } from '../../components/admin/ImageUploader';
 
@@ -49,11 +49,55 @@ export default function AdminSiteSettings() {
     google_analytics_id: '', google_tag_manager_id: '', microsoft_clarity_id: '', meta_pixel_id: '', maintenance_mode: false
   });
 
+  const [hasDraft, setHasDraft] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+
   useEffect(() => {
+    const draft = localStorage.getItem('admin_site_settings_draft');
+    if (draft) {
+      setHasDraft(true);
+    }
+  }, []);
+
+  const restoreDraft = () => {
+    const draft = localStorage.getItem('admin_site_settings_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.personal) setPersonal(p => ({ ...p, ...parsed.personal }));
+        if (parsed.journeyEvents) setJourneyEvents(parsed.journeyEvents);
+        triggerToast('Draft Restored', 'Your unsaved changes have been loaded.', 'success');
+        setHasDraft(false);
+      } catch (e) {}
+    }
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem('admin_site_settings_draft');
+    setHasDraft(false);
     if (profile) {
       setPersonal(p => ({ ...p, ...profile }));
       if (profile.journey_events) setJourneyEvents(profile.journey_events);
     }
+    triggerToast('Draft Cleared', 'Unsaved changes discarded.', 'info');
+  };
+
+  useEffect(() => {
+    if (!profile) return;
+    if (initialLoad) {
+      // Always initialize with profile first
+      setPersonal(p => ({ ...p, ...profile }));
+      if (profile.journey_events) setJourneyEvents(profile.journey_events);
+      setInitialLoad(false);
+    } else {
+      // Save draft on change (only after initial load has finished)
+      // To avoid saving right after initial load before any edits, we could add a check,
+      // but saving the exact profile state as a draft is harmless.
+      localStorage.setItem('admin_site_settings_draft', JSON.stringify({ personal, journeyEvents }));
+    }
+  }, [profile, personal, journeyEvents, initialLoad]);
+
+  useEffect(() => {
     if (contact) {
       setContactInfo({
         email: contact.email || '', phone: contact.phone || '', whatsapp: contact.whatsapp || '', 
@@ -89,6 +133,8 @@ export default function AdminSiteSettings() {
       await updateProfile.mutateAsync({ ...personal, journey_events: journeyEvents });
       await updateContact.mutateAsync({ ...contactInfo, ...social });
       await updateSeo.mutateAsync({ ...branding, ...seoData, ...analytics });
+      localStorage.removeItem('admin_site_settings_draft');
+      setHasDraft(false);
       triggerToast('Settings Saved', 'Your site settings have been updated successfully.', 'success');
     } catch (err: any) {
       triggerToast('Save Failed', err.message || 'An error occurred while saving.', 'danger');
@@ -116,10 +162,28 @@ export default function AdminSiteSettings() {
           <h1 className="text-2xl font-bold text-white font-display">Site Settings</h1>
           <p className="text-sm text-gray-400">Manage global configuration for your portfolio.</p>
         </div>
-        <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30 rounded-lg hover:bg-[#00F0FF]/20 transition-all font-mono text-xs">
-          <Save size={16} /> Save Changes
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30 rounded-lg hover:bg-[#00F0FF]/20 transition-all font-mono text-xs">
+            <Save size={16} /> Save Changes
+          </button>
+        </div>
       </div>
+
+      {hasDraft && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} className="text-yellow-500" />
+            <div>
+              <h4 className="text-sm font-semibold text-white">Unsaved Draft Found</h4>
+              <p className="text-xs text-gray-400">You have unsaved changes from a previous session.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={clearDraft} className="text-xs font-mono text-gray-400 hover:text-white transition-colors">Discard Draft</button>
+            <button onClick={restoreDraft} className="px-3 py-1.5 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded hover:bg-yellow-500/30 transition-all font-mono text-xs">Restore Draft</button>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 overflow-x-auto pb-2 border-b border-white/10">
         {tabs.map(tab => (

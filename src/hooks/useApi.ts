@@ -260,3 +260,72 @@ export const useResumeEducation = () => {
   const lang = i18n.language || 'en';
   return useQuery({ queryKey: ['resume_education', lang], queryFn: () => fetchApi('/api/resume_education') });
 };
+
+// Admin Mutations for About Sections
+export const useCreateAbout = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => fetchApi('/api/about', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['about'] }),
+  });
+};
+export const useUpdateAbout = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => fetchApi(`/api/about/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['about'] }),
+  });
+};
+export const useDeleteAbout = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetchApi(`/api/about/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['about'] }),
+  });
+};
+
+// Admin Mutations for Resume Experience
+export const useCreateResumeExperience = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => fetchApi('/api/resume_experience', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['resume_experience'] }),
+  });
+};
+export const useUpdateResumeExperience = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => fetchApi(`/api/resume_experience/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['resume_experience'] }),
+  });
+};
+export const useDeleteResumeExperience = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetchApi(`/api/resume_experience/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['resume_experience'] }),
+  });
+};
+
+// Admin Mutations for Resume Education
+export const useCreateResumeEducation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => fetchApi('/api/resume_education', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['resume_education'] }),
+  });
+};
+export const useUpdateResumeEducation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => fetchApi(`/api/resume_education/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['resume_education'] }),
+  });
+};
+export const useDeleteResumeEducation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetchApi(`/api/resume_education/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['resume_education'] }),
+  });
+};

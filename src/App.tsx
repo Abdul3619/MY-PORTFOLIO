@@ -6,7 +6,9 @@
 import { BrowserRouter, Routes, Route, useLocation, Outlet } from "react-router-dom";
 import { useEffect } from "react";
 import { AnimatePresence } from "motion/react";
-import { useSeo } from "./hooks/useApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { useSeo, fetchApi } from "./hooks/useApi";
 import { Layout } from "./Layout";
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -34,7 +36,27 @@ import AdminSkills from "./pages/admin/AdminSkills";
 import Maintenance from "./pages/Maintenance";
 
 function AnimatedRoutes() {
+  const queryClient = useQueryClient();
   const { data: seo } = useSeo();
+  const { i18n } = useTranslation();
+  const lang = i18n.language || 'en';
+
+  useEffect(() => {
+    // Eagerly prefetch projects, profile, and skills on mount so they load instantly before scrolling
+    queryClient.prefetchQuery({
+      queryKey: ['projects', lang],
+      queryFn: () => fetchApi('/api/projects'),
+    });
+    queryClient.prefetchQuery({
+      queryKey: ['profile', lang],
+      queryFn: () => fetchApi('/api/profile'),
+    });
+    queryClient.prefetchQuery({
+      queryKey: ['skills', lang],
+      queryFn: () => fetchApi('/api/skills'),
+    });
+  }, [queryClient, lang]);
+
   useEffect(() => {
     if (seo?.site_title) {
       document.title = seo.site_title;
