@@ -41,8 +41,7 @@ export default function AdminMedia() {
   const mockAssets: MediaAsset[] = [
     { name: 'hotel_hero_landscape.jpg', id: 'a1', url: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=600', created_at: new Date(Date.now() - 3600000 * 48).toISOString(), size: 485 * 1024, type: 'image/jpeg' },
     { name: 'solar_panel_arrays.png', id: 'a2', url: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=600', created_at: new Date(Date.now() - 3600000 * 12).toISOString(), size: 1024 * 1200, type: 'image/png' },
-    { name: 'iot_control_terminal.jpg', id: 'a3', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=600', created_at: new Date(Date.now() - 3600000 * 24).toISOString(), size: 240 * 1024, type: 'image/jpeg' },
-    { name: 'certified_resume_pdf.pdf', id: 'a4', url: 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf', created_at: new Date(Date.now() - 3600000 * 120).toISOString(), size: 85 * 1024, type: 'application/pdf' }
+    { name: 'iot_control_terminal.jpg', id: 'a3', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=600', created_at: new Date(Date.now() - 3600000 * 24).toISOString(), size: 240 * 1024, type: 'image/jpeg' }
   ];
 
   const fetchAssetsAndLogs = async () => {

@@ -246,11 +246,17 @@ export default function Home() {
               style={{ transformPerspective: 1000 }}
             >
               <div className="absolute inset-0 bg-gradient-to-tr from-gold/20 via-transparent to-blue-500/10 mix-blend-overlay z-10 pointer-events-none" />
-              <img 
-                src={profile?.profile_image_url || profile?.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop"} 
-                alt={profile?.name || "Abdul Wahab"} 
-                className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700"
-              />
+              {profile?.profile_image_url || profile?.avatar_url ? (
+                <img 
+                  src={profile.profile_image_url || profile.avatar_url} 
+                  alt={profile?.name || "Abdul Wahab"} 
+                  className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-black/90 via-black/70 to-zinc-900 flex items-center justify-center text-gold font-display font-bold text-5xl tracking-widest">
+                  AW
+                </div>
+              )}
             </motion.div>
 
             {/* Hero Main Content */}
@@ -334,6 +340,12 @@ export default function Home() {
                   target="_blank" 
                   rel="noopener noreferrer"
                   download={profile?.resume_url ? "resume.pdf" : undefined}
+                  onClick={(e) => {
+                    if (!profile?.resume_url) {
+                      e.preventDefault();
+                      window.location.href = '/resume';
+                    }
+                  }}
                   className="interactive"
                 >
                   <MagneticButton variant="secondary">

@@ -54,8 +54,7 @@ export default function AdminResume() {
       if (pData?.resume_url) {
         setActiveResumeUrl(pData.resume_url);
       } else {
-        // Fallback or default linked pdf
-        setActiveResumeUrl('https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf');
+        setActiveResumeUrl(null);
       }
 
       // 2. Fetch or generate 30-day chronological resume download volume
@@ -79,8 +78,7 @@ export default function AdminResume() {
 
     } catch (err: any) {
       console.warn("Unable to fetch database details, activating local cache stream", err.message);
-      // Fallback
-      setActiveResumeUrl('https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf');
+      setActiveResumeUrl(null);
     } finally {
       setLoading(false);
     }
@@ -146,16 +144,7 @@ export default function AdminResume() {
 
     } catch (err: any) {
       console.error(err);
-      // Simulation fallback in case of upload glitch
-      const fallbackUrl = 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf';
-      setActiveResumeUrl(fallbackUrl);
-
-      const { data: pData } = await supabase.from('profiles').select('id').limit(1).single();
-      if (pData) {
-        await supabase.from('profiles').update({ resume_url: fallbackUrl }).eq('id', pData.id);
-      }
-
-      triggerToast('Sandbox Success', 'Resume document synchronized successfully.', 'success');
+      triggerToast('Upload Failed', err.message || 'Failed to upload resume document.', 'danger');
     } finally {
       setUploading(false);
     }

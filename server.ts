@@ -2109,7 +2109,7 @@ app.post('/api/admin/reset-password', async (req, res) => {
     }
     const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     if (listError) throw listError;
-    const adminUser = users?.find(u => u.email?.toLowerCase() === targetEmail);
+    const adminUser = (users as any[])?.find((u: any) => u.email?.toLowerCase() === targetEmail);
     if (adminUser) {
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(adminUser.id, { password: 'AdminSecure2026!' });
       if (updateError) throw updateError;
