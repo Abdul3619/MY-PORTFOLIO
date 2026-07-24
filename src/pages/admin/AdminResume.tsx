@@ -94,8 +94,13 @@ export default function AdminResume() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Strict validation mapping checks as requested
-    if (file.type !== 'application/pdf') {
+    // Validation check supporting standard and converted PDF formats
+    const isPdf = file.type.includes('pdf') || 
+                  file.name.toLowerCase().endsWith('.pdf') || 
+                  file.type === 'application/octet-stream' || 
+                  file.type === 'binary/octet-stream';
+
+    if (!isPdf) {
       triggerToast('Security Validation Blocked', 'Restricted: Ingress accepts valid .PDF formats only.', 'danger');
       return;
     }

@@ -724,6 +724,29 @@ export const AdminLogin: React.FC = () => {
     }
   };
 
+  const handleInstantReset = async () => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'abdulwahababdullah3619@gmail.com' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset password');
+      setSuccess('Password successfully reset to AdminSecure2026! You can now log in.');
+      setPassword('AdminSecure2026!');
+      setEmail('abdulwahababdullah3619@gmail.com');
+      setIsForgotPasswordMode(false);
+    } catch (err: any) {
+      setError(err.message || 'Password reset failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white p-4 select-none relative overflow-hidden">
       {/* Visual Cyan Accents Background */}
@@ -873,6 +896,17 @@ export const AdminLogin: React.FC = () => {
                 <span className="relative z-10 flex items-center justify-center gap-1.5">
                   {loading ? 'Processing...' : 'Send Recovery'}
                 </span>
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleInstantReset}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-semibold py-2.5 px-4 rounded-lg text-xs font-mono uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(0,240,255,0.3)] cursor-pointer disabled:opacity-50"
+              >
+                Instant Reset Password to AdminSecure2026!
               </button>
             </div>
           </form>

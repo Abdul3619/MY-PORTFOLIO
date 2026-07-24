@@ -329,12 +329,18 @@ export default function Home() {
                   </MagneticButton>
                 </Link>
                 
-                <Link to="/resume" className="interactive">
+                <a 
+                  href={profile?.resume_url || '/resume'} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  download={profile?.resume_url ? "resume.pdf" : undefined}
+                  className="interactive"
+                >
                   <MagneticButton variant="secondary">
                     <Download size={18} />
                     <span>{t("home.cta_resume", "Download Resume")}</span>
                   </MagneticButton>
-                </Link>
+                </a>
                 
                 <Link to="/contact" className="interactive">
                   <MagneticButton variant="outline">
