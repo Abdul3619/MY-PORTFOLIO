@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
+import { fetchApi } from '../../hooks/useApi';
 import { 
   LayoutDashboard, 
   FolderKanban, 
@@ -109,18 +110,9 @@ export const AdminLayout: React.FC = () => {
   const handleGlobalPublish = async () => {
     setIsPublishing(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/admin/publish', { credentials: "include",
+      const data = await fetchApi('/api/admin/publish', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
-        }
       });
-      if (!res.ok) {
-        throw new Error('Failed to publish. Check console or backend logs.');
-      }
-      const data = await res.json();
       await queryClient.invalidateQueries();
       triggerToast('Portfolio Published', 'Your live public portfolio has been synchronized to the latest draft snapshot!', 'success');
     } catch (err: any) {

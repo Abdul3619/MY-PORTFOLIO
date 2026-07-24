@@ -86,13 +86,20 @@ export default function AdminSiteSettings() {
     if (!profile) return;
     if (initialLoad) {
       // Always initialize with profile first
-      setPersonal(p => ({ ...p, ...profile }));
+      setPersonal({
+        name: profile.name || '',
+        title: profile.title || '',
+        bio: profile.bio || '',
+        long_bio: profile.long_bio || '',
+        tagline: profile.tagline || '',
+        resume_url: profile.resume_url || '',
+        profile_image_url: profile.profile_image_url || '',
+        cover_image_url: profile.cover_image_url || ''
+      });
       if (profile.journey_events) setJourneyEvents(profile.journey_events);
       setInitialLoad(false);
     } else {
       // Save draft on change (only after initial load has finished)
-      // To avoid saving right after initial load before any edits, we could add a check,
-      // but saving the exact profile state as a draft is harmless.
       localStorage.setItem('admin_site_settings_draft', JSON.stringify({ personal, journeyEvents }));
     }
   }, [profile, personal, journeyEvents, initialLoad]);
@@ -292,6 +299,83 @@ export default function AdminSiteSettings() {
                 />
               </div>
             </div>
+          </GlassCard>
+        )}
+
+        {activeTab === 'journey' && (
+          <GlassCard className="p-6 space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-display text-white">Journey Events</h3>
+              <button 
+                onClick={() => setJourneyEvents([...journeyEvents, { year: new Date().getFullYear().toString(), title: '', description: '' }])}
+                className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-sm transition-colors"
+              >
+                + Add Event
+              </button>
+            </div>
+            {journeyEvents.length === 0 ? (
+              <div className="text-center text-gray-500 py-8 border border-white/5 border-dashed rounded">
+                No journey events added yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {journeyEvents.map((event, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border border-white/10 rounded bg-black/20 relative">
+                    <button 
+                      onClick={() => {
+                        const newEvents = [...journeyEvents];
+                        newEvents.splice(index, 1);
+                        setJourneyEvents(newEvents);
+                      }}
+                      className="absolute top-2 right-2 text-red-500 hover:text-red-400 p-1"
+                      title="Remove Event"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                    <div className="md:col-span-3">
+                      <label className="block text-xs font-mono text-gray-400 mb-1">Year / Period</label>
+                      <input 
+                        type="text" 
+                        value={event.year || ''} 
+                        onChange={e => {
+                          const newEvents = [...journeyEvents];
+                          newEvents[index].year = e.target.value;
+                          setJourneyEvents(newEvents);
+                        }} 
+                        placeholder="e.g. 2023"
+                        className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" 
+                      />
+                    </div>
+                    <div className="md:col-span-9">
+                      <label className="block text-xs font-mono text-gray-400 mb-1">Event Title</label>
+                      <input 
+                        type="text" 
+                        value={event.title || ''} 
+                        onChange={e => {
+                          const newEvents = [...journeyEvents];
+                          newEvents[index].title = e.target.value;
+                          setJourneyEvents(newEvents);
+                        }} 
+                        placeholder="e.g. Started at Google"
+                        className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" 
+                      />
+                    </div>
+                    <div className="md:col-span-12">
+                      <label className="block text-xs font-mono text-gray-400 mb-1">Description</label>
+                      <textarea 
+                        value={event.description || ''} 
+                        onChange={e => {
+                          const newEvents = [...journeyEvents];
+                          newEvents[index].description = e.target.value;
+                          setJourneyEvents(newEvents);
+                        }} 
+                        className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm h-20 resize-none" 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </GlassCard>
         )}
 

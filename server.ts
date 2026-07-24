@@ -203,7 +203,7 @@ const contactInfoSchema = z.object({
   dribbble_url: z.string().optional().nullable(),
   youtube_url: z.string().optional().nullable(),
   discord_url: z.string().optional().nullable(),
-  email: z.string().email().optional().nullable(),
+  email: z.string().email().or(z.literal('')).optional().nullable(),
   phone: z.string().optional().nullable(),
   whatsapp: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -2005,10 +2005,11 @@ app.post('/api/admin/publish', requireAuth, async (req, res) => {
         title: bio.title || profileRow?.title || 'Web Developer',
         profile_image_url: bio.profile_image_url || profileRow?.profile_image_url,
         resume_url: bio.resume_url || profileRow?.resume_url,
-        bio: bio.bio_text || profileRow?.bio,
+        bio: bio.bio || bio.bio_text || 'I build web apps',
         long_bio: bio.long_bio,
         tagline: bio.tagline,
-        cover_image_url: bio.cover_image_url
+        cover_image_url: bio.cover_image_url,
+        journey_events: bio.journey_events || null
       },
       about: bio.about_sections || [],
       resume_experience: bio.resume_experience || [],
