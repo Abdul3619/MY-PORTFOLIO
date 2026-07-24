@@ -1,4 +1,4 @@
-import  { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAdmin } from '../../components/admin/AdminLayout';
 import { motion } from 'motion/react';
@@ -407,7 +407,7 @@ function ResumeExperienceEditor() {
 
       <div className="space-y-4">
         {items.map((item, idx) => (
-          <div key={item.id} className="p-4 bg-black/40 border border-white/10 rounded space-y-4">
+          <div key={item.id || idx} className="p-4 bg-black/40 border border-white/10 rounded space-y-4">
             <div className="flex justify-between items-center">
               <h4 className="text-[#00F0FF] font-mono text-xs">Role {idx + 1}</h4>
               <button onClick={() => handleDelete(item.id, idx)} className="text-red-400 text-xs font-mono hover:text-red-300">Remove</button>
@@ -541,7 +541,7 @@ function ResumeEducationEditor() {
 
       <div className="space-y-4">
         {items.map((item, idx) => (
-          <div key={item.id} className="p-4 bg-black/40 border border-white/10 rounded space-y-4">
+          <div key={item.id || idx} className="p-4 bg-black/40 border border-white/10 rounded space-y-4">
             <div className="flex justify-between items-center">
               <h4 className="text-[#00F0FF] font-mono text-xs">Degree {idx + 1}</h4>
               <button onClick={() => handleDelete(item.id, idx)} className="text-red-400 text-xs font-mono hover:text-red-300">Remove</button>

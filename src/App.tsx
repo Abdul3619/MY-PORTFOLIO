@@ -125,7 +125,7 @@ function AnimatedRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/profile" element={<AdminSettings />} />
+            <Route path="/admin/profile" element={<AdminSiteSettings />} />
             <Route path="/admin/settings" element={<AdminSiteSettings />} />
             <Route path="/admin/projects" element={<AdminProjects />} />
             <Route path="/admin/skills" element={<AdminSkills />} />

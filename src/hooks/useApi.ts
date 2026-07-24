@@ -64,6 +64,8 @@ export const useProfile = () => {
   return useQuery({
     queryKey: ['profile', lang],
     queryFn: () => fetchApi('/api/profile'),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 
@@ -80,6 +82,8 @@ export const useProjects = () => {
   return useQuery({
     queryKey: ['projects', lang],
     queryFn: () => fetchApi('/api/projects'),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 
@@ -121,6 +125,8 @@ export const useCertificates = () => {
   return useQuery({
     queryKey: ['certificates', lang],
     queryFn: () => fetchApi('/api/certificates'),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 
@@ -145,6 +151,8 @@ export const useTestimonials = () => {
   return useQuery({
     queryKey: ['testimonials', lang],
     queryFn: () => fetchApi('/api/testimonials'),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 
@@ -223,18 +231,18 @@ export const trackEvent = async (eventType: string, pageUrl: string, metadata: a
 // CMS Hooks
 export const useServices = () => {
   const lang = i18n.language || 'en';
-  return useQuery({ queryKey: ['services', lang], queryFn: () => fetchApi('/api/services') });
+  return useQuery({ queryKey: ['services', lang], queryFn: () => fetchApi('/api/services'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 export const useAbout = () => {
   const lang = i18n.language || 'en';
-  return useQuery({ queryKey: ['about', lang], queryFn: () => fetchApi('/api/about') });
+  return useQuery({ queryKey: ['about', lang], queryFn: () => fetchApi('/api/about'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 export const useSkills = () => {
   const lang = i18n.language || 'en';
-  return useQuery({ queryKey: ['skills', lang], queryFn: () => fetchApi('/api/skills') });
+  return useQuery({ queryKey: ['skills', lang], queryFn: () => fetchApi('/api/skills'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
-export const useSeo = () => useQuery({ queryKey: ['seo'], queryFn: () => fetchApi('/api/seo') });
-export const useContactInfo = () => useQuery({ queryKey: ['contact_info'], queryFn: () => fetchApi('/api/contact_info') });
+export const useSeo = () => useQuery({ queryKey: ['seo'], queryFn: () => fetchApi('/api/seo'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
+export const useContactInfo = () => useQuery({ queryKey: ['contact_info'], queryFn: () => fetchApi('/api/contact_info'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 
 // Admin CMS Mutation Hooks
 export const useUpdateSeo = () => {
@@ -254,11 +262,11 @@ export const useUpdateContactInfo = () => {
 
 export const useResumeExperience = () => {
   const lang = i18n.language || 'en';
-  return useQuery({ queryKey: ['resume_experience', lang], queryFn: () => fetchApi('/api/resume_experience') });
+  return useQuery({ queryKey: ['resume_experience', lang], queryFn: () => fetchApi('/api/resume_experience'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 export const useResumeEducation = () => {
   const lang = i18n.language || 'en';
-  return useQuery({ queryKey: ['resume_education', lang], queryFn: () => fetchApi('/api/resume_education') });
+  return useQuery({ queryKey: ['resume_education', lang], queryFn: () => fetchApi('/api/resume_education'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 
 // Admin Mutations for About Sections

@@ -100,13 +100,33 @@ function TimelineItem({ event, index }: { event: any; index: number }) {
 
 export default function About() {
   const { data: profile } = useProfile();
-  const eventsToRender = (profile?.journey_events && profile.journey_events.length > 0) ? profile.journey_events : timelineEvents;
   const { t } = useTranslation();
   const { data: aboutData } = useAbout();
-  const displayEvents = aboutData && aboutData.length > 0 ? [...aboutData].sort((a: any, b: any) => a.order_index - b.order_index) : timelineEvents;
+  
+  const displayEvents = (profile?.journey_events && profile.journey_events.length > 0)
+    ? profile.journey_events
+    : (aboutData && aboutData.length > 0 ? [...aboutData].sort((a: any, b: any) => a.order_index - b.order_index) : timelineEvents);
+
   return (
     <PageTransition className="w-full">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto px-4">
+        {profile?.cover_image_url && (
+          <div className="mb-12 rounded-2xl overflow-hidden h-64 md:h-80 relative border border-white/10 shadow-2xl mt-8">
+            <img 
+              src={profile.cover_image_url} 
+              alt="About Cover" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-8">
+              <div>
+                <span className="text-gold font-mono text-xs uppercase tracking-widest">Professional Background</span>
+                <h2 className="text-3xl md:text-4xl font-display font-bold text-white mt-1">Journey & Pivotal Points</h2>
+              </div>
+            </div>
+          </div>
+        )}
+
         <motion.div 
           className="text-center mb-24 mt-12"
           initial={{ opacity: 0, y: 20 }}
@@ -117,13 +137,13 @@ export default function About() {
             {t("about.title_part1", "MY")} <span className="text-gradient">{t("about.title_part2", "JOURNEY")}</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            {t("about.subtitle", "From solar engineering to full-stack software development—a story of self-taught learning and practical problem solving.")}
+            {profile?.tagline || t("about.subtitle", "From solar engineering to full-stack software development—a story of self-taught learning and practical problem solving.")}
           </p>
         </motion.div>
 
         <div className="relative pb-24">
-          {displayEvents.map((event, index) => (
-            <TimelineItem key={event.id} event={event} index={index} />
+          {displayEvents.map((event: any, index: number) => (
+            <TimelineItem key={event.id || index} event={event} index={index} />
           ))}
         </div>
       </div>

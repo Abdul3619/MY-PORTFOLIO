@@ -116,7 +116,7 @@ export default function Home() {
   const { data: services } = useServices();
   const { data: testimonials } = useTestimonials();
   const { data: certificates } = useCertificates();
-  const { data: projects } = useProjects();
+  const { data: projects, isLoading: isProjectsLoading } = useProjects();
   const { data: contact } = useContactInfo();
   const { data: skillsData } = useSkills();
 
@@ -247,7 +247,7 @@ export default function Home() {
             >
               <div className="absolute inset-0 bg-gradient-to-tr from-gold/20 via-transparent to-blue-500/10 mix-blend-overlay z-10 pointer-events-none" />
               <img 
-                src={profile?.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop"} 
+                src={profile?.profile_image_url || profile?.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop"} 
                 alt={profile?.name || "Abdul Wahab"} 
                 className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700"
               />
@@ -541,40 +541,61 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {displayProjects.slice(0, 2).map((project) => (
-              <div key={project.id || project.slug} className="gsap-projects-animate opacity-0">
-                <GlassCard className="group flex flex-col h-full border-white/10" glowOnHover>
-                  <div className="relative h-60 overflow-hidden rounded-t-2xl">
-                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors duration-500 z-10" />
-                    <img 
-                      src={project.thumbnail_url || project.hero_image_url || project.image || 'https://via.placeholder.com/600x400?text=No+Image'} 
-                      alt={project.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <div className="absolute top-4 right-4 z-20 flex gap-2">
-                      {(project.tech_stack || project.techStack || []).slice(0, 2).map((stack: string) => (
-                        <span key={stack} className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider bg-black/75 backdrop-blur-md text-white rounded-md border border-white/10">
-                          {stack}
-                        </span>
-                      ))}
+            {isProjectsLoading ? (
+              <>
+                <div className="bg-white/5 border border-white/10 rounded-2xl h-96 animate-pulse p-6 flex flex-col justify-between">
+                  <div className="h-60 bg-white/10 rounded-xl mb-4" />
+                  <div className="space-y-3">
+                    <div className="h-6 bg-white/10 rounded w-3/4" />
+                    <div className="h-4 bg-white/10 rounded w-full" />
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl h-96 animate-pulse p-6 flex flex-col justify-between">
+                  <div className="h-60 bg-white/10 rounded-xl mb-4" />
+                  <div className="space-y-3">
+                    <div className="h-6 bg-white/10 rounded w-3/4" />
+                    <div className="h-4 bg-white/10 rounded w-full" />
+                  </div>
+                </div>
+              </>
+            ) : (
+              displayProjects.slice(0, 2).map((project, index) => (
+                <div key={project.id || project.slug} className="gsap-projects-animate opacity-0">
+                  <GlassCard className="group flex flex-col h-full border-white/10" glowOnHover>
+                    <div className="relative h-60 overflow-hidden rounded-t-2xl">
+                      <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors duration-500 z-10" />
+                      <img 
+                        src={project.thumbnail_url || project.hero_image_url || project.image || 'https://via.placeholder.com/600x400?text=No+Image'} 
+                        alt={project.title}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        {...(index === 0 ? { fetchPriority: "high" } : {})}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                      <div className="absolute top-4 right-4 z-20 flex gap-2">
+                        {(project.tech_stack || project.techStack || []).slice(0, 2).map((stack: string) => (
+                          <span key={stack} className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider bg-black/75 backdrop-blur-md text-white rounded-md border border-white/10">
+                            {stack}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="p-6 md:p-8 flex flex-col flex-grow">
-                    <h3 className="text-2xl font-bold font-display text-white mb-2 group-hover:text-gold transition-colors duration-300">{project.title}</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed mb-6 flex-grow">{project.description}</p>
-                    
-                    <Link 
-                      to={`/projects/${project.slug || project.id}`} 
-                      className="mt-auto inline-flex items-center gap-2 text-sm text-gold hover:text-white transition-colors duration-300 interactive font-medium"
-                    >
-                      <span>{t("projects.view_specs", "View Project Specifications")}</span>
-                      <ArrowRight size={16} />
-                    </Link>
-                  </div>
-                </GlassCard>
-              </div>
-            ))}
+                    <div className="p-6 md:p-8 flex flex-col flex-grow">
+                      <h3 className="text-2xl font-bold font-display text-white mb-2 group-hover:text-gold transition-colors duration-300">{project.title}</h3>
+                      <p className="text-gray-400 text-sm leading-relaxed mb-6 flex-grow">{project.description}</p>
+                      
+                      <Link 
+                        to={`/projects/${project.slug || project.id}`} 
+                        className="mt-auto inline-flex items-center gap-2 text-sm text-gold hover:text-white transition-colors duration-300 interactive font-medium"
+                      >
+                        <span>{t("projects.view_specs", "View Project Specifications")}</span>
+                        <ArrowRight size={16} />
+                      </Link>
+                    </div>
+                  </GlassCard>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>
