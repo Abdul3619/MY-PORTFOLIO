@@ -5,8 +5,20 @@ const Spline = lazy(() => import("@splinetool/react-spline"));
 
 export default function Background() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isLowPerformance, setIsLowPerformance] = useState(false);
 
   useEffect(() => {
+    // Detect mobile screens (< 768px), slow connection, or low hardware concurrency
+    const isMobile = window.innerWidth < 768;
+    const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    const isSaveData = conn?.saveData === true;
+    const isSlowConn = conn?.effectiveType && ['slow-2g', '2g', '3g'].includes(conn.effectiveType);
+    const lowCpu = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2;
+
+    if (isMobile || isSaveData || isSlowConn || lowCpu) {
+      setIsLowPerformance(true);
+    }
+
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({
         x: e.clientX,
@@ -20,12 +32,14 @@ export default function Background() {
 
   return (
     <div className="fixed inset-0 z-[-1] bg-[#050505] overflow-hidden">
-      {/* 3D Spline Metallic AI Background */}
-      <div className="absolute inset-0 opacity-40">
-        <Suspense fallback={null}>
-          <Spline scene="https://prod.spline.design/6Wq1Q7YGyM-iab9i/scene.splinecode" />
-        </Suspense>
-      </div>
+      {/* 3D Spline Metallic AI Background (Disabled on mobile/slow devices for performance) */}
+      {!isLowPerformance && (
+        <div className="absolute inset-0 opacity-40">
+          <Suspense fallback={null}>
+            <Spline scene="https://prod.spline.design/6Wq1Q7YGyM-iab9i/scene.splinecode" />
+          </Suspense>
+        </div>
+      )}
 
       {/* Multi-Colored Living AI Energy Light Strokes & Pulsing Orbs (Red, Blue, Green, Gold) */}
       <motion.div 

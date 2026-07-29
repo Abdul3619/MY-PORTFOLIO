@@ -247,11 +247,29 @@ export default function Home() {
             >
               <div className="absolute inset-0 bg-gradient-to-tr from-gold/20 via-transparent to-blue-500/10 mix-blend-overlay z-10 pointer-events-none" />
               {profile?.profile_image_url || profile?.avatar_url ? (
-                <img 
-                  src={profile.profile_image_url || profile.avatar_url} 
-                  alt={profile?.name || "Abdul Wahab"} 
-                  className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700"
-                />
+                <div className="w-full h-full relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-black to-zinc-900 animate-pulse flex items-center justify-center text-gold/50 font-display font-bold text-3xl">
+                    AW
+                  </div>
+                  <img 
+                    src={profile.profile_image_url || profile.avatar_url} 
+                    alt={profile?.name || "Abdul Wahab"} 
+                    loading="eager"
+                    // @ts-ignore
+                    fetchPriority="high"
+                    className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700 relative z-0"
+                    onLoad={(e) => {
+                      const target = e.currentTarget;
+                      target.style.opacity = '1';
+                    }}
+                    style={{ opacity: 0, transition: 'opacity 0.5s ease-in-out' }}
+                    ref={(node) => {
+                      if (node && node.complete) {
+                        node.style.opacity = '1';
+                      }
+                    }}
+                  />
+                </div>
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-black/90 via-black/70 to-zinc-900 flex items-center justify-center text-gold font-display font-bold text-5xl tracking-widest">
                   AW

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
+import { projectsData } from '../data/projects';
 
 export const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
   const { data: { session } } = await supabase.auth.getSession();
@@ -84,6 +85,7 @@ export const useProjects = () => {
     queryFn: () => fetchApi('/api/projects'),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    initialData: projectsData,
   });
 };
 
