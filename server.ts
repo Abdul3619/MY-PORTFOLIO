@@ -39,9 +39,15 @@ if (!fs.existsSync(uploadDir)) {
 }
 const upload = multer({
   dest: uploadDir,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+    if (
+      file.mimetype.startsWith('image/') || 
+      file.mimetype === 'application/pdf' || 
+      file.mimetype === 'application/octet-stream' || 
+      file.mimetype === 'binary/octet-stream' ||
+      file.originalname.toLowerCase().endsWith('.pdf')
+    ) {
       cb(null, true);
     } else {
       cb(new Error('Invalid file type. Only images and PDFs are allowed.'));
@@ -544,6 +550,13 @@ async function saveBioJson(updateFn: (current: any) => any) {
 app.post('/api/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    // Ensure bucket 'media' exists
+    try {
+      await supabaseAdmin.storage.createBucket('media', { public: true });
+    } catch (e) {
+      // Ignore if bucket already exists
+    }
 
     let fileBuffer = fs.readFileSync(req.file.path); fs.unlinkSync(req.file.path);
     let mimetype = req.file.mimetype;

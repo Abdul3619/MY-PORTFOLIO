@@ -133,12 +133,11 @@ export default function AdminMedia() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetchApi('/api/upload', {
+      const responseData = await fetchApi('/api/upload', {
         method: 'POST',
         body: formData
       });
       
-      const responseData = await response.json();
       if (responseData.error) throw new Error(responseData.error);
       
       const newAsset: MediaAsset = {
