@@ -129,7 +129,7 @@ export default function Resume() {
             
             <div className="w-full h-[500px] rounded-xl overflow-hidden bg-black/60 border border-white/10 relative flex items-center justify-center">
               <iframe 
-                src={`${resumeUrl}#toolbar=0&view=FitH`} 
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(resumeUrl)}&embedded=true`} 
                 title="Resume Preview"
                 className="w-full h-full border-0"
               />
@@ -237,7 +237,7 @@ export default function Resume() {
           </div>
           <div className="flex-1 w-full bg-black/50 rounded-2xl border border-white/10 overflow-hidden">
             <iframe 
-              src={resumeUrl} 
+              src={`https://docs.google.com/gview?url=${encodeURIComponent(resumeUrl)}&embedded=true`} 
               title="Resume Fullscreen Preview"
               className="w-full h-full border-0"
             />
