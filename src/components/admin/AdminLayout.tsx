@@ -114,7 +114,11 @@ export const AdminLayout: React.FC = () => {
         method: 'POST',
       });
       await queryClient.invalidateQueries();
-      triggerToast('Portfolio Published', 'Your live public portfolio has been synchronized to the latest draft snapshot!', 'success');
+      const summary = data.published_summary;
+      const detailsMsg = summary 
+        ? `Changes published successfully! Exact changes published: Active Resume (${summary.resume_url ? 'Linked' : 'None'}), ${summary.projects_count} Projects, ${summary.skills_count} Skills, ${summary.certificates_count} Certificates, and ${summary.testimonials_count} Testimonials are now live.`
+        : 'Changes published successfully and pushed live to the public site.';
+      triggerToast('Portfolio Published Successfully', detailsMsg, 'success');
     } catch (err: any) {
       triggerToast('Publish Fault', err.message || 'An error occurred during snapshot propagation.', 'danger');
     } finally {

@@ -121,10 +121,19 @@ export default function AdminResume() {
 
       const publicUrl = responseData.url || responseData.publicUrl;
 
-      // Update resume_url inside "profiles" table
-      const { data: pData } = await supabase.from('profiles').select('id').limit(1).single();
+      // Update resume_url and bio json inside "profiles" table
+      const { data: pData } = await supabase.from('profiles').select('id, bio').limit(1).single();
       if (pData) {
-        await supabase.from('profiles').update({ resume_url: publicUrl }).eq('id', pData.id);
+        let currentBio: any = {};
+        try {
+          currentBio = typeof pData.bio === 'string' ? JSON.parse(pData.bio) : (pData.bio || {});
+        } catch (e) {}
+        currentBio.resume_url = publicUrl;
+
+        await supabase.from('profiles').update({ 
+          resume_url: publicUrl,
+          bio: JSON.stringify(currentBio)
+        }).eq('id', pData.id);
       }
 
       setActiveResumeUrl(publicUrl);

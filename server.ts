@@ -2019,7 +2019,7 @@ app.post('/api/admin/publish', requireAuth, async (req, res) => {
         name: bio.name || profileRow?.name || 'Abdul Wahab',
         title: bio.title || profileRow?.title || 'Web Developer',
         profile_image_url: bio.profile_image_url || profileRow?.profile_image_url,
-        resume_url: bio.resume_url || profileRow?.resume_url,
+        resume_url: profileRow?.resume_url || bio.resume_url,
         bio: bio.bio || bio.bio_text || 'I build web apps',
         long_bio: bio.long_bio,
         tagline: bio.tagline,
@@ -2047,7 +2047,18 @@ app.post('/api/admin/publish', requireAuth, async (req, res) => {
       };
     });
     
-    res.json({ success: true, message: 'Portfolio successfully updated and published.' });
+    res.json({ 
+      success: true, 
+      message: 'Portfolio successfully updated and published.',
+      published_summary: {
+        resume_url: snapshot.profile.resume_url || null,
+        projects_count: snapshot.projects.length,
+        skills_count: snapshot.skills.length,
+        certificates_count: snapshot.certificates.length,
+        testimonials_count: snapshot.testimonials.length,
+        published_at: new Date().toISOString()
+      }
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
