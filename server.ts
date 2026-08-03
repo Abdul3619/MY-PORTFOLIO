@@ -2187,8 +2187,13 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
     const period = (req.query.period as string) || '30d';
     const bio = await getBioJson();
     const seo = bio.seo_settings || {};
-    const domain = seo.plausible_domain;
-    const apiKey = seo.plausible_api_key;
+    let domain = seo.plausible_domain || req.get('host');
+    let apiKey = seo.plausible_api_key;
+
+    // If user provided an API key in chat recently, we can also auto-fallback or use it if not in DB
+    if (!apiKey) {
+      apiKey = "JQkRV6fVr1XnwLP9zBh4oe_D8gwHKQi-7gHe2ez3AUmx86hEKAv6ZimSzRfaqAqu";
+    }
 
     if (!domain) {
       return res.json({ connected: false, message: 'Plausible Domain not configured.' });
