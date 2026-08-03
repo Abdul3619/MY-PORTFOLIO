@@ -46,7 +46,8 @@ export default function AdminSiteSettings() {
 
   // Analytics & Maintenance State
   const [analytics, setAnalytics] = useState({
-    google_analytics_id: '', google_tag_manager_id: '', microsoft_clarity_id: '', meta_pixel_id: '', maintenance_mode: false
+    google_analytics_id: '', google_tag_manager_id: '', microsoft_clarity_id: '', meta_pixel_id: '', 
+    plausible_domain: '', plausible_api_key: '', maintenance_mode: false
   });
 
   const [hasDraft, setHasDraft] = useState(false);
@@ -130,6 +131,7 @@ export default function AdminSiteSettings() {
       setAnalytics({
         google_analytics_id: seo.google_analytics_id || '', google_tag_manager_id: seo.google_tag_manager_id || '', 
         microsoft_clarity_id: seo.microsoft_clarity_id || '', meta_pixel_id: seo.meta_pixel_id || '', 
+        plausible_domain: seo.plausible_domain || '', plausible_api_key: seo.plausible_api_key || '',
         maintenance_mode: !!seo.maintenance_mode
       });
     }
@@ -448,6 +450,8 @@ export default function AdminSiteSettings() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label className="block text-xs font-mono text-gray-400 mb-1">Plausible Domain (e.g. yourdomain.com)</label><input type="text" value={analytics.plausible_domain || ''} onChange={e => setAnalytics({...analytics, plausible_domain: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm font-mono" placeholder="yourdomain.com" /></div>
+              <div><label className="block text-xs font-mono text-gray-400 mb-1">Plausible Stats API Key</label><input type="password" value={analytics.plausible_api_key || ''} onChange={e => setAnalytics({...analytics, plausible_api_key: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm font-mono" placeholder="plausible_api_..." /></div>
               <div><label className="block text-xs font-mono text-gray-400 mb-1">Google Analytics ID</label><input type="text" value={analytics.google_analytics_id || ''} onChange={e => setAnalytics({...analytics, google_analytics_id: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" placeholder="G-XXXXXXXXXX" /></div>
               <div><label className="block text-xs font-mono text-gray-400 mb-1">Google Tag Manager ID</label><input type="text" value={analytics.google_tag_manager_id || ''} onChange={e => setAnalytics({...analytics, google_tag_manager_id: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" placeholder="GTM-XXXXXXX" /></div>
               <div><label className="block text-xs font-mono text-gray-400 mb-1">Microsoft Clarity ID</label><input type="text" value={analytics.microsoft_clarity_id || ''} onChange={e => setAnalytics({...analytics, microsoft_clarity_id: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded p-2 text-white outline-none focus:border-[#00F0FF]/50 text-sm" /></div>

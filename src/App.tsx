@@ -86,6 +86,15 @@ function AnimatedRoutes() {
       script.innerHTML = `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y)})(window, document, "clarity", "script", "${seo.microsoft_clarity_id}");`;
       document.head.appendChild(script);
     }
+
+    if (seo?.plausible_domain && !document.getElementById('plausible-script')) {
+      const script = document.createElement('script');
+      script.id = 'plausible-script';
+      script.defer = true;
+      script.setAttribute('data-domain', seo.plausible_domain);
+      script.src = 'https://plausible.io/js/script.js';
+      document.head.appendChild(script);
+    }
   }, [seo]);
 
   const location = useLocation();

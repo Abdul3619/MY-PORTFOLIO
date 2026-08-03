@@ -34,30 +34,29 @@ export const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     },
   });
 
-  const contentType = response.headers.get("content-type");
-  const isJson = contentType && contentType.includes("application/json");
-  if (!response.ok) {
-    let errorMessage = `Error ${response.status}: ${response.statusText}`;
-    if (isJson) {
-      const errorData = await response.json().catch(() => ({}));
-      errorMessage = errorData.error || errorMessage;
-    } else {
+  const text = await response.text();
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (e) {
+    if (!response.ok) {
       if (response.status === 413) {
-        errorMessage = "File is too large to upload. Please try a smaller image.";
+        throw new Error("File is too large to upload. Please try a smaller file.");
       } else if (response.status === 502) {
-        errorMessage = "Server is currently restarting or unavailable. Please try again.";
+        throw new Error("Server is currently restarting or unavailable. Please try again.");
       } else {
-        errorMessage = `Unexpected server error (${response.status}).`;
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
     }
-    throw new Error(errorMessage);
-  }
-  if (!isJson) {
-    const text = await response.text();
     console.error("Non-JSON response:", text.substring(0, 200));
     throw new Error("Unexpected server response format (expected JSON). Server returned: " + text.substring(0, 100));
   }
-  return response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || `Error ${response.status}: ${response.statusText}`);
+  }
+
+  return data;
 };
 
 export const useProfile = () => {

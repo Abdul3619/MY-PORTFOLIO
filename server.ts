@@ -193,6 +193,8 @@ const seoSchema = z.object({
   google_tag_manager_id: z.string().optional().nullable(),
   microsoft_clarity_id: z.string().optional().nullable(),
   meta_pixel_id: z.string().optional().nullable(),
+  plausible_domain: z.string().optional().nullable(),
+  plausible_api_key: z.string().optional().nullable(),
   maintenance_mode: z.boolean().optional().nullable(),
   site_title: z.string().optional().nullable(),
   meta_description: z.string().optional().nullable(),
@@ -2178,6 +2180,49 @@ app.get('/api/admin/analytics', requireAuth, async (req, res) => {
   const { count: visitorsCount } = await supabaseAdmin.from('visitors').select('*', { count: 'exact', head: true });
   const { count: eventsCount } = await supabaseAdmin.from('analytics_events').select('*', { count: 'exact', head: true });
   res.json({ total_visitors: visitorsCount || 0, total_events: eventsCount || 0 });
+});
+
+app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
+  try {
+    const period = (req.query.period as string) || '30d';
+    const bio = await getBioJson();
+    const seo = bio.seo_settings || {};
+    const domain = seo.plausible_domain;
+    const apiKey = seo.plausible_api_key;
+
+    if (!domain) {
+      return res.json({ connected: false, message: 'Plausible Domain not configured.' });
+    }
+
+    if (!apiKey) {
+      return res.json({ connected: true, domain, apiKeyConfigured: false, message: 'Plausible Domain configured but API Key not provided. Live tracking script is active on site.' });
+    }
+
+    const headers = { 'Authorization': `Bearer ${apiKey}` };
+    const [aggregateRes, timeseriesRes, sourcesRes, browsersRes] = await Promise.all([
+      fetch(`https://plausible.io/api/v1/stats/aggregate?site_id=${domain}&period=${period}&metrics=visitors,pageviews,bounce_rate,visit_duration`, { headers }),
+      fetch(`https://plausible.io/api/v1/stats/timeseries?site_id=${domain}&period=${period}&metrics=visitors,pageviews`, { headers }),
+      fetch(`https://plausible.io/api/v1/stats/breakdown?site_id=${domain}&property=visit:source&period=${period}&limit=5`, { headers }),
+      fetch(`https://plausible.io/api/v1/stats/breakdown?site_id=${domain}&property=visit:browser&period=${period}&limit=5`, { headers })
+    ]);
+
+    const aggregate = aggregateRes.ok ? await aggregateRes.json() : { results: {} };
+    const timeseries = timeseriesRes.ok ? await timeseriesRes.json() : { results: [] };
+    const sources = sourcesRes.ok ? await sourcesRes.json() : { results: [] };
+    const browsers = browsersRes.ok ? await browsersRes.json() : { results: [] };
+
+    res.json({
+      connected: true,
+      domain,
+      apiKeyConfigured: true,
+      aggregate: aggregate.results || {},
+      timeseries: timeseries.results || [],
+      sources: sources.results || [],
+      browsers: browsers.results || []
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Global API 404 handler
