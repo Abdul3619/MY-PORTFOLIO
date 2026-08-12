@@ -84,7 +84,6 @@ export const useProjects = () => {
     queryFn: () => fetchApi('/api/projects'),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    initialData: projectsData,
   });
 };
 

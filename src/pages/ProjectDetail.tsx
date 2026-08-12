@@ -117,6 +117,9 @@ export default function ProjectDetail() {
             transition={{ duration: 1.5, ease: "easeOut" }}
             src={heroImage} 
             alt={title}
+            loading="eager"
+            // @ts-ignore
+            fetchPriority="high"
             className="w-full h-full object-cover"
           />
           <div className="absolute bottom-8 left-8 right-8 z-20">
@@ -189,6 +192,7 @@ export default function ProjectDetail() {
                       <img 
                         src={item.url} 
                         alt={item.caption || `${title} Gallery ${idx + 1}`} 
+                        loading="lazy"
                         referrerPolicy="no-referrer"
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                       />

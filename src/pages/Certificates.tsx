@@ -75,6 +75,7 @@ export default function Certificates() {
                   <img 
                     src={(cert.image_url || cert.image)} 
                     alt={cert.title} 
+                    loading="lazy"
                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-105"
                   />
                 </div>
@@ -120,6 +121,7 @@ export default function Certificates() {
                   <img 
                     src={selectedCert.image_url || selectedCert.image} 
                     alt={selectedCert.title} 
+                    loading="lazy"
                     className="w-full max-h-[80vh] object-contain"
                   />
                   <div className="p-6 bg-gradient-to-t from-bg-dark to-transparent absolute bottom-0 left-0 right-0">

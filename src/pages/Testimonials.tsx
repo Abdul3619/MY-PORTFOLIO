@@ -124,6 +124,7 @@ export default function Testimonials() {
                         <img 
                           src={displayTestimonials[currentIndex].photo || displayTestimonials[currentIndex].avatar} 
                           alt={displayTestimonials[currentIndex].name}
+                          loading="lazy"
                           className="w-full h-full object-cover"
                         />
                       </div>

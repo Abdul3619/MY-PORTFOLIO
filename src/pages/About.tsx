@@ -115,6 +115,7 @@ export default function About() {
             <img 
               src={profile.cover_image_url} 
               alt="About Cover" 
+              loading="lazy"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />

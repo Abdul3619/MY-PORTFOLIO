@@ -124,7 +124,7 @@ export default function Home() {
   const displayServices = services && services.length > 0 ? services : differentCards;
   const displayTestimonials = testimonials && testimonials.length > 0 ? testimonials : homeTestimonials;
   const displayCertificates = certificates && certificates.length > 0 ? certificates : homeCertificates;
-  const displayProjects = projects && projects.length > 0 ? projects.slice(0,4) : projectsData.slice(0,4);
+  const displayProjects = projects && projects.length > 0 ? projects.slice(0,4) : [];
   const socialLinks = {
     github: contact?.github_url || "#",
     linkedin: contact?.linkedin_url || "#",
@@ -579,20 +579,26 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {isProjectsLoading ? (
               <>
-                <div className="bg-white/5 border border-white/10 rounded-2xl h-96 animate-pulse p-6 flex flex-col justify-between">
-                  <div className="h-60 bg-white/10 rounded-xl mb-4" />
-                  <div className="space-y-3">
-                    <div className="h-6 bg-white/10 rounded w-3/4" />
-                    <div className="h-4 bg-white/10 rounded w-full" />
+                {[1, 2].map((i) => (
+                  <div key={i} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col h-full animate-pulse">
+                    <div className="relative h-60 bg-white/10 w-full">
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        <div className="w-16 h-6 bg-white/20 rounded-md" />
+                        <div className="w-12 h-6 bg-white/20 rounded-md" />
+                      </div>
+                    </div>
+                    <div className="p-6 md:p-8 flex flex-col flex-grow space-y-4">
+                      <div className="h-7 bg-white/15 rounded-lg w-3/4" />
+                      <div className="space-y-2 flex-grow">
+                        <div className="h-4 bg-white/10 rounded w-full" />
+                        <div className="h-4 bg-white/10 rounded w-5/6" />
+                      </div>
+                      <div className="pt-4 mt-auto">
+                        <div className="h-5 bg-white/10 rounded w-48" />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl h-96 animate-pulse p-6 flex flex-col justify-between">
-                  <div className="h-60 bg-white/10 rounded-xl mb-4" />
-                  <div className="space-y-3">
-                    <div className="h-6 bg-white/10 rounded w-3/4" />
-                    <div className="h-4 bg-white/10 rounded w-full" />
-                  </div>
-                </div>
+                ))}
               </>
             ) : (
               displayProjects.slice(0, 2).map((project, index) => (
@@ -704,6 +710,7 @@ export default function Home() {
                   <img 
                     src={tItem.avatar} 
                     alt={tItem.name}
+                    loading="lazy"
                     className="w-12 h-12 rounded-full object-cover border border-gold/30"
                   />
                   <div>
