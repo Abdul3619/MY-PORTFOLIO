@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSeo, fetchApi } from "./hooks/useApi";
 import { AppDataProvider, useAppData } from "./contexts/AppDataContext";
+import { BackgroundProvider } from "./contexts/BackgroundContext";
 import { Layout } from "./Layout";
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -139,9 +140,11 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppDataProvider>
-        <AnimatedRoutes />
-      </AppDataProvider>
+      <BackgroundProvider>
+        <AppDataProvider>
+          <AnimatedRoutes />
+        </AppDataProvider>
+      </BackgroundProvider>
     </BrowserRouter>
   );
 }

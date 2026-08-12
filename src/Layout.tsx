@@ -1,11 +1,19 @@
 import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import Lenis from "lenis";
+import { trackEvent } from "./hooks/useApi";
 
 import Background from "./components/Background";
 import { Navbar } from "./components/Navbar";
 import CustomCursor from "./components/CustomCursor";
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackEvent('page_view', location.pathname);
+  }, [location.pathname]);
+
   useEffect(() => {
     const lenis = new Lenis({
       duration: 1.2,

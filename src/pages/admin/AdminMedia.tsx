@@ -37,18 +37,9 @@ export default function AdminMedia() {
   const [copiedName, setCopiedName] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Fallback initial seeded assets
-  const mockAssets: MediaAsset[] = [
-    { name: 'hotel_hero_landscape.jpg', id: 'a1', url: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=600', created_at: new Date(Date.now() - 3600000 * 48).toISOString(), size: 485 * 1024, type: 'image/jpeg' },
-    { name: 'solar_panel_arrays.png', id: 'a2', url: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=600', created_at: new Date(Date.now() - 3600000 * 12).toISOString(), size: 1024 * 1200, type: 'image/png' },
-    { name: 'iot_control_terminal.jpg', id: 'a3', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=600', created_at: new Date(Date.now() - 3600000 * 24).toISOString(), size: 240 * 1024, type: 'image/jpeg' }
-  ];
-
   const fetchAssetsAndLogs = async () => {
     setLoading(true);
     try {
-      // 1. Fetch images from Supabase Storage "media" bucket
-      // We fall back to mock assets list if the storage bucket lacks items
       const { data: storageFiles, error } = await supabase.storage.from('media').list();
       
       if (storageFiles && storageFiles.length > 0) {
@@ -68,37 +59,20 @@ export default function AdminMedia() {
         });
         setMediaAssets(assets);
       } else {
-        const cached = localStorage.getItem('media_library_cache');
-        if (cached) {
-          setMediaAssets(JSON.parse(cached));
-        } else {
-          setMediaAssets(mockAssets);
-          localStorage.setItem('media_library_cache', JSON.stringify(mockAssets));
-        }
+        setMediaAssets([]);
       }
 
-      // 2. Fetch full historical system activity_log
       const { data: actLogs } = await supabase
         .from('activity_log')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(30);
 
-      if (actLogs && actLogs.length > 0) {
-        setAuditLogs(actLogs);
-      } else {
-        setAuditLogs([
-          { id: 1, action: 'User Authenticated', details: 'Admin logged in from IP 192.168.1.1', created_at: new Date(Date.now() - 300000).toISOString() },
-          { id: 2, action: 'Database Seeds Complete', details: 'Initialized 9 admin pages CRM environment models.', created_at: new Date(Date.now() - 1200000).toISOString() },
-          { id: 3, action: 'Storage Bucket Ingested', details: 'Configured media folder links and CDN pointers.', created_at: new Date(Date.now() - 3600000).toISOString() },
-          { id: 4, action: 'SEO Profiles Cached', details: 'Pushed active sitemap.xml to Google indexes.', created_at: new Date(Date.now() - 7200000).toISOString() }
-        ]);
-      }
-
+      setAuditLogs(actLogs || []);
     } catch (err: any) {
-      console.warn("Storage fetch failure, initializing local-first asset caches", err.message);
-      const cached = localStorage.getItem('media_library_cache');
-      setMediaAssets(cached ? JSON.parse(cached) : mockAssets);
+      console.error('Error fetching media and logs:', err.message);
+      setMediaAssets([]);
+      setAuditLogs([]);
     } finally {
       setLoading(false);
     }
@@ -106,6 +80,17 @@ export default function AdminMedia() {
 
   useEffect(() => {
     fetchAssetsAndLogs();
+
+    const channel = supabase
+      .channel('admin-media-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, () => {
+        fetchAssetsAndLogs();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   

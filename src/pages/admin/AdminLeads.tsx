@@ -48,48 +48,19 @@ export default function AdminLeads() {
   // Pipeline stages
   const stages = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Won', 'Lost'];
 
-  // Seed default high fidelity mock data if tables don't exist
-  const mockLeads: Lead[] = [
-    { id: 'l1', name: 'Al-Farooq Logistics', email: 'operations@alfarooq.com', company: 'Al-Farooq Group', status: 'Proposal Sent', value: 15000, source: 'LinkedIn Inbound', created_at: new Date(Date.now() - 48 * 3600000).toISOString(), phone: '+966-501-234-567' },
-    { id: 'l2', name: 'Sarah Al-Ghamdi', email: 'sarah.g@solarcorp.sa', company: 'SolarCorp Saudi', status: 'Won', value: 38000, source: 'Contact Form', created_at: new Date(Date.now() - 120 * 3600000).toISOString(), phone: '+966-505-111-222' },
-    { id: 'l3', name: 'Khalid Abdullah', email: 'khalid@riyadhinno.com', company: 'Riyadh Innovation Hub', status: 'Qualified', value: 8500, source: 'Direct Referral', created_at: new Date(Date.now() - 12 * 3600000).toISOString(), phone: '+966-544-000-999' },
-    { id: 'l4', name: 'Zain Digital Solutions', email: 'tech@zain.digital', company: 'Zain Middle East', status: 'New', value: 24000, source: 'E-mail Inbound', created_at: new Date(Date.now() - 1 * 3600000).toISOString(), phone: '+966-555-444-333' },
-    { id: 'l5', name: 'Sultan Al-Otaibi', email: 'sultan@otaibiconsult.com', company: 'Otaibi Engineering', status: 'Contacted', value: 12500, source: 'LinkedIn Outbound', created_at: new Date(Date.now() - 24 * 3600000).toISOString(), phone: '+966-509-999-888' },
-    { id: 'l6', name: 'Neom Biotech Lab', email: 'dr.fahad@neomlabs.com', company: 'Neom Biotech', status: 'Lost', value: 45000, source: 'Contact Form', created_at: new Date(Date.now() - 240 * 3600000).toISOString(), phone: '+966-500-000-001' }
-  ];
-
   const fetchLeadsAndNotes = async () => {
     setLoading(true);
     try {
-      // Try to select from leads table
       const { data: dbLeads, error } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      if (dbLeads && dbLeads.length > 0) {
-        setLeads(dbLeads as any[]);
-      } else {
-        // Fallback to local storage or mock leads
-        const cached = localStorage.getItem('crm_leads_cache');
-        if (cached) {
-          setLeads(JSON.parse(cached));
-        } else {
-          setLeads(mockLeads);
-          localStorage.setItem('crm_leads_cache', JSON.stringify(mockLeads));
-        }
-      }
+      setLeads(dbLeads || []);
     } catch (err: any) {
-      console.warn('Leads table missing, utilizing shadow local-first database', err.message);
-      const cached = localStorage.getItem('crm_leads_cache');
-      if (cached) {
-        setLeads(JSON.parse(cached));
-      } else {
-        setLeads(mockLeads);
-        localStorage.setItem('crm_leads_cache', JSON.stringify(mockLeads));
-      }
+      console.error('Error fetching leads:', err.message);
+      setLeads([]);
     } finally {
       setLoading(false);
     }
@@ -97,6 +68,17 @@ export default function AdminLeads() {
 
   useEffect(() => {
     fetchLeadsAndNotes();
+
+    const channel = supabase
+      .channel('admin-leads-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+        fetchLeadsAndNotes();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Fetch log notes for selected lead

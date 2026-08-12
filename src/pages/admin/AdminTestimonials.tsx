@@ -31,13 +31,6 @@ export default function AdminTestimonials() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'Pending' | 'Approved'>('Pending');
 
-  // Realistic fallback testimonials if database table query returns empty
-  const mockTestimonials: Testimonial[] = [
-    { id: 't1', name: 'Al-Farooq Logistics Corp', company: 'Farooq Logistics', role: 'Head of Solar Operations', content: 'Abdulwahab delivered an exceptional custom solar optimization CRM system that decreased our site assessment workflow durations by 45%. Highly professional, communicative, and technically superb developer!', rating: 5, is_approved: false, created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
-    { id: 't2', name: 'Sarah Al-Mansoori', company: 'Mansoori Digital Agency', role: 'CTO & Creative Lead', content: 'Our outdated client management pipeline was fully rebuilt by Abdulwahab. The glassmorphic admin interface is extremely fast, highly responsive on mobile, and connects beautifully to our Supabase database. Stellar craft!', rating: 5, is_approved: true, created_at: new Date(Date.now() - 3600000 * 48).toISOString() },
-    { id: 't3', name: 'John Doe', company: 'Global AgriTech Inc', role: 'Director of Technology', content: 'Excellent fullstack integration services. Abdul created custom PostgreSQL database hooks and automated Slack alert triggers that keep our fields aligned. Will contract again.', rating: 4, is_approved: true, created_at: new Date(Date.now() - 3600000 * 120).toISOString() }
-  ];
-
   const fetchTestimonials = async () => {
     setLoading(true);
     try {
@@ -47,27 +40,10 @@ export default function AdminTestimonials() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      if (data && data.length > 0) {
-        setTestimonials(data as Testimonial[]);
-      } else {
-        const cached = localStorage.getItem('testimonials_cache');
-        if (cached) {
-          setTestimonials(JSON.parse(cached));
-        } else {
-          setTestimonials(mockTestimonials);
-          localStorage.setItem('testimonials_cache', JSON.stringify(mockTestimonials));
-        }
-      }
+      setTestimonials(data || []);
     } catch (err: any) {
-      console.warn('Testimonials table missing, applying local cache streams', err.message);
-      const cached = localStorage.getItem('testimonials_cache');
-      if (cached) {
-        setTestimonials(JSON.parse(cached));
-      } else {
-        setTestimonials(mockTestimonials);
-        localStorage.setItem('testimonials_cache', JSON.stringify(mockTestimonials));
-      }
+      console.error('Error fetching testimonials:', err.message);
+      setTestimonials([]);
     } finally {
       setLoading(false);
     }
@@ -75,6 +51,17 @@ export default function AdminTestimonials() {
 
   useEffect(() => {
     fetchTestimonials();
+
+    const channel = supabase
+      .channel('admin-testimonials-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'testimonials' }, () => {
+        fetchTestimonials();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleApprove = async (id: string) => {

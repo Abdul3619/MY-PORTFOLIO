@@ -35,13 +35,6 @@ export default function AdminMessages() {
   // Reply drafting state
   const [replyText, setReplyText] = useState('');
 
-  // Default fallback messages if table is empty
-  const mockMessages: Message[] = [
-    { id: 'm1', name: 'Abdul Wahab', email: 'wahab@riyadhsolarsystems.com', subject: 'Solar Array Design Optimization Query', message: 'Hello Abdulwahab,\n\nWe saw your recent solar power engineering portfolio. We would love to discuss a commercial project design contract with you regarding a 50kW industrial grid setup in Riyadh.\n\nPlease let us know your availability for a consultant call next Tuesday.\n\nBest,\nAbdul Wahab', created_at: new Date(Date.now() - 30 * 60000).toISOString(), is_read: false },
-    { id: 'm2', name: 'Leila Al-Farsi', email: 'leila.f@jeddahcreatives.sa', subject: 'Fullstack React CRM Redevelopment', message: 'Hi Abdul,\n\nOur creative agency is currently running an outdated CRM engine and looking for an experienced developer to rebuild our system utilizing Next.js, Tailwind, and Supabase.\n\nYour portfolio is highly impressive. What are your standard hourly consulting fees for custom CRM projects?\n\nKind Regards,\nLeila Al-Farsi', created_at: new Date(Date.now() - 3600000 * 5).toISOString(), is_read: true },
-    { id: 'm3', name: 'John Doe', email: 'john@interglobe-logistics.com', subject: 'API Endpoint Performance Tuning', message: 'Abdul,\n\nI noticed your open-source database sync utility on GitHub. We need help tuning some Postgres indexing and writing custom RLS policies for our company app.\n\nDo you accept freelance contract work?\n\nSincerely,\nJohn', created_at: new Date(Date.now() - 3600000 * 24).toISOString(), is_read: true }
-  ];
-
   const fetchMessages = async () => {
     setLoading(true);
     try {
@@ -51,19 +44,13 @@ export default function AdminMessages() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
+      setMessages(data || []);
       if (data && data.length > 0) {
-        setMessages(data as Message[]);
         setSelectedMsgId(data[0].id);
-      } else {
-        // Fallback mocked messages
-        setMessages(mockMessages);
-        setSelectedMsgId(mockMessages[0].id);
       }
     } catch (err: any) {
-      console.warn('Contact messages read fallback triggered', err.message);
-      setMessages(mockMessages);
-      setSelectedMsgId(mockMessages[0].id);
+      console.error('Error fetching messages:', err.message);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
@@ -71,6 +58,17 @@ export default function AdminMessages() {
 
   useEffect(() => {
     fetchMessages();
+
+    const channel = supabase
+      .channel('admin-messages-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages' }, () => {
+        fetchMessages();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleMarkAsRead = async (id: string, readVal: boolean) => {
