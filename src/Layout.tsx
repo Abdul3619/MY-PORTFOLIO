@@ -1,14 +1,15 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useOutlet } from "react-router-dom";
+import { AnimatePresence } from "motion/react";
 import Lenis from "lenis";
 import { trackEvent } from "./hooks/useApi";
-
 import Background from "./components/Background";
 import { Navbar } from "./components/Navbar";
 import CustomCursor from "./components/CustomCursor";
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout() {
   const location = useLocation();
+  const outlet = useOutlet();
 
   useEffect(() => {
     trackEvent('page_view', location.pathname);
@@ -42,8 +43,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <Background />
       <Navbar />
       
-      <main className="min-h-screen pt-32 pb-20 px-4 md:px-8 max-w-7xl mx-auto flex flex-col relative z-10">
-        {children}
+      <main className="min-h-screen pt-32 pb-20 px-4 md:px-8 max-w-7xl mx-auto flex flex-col relative z-10 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <div key={location.pathname} className="w-full flex flex-col flex-1">
+            {outlet}
+          </div>
+        </AnimatePresence>
       </main>
     </>
   );

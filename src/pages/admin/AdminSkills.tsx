@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAdmin } from '../../components/admin/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
+import { CardSkeleton } from '../../components/Skeleton';
 import { 
   Plus, 
   Search,
@@ -263,7 +264,11 @@ export default function AdminSkills() {
             exit={{ opacity: 0 }}
           >
             {loading ? (
-              <div className="p-8 text-center text-gray-400">Loading skills...</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <CardSkeleton key={i} />
+                ))}
+              </div>
             ) : filteredSkills.length === 0 ? (
               <div className="p-12 text-center border border-white/10 rounded-lg bg-black/20">
                 <p className="text-gray-400 mb-4">No skills found.</p>

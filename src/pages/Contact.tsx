@@ -64,6 +64,16 @@ export default function Contact() {
                     <p className="text-lg text-white font-medium">{contactInfo?.email || "abdulwahababdullah3619@gmail.com"}</p>
                   </div>
                 </a>
+                
+                <a href="https://wa.me/22871606697" target="_blank" rel="noreferrer" className="flex items-center gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
+                  <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform border-green-400/20 group-hover:bg-green-400/10">
+                    <MessageCircle size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">WhatsApp</p>
+                    <p className="text-lg text-white font-medium">+228 71 60 66 97</p>
+                  </div>
+                </a>
               </div>
             </div>
 

@@ -89,16 +89,15 @@ function AnimatedRoutes() {
   }, [location.pathname]);
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname.split('/')[1]}>
-        {/* Public Routes with Main Layout */}
-        {seo?.maintenance_mode ? (
-          <Route element={<Outlet />}>
-            <Route path="/" element={<Maintenance />} />
-            <Route path="*" element={<Maintenance />} />
-          </Route>
-        ) : (
-          <Route element={<Layout><Outlet /></Layout>}>
+    <Routes location={location}>
+      {/* Public Routes with Main Layout */}
+      {seo?.maintenance_mode ? (
+        <Route element={<Outlet />}>
+          <Route path="/" element={<Maintenance />} />
+          <Route path="*" element={<Maintenance />} />
+        </Route>
+      ) : (
+        <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/skills" element={<Skills />} />
@@ -110,30 +109,29 @@ function AnimatedRoutes() {
           <Route path="/resume" element={<Resume />} />
           <Route path="/contact" element={<Contact />} />
         </Route>
-        )}
+      )}
 
-        {/* Admin Login */}
-        <Route path="/admin/login" element={<AdminLogin />} />
+      {/* Admin Login */}
+      <Route path="/admin/login" element={<AdminLogin />} />
 
-        {/* Protected Admin Routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AdminLayout />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/profile" element={<AdminSiteSettings />} />
-            <Route path="/admin/settings" element={<AdminSiteSettings />} />
-            <Route path="/admin/projects" element={<AdminProjects />} />
-            <Route path="/admin/skills" element={<AdminSkills />} />
-            <Route path="/admin/leads" element={<AdminLeads />} />
-            <Route path="/admin/testimonials" element={<AdminTestimonials />} />
-            <Route path="/admin/reviews" element={<AdminReviews />} />
-            <Route path="/admin/messages" element={<AdminMessages />} />
-            <Route path="/admin/analytics" element={<AdminAnalytics />} />
-            <Route path="/admin/resume" element={<AdminResume />} />
-            <Route path="/admin/media" element={<AdminMedia />} />
-          </Route>
+      {/* Protected Admin Routes */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/profile" element={<AdminSiteSettings />} />
+          <Route path="/admin/settings" element={<AdminSiteSettings />} />
+          <Route path="/admin/projects" element={<AdminProjects />} />
+          <Route path="/admin/skills" element={<AdminSkills />} />
+          <Route path="/admin/leads" element={<AdminLeads />} />
+          <Route path="/admin/testimonials" element={<AdminTestimonials />} />
+          <Route path="/admin/reviews" element={<AdminReviews />} />
+          <Route path="/admin/messages" element={<AdminMessages />} />
+          <Route path="/admin/analytics" element={<AdminAnalytics />} />
+          <Route path="/admin/resume" element={<AdminResume />} />
+          <Route path="/admin/media" element={<AdminMedia />} />
         </Route>
-      </Routes>
-    </AnimatePresence>
+      </Route>
+    </Routes>
   );
 }
 

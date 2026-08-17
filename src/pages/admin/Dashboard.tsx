@@ -88,7 +88,12 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const scope = dateFilter === '7D' ? '7d' : dateFilter === '30D' ? '30d' : '90d';
-      const [plausibleRes, vRes, mRes, pRes, leadsRes, actRes, downloadsRes, eventsRes, projectsRes] = await Promise.all([
+      const days = dateFilter === '7D' ? 7 : dateFilter === '30D' ? 30 : 90;
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - days);
+      const daysAgoString = daysAgo.toISOString();
+
+      const [plausibleRes, vRes, mRes, pRes, leadsRes, actRes, downloadsRes, eventsRes, projectsRes, recentEventsRes, recentVisitorsRes] = await Promise.all([
         fetchApi(`/api/admin/plausible-stats?period=${scope}`).catch(() => null),
         supabase.from('visitors').select('*', { count: 'exact', head: true }),
         supabase.from('contact_messages').select('*', { count: 'exact', head: true }),
@@ -97,7 +102,9 @@ export default function AdminDashboard() {
         supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(8),
         supabase.from('analytics_events').select('*', { count: 'exact', head: true }).in('event_type', ['download_resume', 'resume_download']),
         supabase.from('analytics_events').select('*', { count: 'exact', head: true }).in('event_type', ['page_view', 'project_view', 'project_click']),
-        supabase.from('projects').select('id, title').limit(10)
+        supabase.from('projects').select('id, title, slug').limit(10),
+        supabase.from('analytics_events').select('page_url, created_at, metadata').gte('created_at', daysAgoString),
+        supabase.from('visitors').select('created_at').gte('created_at', daysAgoString)
       ]);
 
       const vCount = vRes.count || 0;
@@ -132,13 +139,21 @@ export default function AdminDashboard() {
         const days = dateFilter === '7D' ? 7 : dateFilter === '30D' ? 30 : 90;
         const chartPoints = [];
         const now = new Date();
+        const recentVisitors = recentVisitorsRes.data || [];
+        const recentEvents = recentEventsRes.data || [];
+
         for (let i = days - 1; i >= 0; i--) {
           const d = new Date();
           d.setDate(now.getDate() - i);
+          const dateString = d.toISOString().split('T')[0];
+
+          const dayVisitors = recentVisitors.filter(v => v.created_at.startsWith(dateString)).length;
+          const dayEvents = recentEvents.filter(e => e.created_at.startsWith(dateString)).length;
+
           chartPoints.push({
             date: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
-            visitors: i === 0 ? finalVisitors : 0,
-            pageViews: i === 0 ? finalPageviews : 0
+            visitors: dayVisitors,
+            pageViews: dayEvents
           });
         }
         setVisitorChartData(chartPoints);
@@ -161,15 +176,33 @@ export default function AdminDashboard() {
 
       // Real project engagement calculation based on database projects
       const COLORS = ['#00F0FF', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6'];
+      
+      // Calculate real views from analytics events
+      const allEvents = recentEventsRes.data || [];
+      const projectViewsMap = new Map();
+      
+      allEvents.forEach(e => {
+        if (e.page_url && e.page_url.includes('/projects/')) {
+          const idOrSlug = e.page_url.split('/projects/')[1]?.split('?')[0];
+          if (idOrSlug) {
+            projectViewsMap.set(idOrSlug, (projectViewsMap.get(idOrSlug) || 0) + 1);
+          }
+        }
+      });
+
       const calculatedTopProjects = projectsList.map((proj: any, idx: number) => {
-        // Real view count based on project title or id in analytics events metadata
-        const views = Math.floor(Math.random() * 50) + 10; // Real dynamic distribution or fetched count
+        const views = (projectViewsMap.get(proj.slug) || 0) + (projectViewsMap.get(proj.id) || 0) + 1; // Real view count + 1 baseline
         return {
           name: proj.title,
           views: views,
-          percentage: Math.min(100, views * 2),
+          percentage: 0, // We will calculate this based on max
           color: COLORS[idx % COLORS.length]
         };
+      }).sort((a, b) => b.views - a.views).slice(0, 5); // top 5
+      
+      const maxViews = Math.max(...calculatedTopProjects.map(p => p.views), 1);
+      calculatedTopProjects.forEach(p => {
+        p.percentage = Math.min(100, Math.max(2, (p.views / maxViews) * 100));
       });
       setTopProjects(calculatedTopProjects.length > 0 ? calculatedTopProjects : [
         { name: 'Portfolio Core Engine', views: finalPageviews || 10, percentage: 100, color: '#00F0FF' }

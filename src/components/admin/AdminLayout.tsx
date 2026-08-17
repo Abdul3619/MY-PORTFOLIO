@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, Link, useLocation, useOutlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -84,6 +84,7 @@ export const ProtectedRoute: React.FC = () => {
 
 export const AdminLayout: React.FC = () => {
   const location = useLocation();
+  const outlet = useOutlet();
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
   
@@ -485,8 +486,12 @@ export const AdminLayout: React.FC = () => {
         </header>
 
           {/* Main Scrollable View Area */}
-          <main className="flex-1 mt-14 overflow-y-auto p-4 md:p-6 w-full max-w-[1400px] mx-auto">
-            <Outlet />
+          <main className="flex-1 mt-14 overflow-y-auto p-4 md:p-6 w-full max-w-[1400px] mx-auto overflow-hidden">
+            <AnimatePresence mode="wait">
+              <div key={location.pathname} className="w-full">
+                {outlet}
+              </div>
+            </AnimatePresence>
           </main>
         </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Star, MessageSquare, Plus, X, Send, Filter, CheckCircle2, AlertTriangle, HelpCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { CardSkeleton } from "./Skeleton";
 
 interface Review {
   id: string;
@@ -288,9 +289,10 @@ export function ClientReviewsSection() {
 
           {/* Loader or Feed */}
           {loading ? (
-            <div className="h-48 flex flex-col items-center justify-center">
-              <div className="w-8 h-8 border-2 border-gold/20 border-t-gold rounded-full animate-spin mb-3" />
-              <p className="font-mono text-xs text-gold uppercase tracking-wider">{t("reviews.loading", "Syncing reviews feed...")}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CardSkeleton key={i} />
+              ))}
             </div>
           ) : reviews.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border border-white/5 bg-white/[0.01] max-w-lg mx-auto">

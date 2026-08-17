@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { ExternalLink, ArrowRight } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
+import { CardSkeleton } from "@/components/Skeleton";
 import { useProjects } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 
@@ -31,8 +32,22 @@ export default function Projects() {
 
   if (isLoading) {
     return (
-      <PageTransition className="w-full min-h-[50vh] flex items-center justify-center">
-        <div className="text-xl text-gray-400">{t("common.loading", "Loading projects...")}</div>
+      <PageTransition className="w-full">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16 md:mb-24 mt-12">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
+              {t("projects.title_part1", "FEATURED")} <span className="text-gradient">{t("projects.title_part2", "PROJECTS")}</span>
+            </h1>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto opacity-0">
+              {t("projects.subtitle", "A curated selection of digital experiences built with precision and intent.")}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
       </PageTransition>
     );
   }

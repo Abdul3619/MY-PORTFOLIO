@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAdmin } from '../../components/admin/AdminLayout';
+import { CardSkeleton } from '../../components/Skeleton';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MessageSquare, 
@@ -293,9 +294,10 @@ export default function AdminReviews() {
 
       {/* Loader */}
       {loading ? (
-        <div className="h-64 flex flex-col items-center justify-center">
-          <div className="w-10 h-10 border-2 border-[#00F0FF]/20 border-t-[#00F0FF] rounded-full animate-spin mb-4" />
-          <p className="font-mono text-xs text-[#00F0FF] uppercase tracking-wider animate-pulse">Loading Client Reviews Feed...</p>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
         </div>
       ) : error ? (
         <div className="glass-admin p-6 rounded-xl border border-rose-500/30 bg-rose-500/5 text-center max-w-lg mx-auto">

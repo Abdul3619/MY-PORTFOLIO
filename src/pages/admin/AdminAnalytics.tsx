@@ -59,7 +59,7 @@ export default function AdminAnalytics() {
           <h1 className="text-3xl font-kanit font-black tracking-wider text-white uppercase text-cyan-glow">
             Visitor & Traffic Analytics
           </h1>
-          <p className="text-xs font-mono text-[#00F0FF]/80">REAL-TIME PRIVACY-FRIENDLY PLAUSIBLE ANALYTICS</p>
+          <p className="text-xs font-mono text-[#00F0FF]/80">REAL-TIME PRIVACY-FRIENDLY ANALYTICS ENGINE</p>
         </div>
         
         {/* Date scope switcher */}
@@ -86,65 +86,22 @@ export default function AdminAnalytics() {
       </div>
 
       {/* Setup & Connection Status Banner / Guide */}
-      {(!analyticsData || !analyticsData.connected || !analyticsData.domain) && (
+      {(!analyticsData || !analyticsData.connected) && (
         <div className="glass-admin p-6 rounded-lg bg-[#111111]/80 border border-cyan-500/30 space-y-4">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-cyan-500/10 text-[#00F0FF] border border-cyan-500/20 shrink-0 mt-1">
+             <div className="p-2 rounded-lg bg-cyan-500/10 text-[#00F0FF] border border-cyan-500/20 shrink-0 mt-1">
               <Globe size={24} />
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold font-mono text-white uppercase tracking-wider">Connect Plausible Analytics</h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Setup Required</span>
-              </div>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                The mockup analytics view has been removed. To display real visitor metrics, connect your privacy-friendly Plausible Analytics account.
-              </p>
+              <h3 className="text-sm font-bold font-mono text-white uppercase tracking-wider">Analytics Initializing</h3>
+              <p className="text-xs text-gray-400">Loading traffic data...</p>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-white/10 font-sans text-xs">
-            <div className="p-4 rounded bg-white/[0.02] border border-white/6 space-y-2">
-              <div className="w-6 h-6 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] flex items-center justify-center font-mono font-bold text-xs">1</div>
-              <h4 className="font-bold text-white">Create a Free Account</h4>
-              <p className="text-gray-400 text-[11px] leading-relaxed">
-                Sign up at <a href="https://plausible.io" target="_blank" rel="noreferrer" className="text-[#00F0FF] hover:underline inline-flex items-center gap-0.5">Plausible.io <ExternalLink size={10} /></a>. It is lightweight, GDPR-compliant, and requires no cookie banner.
-              </p>
-            </div>
-
-            <div className="p-4 rounded bg-white/[0.02] border border-white/6 space-y-2">
-              <div className="w-6 h-6 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] flex items-center justify-center font-mono font-bold text-xs">2</div>
-              <h4 className="font-bold text-white">Add Your Domain</h4>
-              <p className="text-gray-400 text-[11px] leading-relaxed">
-                Add your portfolio domain (e.g., <code className="text-[#00F0FF] font-mono">yourdomain.com</code>) to your Plausible dashboard.
-              </p>
-            </div>
-
-            <div className="p-4 rounded bg-white/[0.02] border border-white/6 space-y-2">
-              <div className="w-6 h-6 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] flex items-center justify-center font-mono font-bold text-xs">3</div>
-              <h4 className="font-bold text-white">Paste Domain & API Key</h4>
-              <p className="text-gray-400 text-[11px] leading-relaxed">
-                Go to <span className="text-white font-semibold">Dashboard Admin &gt; Settings &gt; Analytics</span>, enter your domain and optional Stats API key, and save.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <p className="text-[11px] font-mono text-gray-500">
-              * Note: Real metrics will populate automatically once your site is live and visitors browse your portfolio.
-            </p>
-            <a 
-              href="/admin/settings" 
-              className="px-4 py-2 bg-[#00F0FF] text-black font-bold font-mono text-xs rounded hover:bg-[#00F0FF]/80 transition-all flex items-center gap-1.5"
-            >
-              Go to Analytics Settings <ArrowUpRight size={14} />
-            </a>
           </div>
         </div>
       )}
 
       {/* Connected State with Real Analytics */}
-      {analyticsData && analyticsData.connected && analyticsData.domain && (
+      {analyticsData && analyticsData.connected && (
         <div className="space-y-6">
           
           {/* Status Bar */}
@@ -154,10 +111,8 @@ export default function AdminAnalytics() {
               <span>Connected to Plausible Domain: <strong className="text-white">{analyticsData.domain}</strong></span>
             </div>
             <div className="text-gray-400">
-              {analyticsData.apiKeyConfigured ? (
+              {analyticsData.apiKeyConfigured && (
                 <span className="text-[#00F0FF] flex items-center gap-1"><ShieldCheck size={14} /> Stats API Active</span>
-              ) : (
-                <span className="text-yellow-400">Tracking script active on site. Add API key in Settings to view dashboard charts.</span>
               )}
             </div>
           </div>
