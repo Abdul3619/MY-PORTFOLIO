@@ -30,7 +30,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
 import { projectsData } from "@/data/projects";
 import * as Icons from "lucide-react";
-import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects, useSkills } from "@/hooks/useApi";
+import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects, useSkills, trackEvent } from "@/hooks/useApi";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -257,17 +257,7 @@ export default function Home() {
                     loading="eager"
                     // @ts-ignore
                     fetchPriority="high"
-                    className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700 relative z-0"
-                    onLoad={(e) => {
-                      const target = e.currentTarget;
-                      target.style.opacity = '1';
-                    }}
-                    style={{ opacity: 0, transition: 'opacity 0.5s ease-in-out' }}
-                    ref={(node) => {
-                      if (node && node.complete) {
-                        node.style.opacity = '1';
-                      }
-                    }}
+                    className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700 relative z-0 opacity-100"
                   />
                 </div>
               ) : (
@@ -359,6 +349,7 @@ export default function Home() {
                   rel="noopener noreferrer"
                   download={profile?.resume_url ? "resume.pdf" : undefined}
                   onClick={(e) => {
+                    trackEvent('download_resume', window.location.pathname);
                     if (!profile?.resume_url) {
                       e.preventDefault();
                       window.location.href = '/resume';

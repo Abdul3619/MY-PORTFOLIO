@@ -4,7 +4,7 @@ import { Download, Briefcase, GraduationCap, Award, FileText, Eye, ExternalLink 
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
-import { useProfile, useResumeExperience, useResumeEducation } from "@/hooks/useApi";
+import { useProfile, useResumeExperience, useResumeEducation, trackEvent } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 
 const experience = [
@@ -88,6 +88,7 @@ export default function Resume() {
               target="_blank" 
               rel="noopener noreferrer"
               download={resumeUrl ? "resume.pdf" : undefined}
+              onClick={() => trackEvent('download_resume', '/resume')}
             >
               <MagneticButton variant="primary" className="py-4 px-8 text-lg">
                 <Download size={20} />

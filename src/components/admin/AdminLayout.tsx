@@ -818,12 +818,11 @@ export const AdminLogin: React.FC = () => {
               <label className="block text-[10px] font-mono uppercase tracking-widest text-[#00F0FF] mb-1.5">Email Protocol</label>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
-                className="w-full bg-[#161616] border border-white/8 rounded-lg px-4 py-2.5 text-xs text-white placeholder:text-gray-600 outline-none hover:border-white/15 focus:border-[#00F0FF]/50 focus:cyan-glow transition-all duration-200"
-                required
+                value="abdulwahababdullah3619@gmail.com"
+                disabled
+                className="w-full bg-[#161616] border border-white/8 rounded-lg px-4 py-2.5 text-xs text-gray-400 placeholder:text-gray-600 outline-none cursor-not-allowed font-mono"
               />
+              <p className="text-[10px] text-gray-500 mt-1 font-mono">Restricted owner identity. Only authorized access permitted.</p>
             </div>
             <div>
               <div className="flex justify-between items-center mb-1.5">

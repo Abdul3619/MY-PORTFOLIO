@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Search } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
+import { CardSkeleton } from "@/components/Skeleton";
 import { useCertificates } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 
@@ -32,7 +33,30 @@ const certificates = [
 
 export default function Certificates() {
   const { t } = useTranslation();
-  const { data: certsData } = useCertificates();
+  const { data: certsData, isLoading } = useCertificates();
+
+  if (isLoading) {
+    return (
+      <PageTransition className="w-full">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 md:mb-24 mt-12">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
+              {t("certificates.title_part1", "ACHIEVEMENTS")} <span className="text-gradient">{t("certificates.title_part2", "& PROOF")}</span>
+            </h1>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto opacity-0">
+              {t("certificates.subtitle", "Verified knowledge across engineering and software development.")}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
+
   const displayCerts = certsData && certsData.length > 0 ? certsData : certificates;
   const [selectedCert, setSelectedCert] = useState<any | null>(null);
 

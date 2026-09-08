@@ -3,6 +3,7 @@ import { useSkills } from "@/hooks/useApi";
 import { motion } from "motion/react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
+import { CardSkeleton } from "@/components/Skeleton";
 import { useTranslation } from "react-i18next";
 import { 
   Code2, 
@@ -206,8 +207,30 @@ const itemVariants = {
 
 export default function Skills() {
   const { t } = useTranslation();
-  const { data: skillsData } = useSkills();
+  const { data: skillsData, isLoading } = useSkills();
   
+  if (isLoading) {
+    return (
+      <PageTransition className="w-full">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 md:mb-24 mt-12">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
+              {t("skills.arsenal_title_part1", "TECHNICAL")} <span className="text-gradient">{t("skills.arsenal_title_part2", "ARSENAL")}</span>
+            </h1>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto opacity-0">
+              {t("skills.arsenal_subtitle", "A diverse toolkit combining digital engineering with physical energy systems.")}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
+
   let displayCategories = skillCategories;
   if (skillsData && skillsData.length > 0) {
     const grouped = skillsData.reduce((acc: any, skill: any) => {

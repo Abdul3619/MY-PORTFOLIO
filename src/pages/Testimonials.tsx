@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Quote, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
+import { CardSkeleton } from "@/components/Skeleton";
 import { useTestimonials } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 import { ClientReviewsSection } from "@/components/ClientReviewsSection";
@@ -33,7 +34,26 @@ const testimonials = [
 
 export default function Testimonials() {
   const { t } = useTranslation();
-  const { data: testimonialsData } = useTestimonials();
+  const { data: testimonialsData, isLoading } = useTestimonials();
+
+  if (isLoading) {
+    return (
+      <PageTransition className="w-full">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16 md:mb-24 mt-12">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
+              {t("testimonials.title_part1", "CLIENT")} <span className="text-gradient">{t("testimonials.title_part2", "FEEDBACK")}</span>
+            </h1>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto opacity-0">
+              {t("testimonials.subtitle", "Words of recommendation from colleagues, clients, and collaborators.")}
+            </p>
+          </div>
+          <CardSkeleton />
+        </div>
+      </PageTransition>
+    );
+  }
+
   const displayTestimonials = testimonialsData && testimonialsData.length > 0 ? testimonialsData : testimonials;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);

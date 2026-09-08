@@ -52,6 +52,28 @@
   .text-glow {
     text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
   }
+
+  .silver-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.12) 20%,
+      rgba(230, 235, 245, 0.28) 40%,
+      rgba(255, 255, 255, 0.12) 60%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+    background-size: 200% 100%;
+    animation: silverShimmer 2s infinite linear;
+  }
+}
+
+@keyframes silverShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 /* Lenis smooth scroll */
