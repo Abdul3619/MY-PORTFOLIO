@@ -19,7 +19,8 @@ import {
   Layers, 
   ToggleLeft, 
   ToggleRight, 
-  AlertCircle 
+  AlertCircle,
+  Calendar
 } from 'lucide-react';
 
 interface ProjectMetadata {
@@ -29,6 +30,8 @@ interface ProjectMetadata {
   tags: string[];
   caseStudy: string;
   gallery: any[];
+  startDate?: string;
+  completionDate?: string;
 }
 
 export default function AdminProjects() {
@@ -55,6 +58,8 @@ export default function AdminProjects() {
   // Requested Editorial Fields (Persisted via custom serialization / shadow storage)
   const [formCategory, setFormCategory] = useState('Web Development');
   const [formStatus, setFormStatus] = useState<'Published' | 'Draft' | 'Archived'>('Published');
+  const [formStartDate, setFormStartDate] = useState('');
+  const [formCompletionDate, setFormCompletionDate] = useState('');
   const [formViews, setFormViews] = useState(120);
   const [formCaseStudy, setFormCaseStudy] = useState('');
   const [formTags, setFormTags] = useState<string[]>([]);
@@ -145,6 +150,8 @@ export default function AdminProjects() {
       // Editorial Fields
       setFormCategory(project.category || 'Web Development');
       setFormStatus(project.status || 'Published');
+      setFormStartDate(project.startDate || project.start_date || '');
+      setFormCompletionDate(project.completionDate || project.completion_date || '');
       setFormViews(project.views || 100);
       setFormCaseStudy(project.caseStudy || '');
       setFormTags(project.tags || []);
@@ -165,6 +172,8 @@ export default function AdminProjects() {
       // Editorial Fields
       setFormCategory('Web Development');
       setFormStatus('Published');
+      setFormStartDate('');
+      setFormCompletionDate('');
       setFormViews(1);
       setFormCaseStudy('');
       setFormTags(['TypeScript', 'Tailwind', 'React']);
@@ -198,7 +207,9 @@ export default function AdminProjects() {
         views: formViews,
         tags: formTags,
         caseStudy: formCaseStudy,
-        gallery: formGallery
+        gallery: formGallery,
+        startDate: formStartDate,
+        completionDate: formCompletionDate
       };
 
       // We append our serialized rich metadata block cleanly inside the description field
@@ -209,6 +220,8 @@ export default function AdminProjects() {
         title: formTitle,
         slug: formSlug,
         description: compositeDescription,
+        start_date: formStartDate || null,
+        completion_date: formCompletionDate || null,
         live_url: formLiveUrl || null,
         github_url: formGithubUrl || null,
         thumbnail_url: formThumbnail || null,
@@ -523,6 +536,36 @@ export default function AdminProjects() {
                       <option value="Draft">Draft (Private)</option>
                       <option value="Archived">Archived (Muted)</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* 2.5 Start Date & Completion Date */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-[#00F0FF] mb-1">Start Date</label>
+                    <div className="relative">
+                      <Calendar size={12} className="absolute left-3 top-3 text-gray-500" />
+                      <input 
+                        type="text" 
+                        value={formStartDate}
+                        onChange={(e) => setFormStartDate(e.target.value)}
+                        className="w-full bg-[#161616] border border-white/8 rounded pl-8 pr-2.5 py-2 text-white outline-none focus:border-[#00F0FF]/40 font-mono"
+                        placeholder="e.g. Jan 2024"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-[#00F0FF] mb-1">Completion Date</label>
+                    <div className="relative">
+                      <Calendar size={12} className="absolute left-3 top-3 text-gray-500" />
+                      <input 
+                        type="text" 
+                        value={formCompletionDate}
+                        onChange={(e) => setFormCompletionDate(e.target.value)}
+                        className="w-full bg-[#161616] border border-white/8 rounded pl-8 pr-2.5 py-2 text-white outline-none focus:border-[#00F0FF]/40 font-mono"
+                        placeholder="e.g. Apr 2024"
+                      />
+                    </div>
                   </div>
                 </div>
 

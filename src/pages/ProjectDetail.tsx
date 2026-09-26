@@ -24,6 +24,8 @@ import { useAppData } from "@/contexts/AppDataContext";
 import { getPageTitle, getSiteTitle } from "@/lib/seo";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 import { projectsData } from "@/data/projects";
+import { getProjectCategory } from "@/lib/projectCategories";
+import { getProjectDates } from "@/lib/projectDates";
 import { useTranslation } from "react-i18next";
 
 export default function ProjectDetail() {
@@ -112,8 +114,10 @@ export default function ProjectDetail() {
   const description = project.description || "";
   const longDescription = project.long_description || project.longDescription || null;
   const techStack = project.tech_stack || project.techStack || [];
+  const dates = getProjectDates(project);
   const clientName = project.client_name || (project.id === 'luxury-hotel' ? 'Grand Imperial Hotels' : null);
-  const completionDate = project.completion_date || (project.id === 'luxury-hotel' ? 'Sept 2023' : null);
+  const startDate = project.start_date || project.startDate || dates.startDate;
+  const completionDate = project.completion_date || project.completionDate || dates.completionDate;
   const status = project.status || 'Completed';
   const galleryImages = project.gallery_images || project.gallery || [];
   const heroImage = project.hero_image_url || project.thumbnail_url || project.image || PLACEHOLDER_IMAGE;
@@ -286,12 +290,28 @@ export default function ProjectDetail() {
               </h3>
               
               <ul className="space-y-4 font-mono text-xs">
+                <li className="flex justify-between items-center py-2 border-b border-white/5">
+                  <span className="text-gray-400 flex items-center gap-1.5">
+                    <Layers size={14} className="text-[#00F0FF]" /> {t("project_detail.category", "Category:")}
+                  </span>
+                  <span className="text-white text-right font-medium">
+                    {getProjectCategory(project)}
+                  </span>
+                </li>
                 {clientName && (
                   <li className="flex justify-between items-center py-2 border-b border-white/5">
                     <span className="text-gray-400 flex items-center gap-1.5">
                       <User size={14} className="text-[#00F0FF]" /> {t("project_detail.client", "Client:")}
                     </span>
                     <span className="text-white text-right font-medium">{clientName}</span>
+                  </li>
+                )}
+                {startDate && (
+                  <li className="flex justify-between items-center py-2 border-b border-white/5">
+                    <span className="text-gray-400 flex items-center gap-1.5">
+                      <Calendar size={14} className="text-[#00F0FF]" /> {t("project_detail.started", "Started:")}
+                    </span>
+                    <span className="text-white text-right">{startDate}</span>
                   </li>
                 )}
                 {completionDate && (
