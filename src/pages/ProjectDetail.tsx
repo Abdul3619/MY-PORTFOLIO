@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { 
   ArrowLeft, 
@@ -20,6 +20,9 @@ import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
 import { Skeleton } from "@/components/Skeleton";
 import { useProject } from "@/hooks/useApi";
+import { useAppData } from "@/contexts/AppDataContext";
+import { getPageTitle, getSiteTitle } from "@/lib/seo";
+import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 import { projectsData } from "@/data/projects";
 import { useTranslation } from "react-i18next";
 
@@ -28,12 +31,35 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: apiProject, isLoading, error } = useProject(id || "");
 
+  const { seo, profile } = useAppData();
+
   const [activeImgIndex, setActiveImgIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // Locate fallback static project if database is not fully populated yet
   const fallbackProject = projectsData.find(p => p.id === id);
   const project = apiProject || fallbackProject;
+  const galleryCount = (project?.gallery_images || project?.gallery || []).length;
+
+  useEffect(() => {
+    if (!project?.title) return;
+    document.title = getPageTitle(project.seo_title || project.title, seo, profile);
+    return () => {
+      document.title = getSiteTitle(seo, profile);
+    };
+  }, [project?.title, project?.seo_title, seo, profile]);
+
+  // Keyboard support for the lightbox: Escape closes, arrow keys navigate
+  useEffect(() => {
+    if (activeImgIndex === null || galleryCount === 0) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveImgIndex(null);
+      else if (e.key === "ArrowRight") setActiveImgIndex((i) => (i === null ? i : (i + 1) % galleryCount));
+      else if (e.key === "ArrowLeft") setActiveImgIndex((i) => (i === null ? i : (i - 1 + galleryCount) % galleryCount));
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeImgIndex, galleryCount]);
 
   if (isLoading && !fallbackProject) {
     return (
@@ -90,7 +116,7 @@ export default function ProjectDetail() {
   const completionDate = project.completion_date || (project.id === 'luxury-hotel' ? 'Sept 2023' : null);
   const status = project.status || 'Completed';
   const galleryImages = project.gallery_images || project.gallery || [];
-  const heroImage = project.hero_image_url || project.thumbnail_url || project.image || 'https://via.placeholder.com/1200x800?text=No+Image';
+  const heroImage = project.hero_image_url || project.thumbnail_url || project.image || PLACEHOLDER_IMAGE;
 
   const parsedGallery = galleryImages.map((item: any) => {
     if (typeof item === 'string') {
@@ -215,6 +241,15 @@ export default function ProjectDetail() {
                       key={idx} 
                       whileHover={{ scale: 1.02 }}
                       onClick={() => setActiveImgIndex(idx)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open image ${idx + 1} of ${parsedGallery.length}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setActiveImgIndex(idx);
+                        }
+                      }}
                       className="rounded-2xl overflow-hidden border border-white/10 aspect-video relative group cursor-pointer"
                     >
                       <img 
@@ -306,7 +341,7 @@ export default function ProjectDetail() {
               </h3>
               <div className="flex flex-col gap-4">
                 {project.live_url && (
-                  <a href={project.live_url} target="_blank" rel="noreferrer" className="w-full interactive">
+                  <a href={project.live_url} target="_blank" rel="noopener noreferrer" className="w-full interactive">
                     <MagneticButton variant="primary" className="w-full flex justify-center py-2">
                       <ExternalLink size={16} />
                       <span className="ml-2">{t("project_detail.live_deployment", "Live Deployment")}</span>
@@ -315,7 +350,7 @@ export default function ProjectDetail() {
                 )}
                 
                 {project.github_url && (
-                  <a href={project.github_url} target="_blank" rel="noreferrer" className="w-full interactive">
+                  <a href={project.github_url} target="_blank" rel="noopener noreferrer" className="w-full interactive">
                     <MagneticButton variant="outline" className="w-full flex justify-center py-2">
                       <Github size={16} />
                       <span className="ml-2">{t("project_detail.source_code", "Source Code")}</span>
@@ -338,9 +373,14 @@ export default function ProjectDetail() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onClick={() => setActiveImgIndex(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${title} gallery`}
         >
           {/* Close button */}
           <button 
+            type="button"
+            aria-label="Close gallery"
             onClick={() => setActiveImgIndex(null)}
             className="absolute top-6 right-6 text-white/70 hover:text-white p-2.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-[110]"
           >
@@ -351,6 +391,8 @@ export default function ProjectDetail() {
           {parsedGallery.length > 1 && (
             <>
               <button 
+                type="button"
+                aria-label="Previous image"
                 onClick={handlePrev}
                 className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-[110]"
               >
@@ -358,6 +400,8 @@ export default function ProjectDetail() {
               </button>
 
               <button 
+                type="button"
+                aria-label="Next image"
                 onClick={handleNext}
                 className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-[110]"
               >

@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import i18n from 'i18next';
 import { supabase } from '../lib/supabase';
-import { projectsData } from '../data/projects';
+
+// Normalized language code ("en-US" -> "en"), used both in query keys and the translation header
+export const currentLang = () => (i18n.language || 'en').split('-')[0].toLowerCase();
 
 export const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
   const { data: { session } } = await supabase.auth.getSession();
@@ -17,8 +19,7 @@ export const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
   }
 
   // Inject current active language header so backend knows how to translate dynamic content
-  const activeLang = i18n.language || 'en';
-  headers['x-portfolio-lang'] = activeLang.split('-')[0].toLowerCase();
+  headers['x-portfolio-lang'] = currentLang();
 
   // If in admin dashboard, send the draft header so the CMS returns live draft data
   if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/dashboard'))) {
@@ -60,7 +61,7 @@ export const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
 };
 
 export const useProfile = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({
     queryKey: ['profile', lang],
     queryFn: () => fetchApi('/api/profile'),
@@ -78,7 +79,7 @@ export const useUpdateProfile = () => {
 };
 
 export const useProjects = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({
     queryKey: ['projects', lang],
     queryFn: () => fetchApi('/api/projects'),
@@ -88,7 +89,7 @@ export const useProjects = () => {
 };
 
 export const useProject = (slug: string) => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({
     queryKey: ['projects', slug, lang],
     queryFn: () => fetchApi(`/api/projects/${slug}`),
@@ -121,7 +122,7 @@ export const useDeleteProject = () => {
 };
 
 export const useCertificates = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({
     queryKey: ['certificates', lang],
     queryFn: () => fetchApi('/api/certificates'),
@@ -147,7 +148,7 @@ export const useDeleteCertificate = () => {
 };
 
 export const useTestimonials = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({
     queryKey: ['testimonials', lang],
     queryFn: () => fetchApi('/api/testimonials'),
@@ -207,13 +208,22 @@ export const useAdminAnalytics = () => {
 
 // Analytics Tracker
 export const trackEvent = async (eventType: string, pageUrl: string, metadata: any = {}) => {
-  let sessionId = localStorage.getItem('visitor_session_id');
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    localStorage.setItem('visitor_session_id', sessionId);
-  }
-  
   try {
+    let sessionId: string | null = null;
+    try {
+      sessionId = localStorage.getItem('visitor_session_id');
+    } catch {
+      // Storage unavailable (private mode); fall through to an ephemeral id
+    }
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      try {
+        localStorage.setItem('visitor_session_id', sessionId);
+      } catch {
+        // Ignore storage failures
+      }
+    }
+
     await fetch('/api/analytics/event', { credentials: 'include', method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -224,21 +234,21 @@ export const trackEvent = async (eventType: string, pageUrl: string, metadata: a
       })
     });
   } catch (e) {
-    console.error("Failed to track event", e);
+    // Analytics must never break the page
   }
 };
 
 // CMS Hooks
 export const useServices = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({ queryKey: ['services', lang], queryFn: () => fetchApi('/api/services'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 export const useAbout = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({ queryKey: ['about', lang], queryFn: () => fetchApi('/api/about'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 export const useSkills = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({ queryKey: ['skills', lang], queryFn: () => fetchApi('/api/skills'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 export const useSeo = () => useQuery({ queryKey: ['seo'], queryFn: () => fetchApi('/api/seo'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
@@ -261,11 +271,11 @@ export const useUpdateContactInfo = () => {
 };
 
 export const useResumeExperience = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({ queryKey: ['resume_experience', lang], queryFn: () => fetchApi('/api/resume_experience'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 export const useResumeEducation = () => {
-  const lang = i18n.language || 'en';
+  const lang = currentLang();
   return useQuery({ queryKey: ['resume_education', lang], queryFn: () => fetchApi('/api/resume_education'), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
 };
 

@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({ isSsrBuild }) => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -17,6 +17,11 @@ export default defineConfig(() => {
       hmr: false,
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: null,
+    },
+    ssr: {
+      // Bundle all dependencies into the SSR build so the server renderer is self-contained
+      // (the Vercel function only ships dist/server, not node_modules for these packages).
+      noExternal: isSsrBuild ? true : undefined,
     },
     build: {
       chunkSizeWarningLimit: 3000,

@@ -9,10 +9,13 @@ const BackgroundContext = createContext<BackgroundContextType | undefined>(undef
 
 export const BackgroundProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const mouseRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-  const scrollRef = useRef(window.scrollY);
+  const mouseRef = useRef({ x: 0, y: 0 });
+  const scrollRef = useRef(0);
 
   useEffect(() => {
+    mouseRef.current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    scrollRef.current = window.scrollY;
+
     const handleScroll = () => {
       scrollRef.current = window.scrollY;
     };

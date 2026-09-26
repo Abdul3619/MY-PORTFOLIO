@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, Briefcase, GraduationCap, Award, FileText, Eye, ExternalLink } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
@@ -49,6 +49,15 @@ export default function Resume() {
   const displayEducation = educationData && educationData.length > 0 ? educationData : education;
   const resumeUrl = profile?.resume_url;
 
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsPreviewOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isPreviewOpen]);
+
   return (
     <PageTransition className="w-full">
       <div className="max-w-5xl mx-auto px-4 py-8">
@@ -83,18 +92,26 @@ export default function Resume() {
               </button>
             )}
 
-            <a 
-              href={resumeUrl || '#'} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              download={resumeUrl ? "resume.pdf" : undefined}
-              onClick={() => trackEvent('download_resume', '/resume')}
-            >
-              <MagneticButton variant="primary" className="py-4 px-8 text-lg">
+            {resumeUrl ? (
+              <a 
+                href={resumeUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                download="resume.pdf"
+                onClick={() => trackEvent('download_resume', '/resume')}
+              >
+                <MagneticButton variant="primary" className="py-4 px-8 text-lg">
+                  <Download size={20} />
+                  <span>{t("resume.download_pdf", "Download PDF")}</span>
+                </MagneticButton>
+              </a>
+            ) : (
+              // No resume uploaded yet: show the button as unavailable instead of a dead "#" link
+              <MagneticButton variant="primary" className="py-4 px-8 text-lg" disabled>
                 <Download size={20} />
                 <span>{t("resume.download_pdf", "Download PDF")}</span>
               </MagneticButton>
-            </a>
+            )}
           </motion.div>
         </div>
 
@@ -122,6 +139,7 @@ export default function Resume() {
                   rel="noopener noreferrer"
                   className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition-colors"
                   title="Open in new tab"
+                  aria-label="Open resume in new tab"
                 >
                   <ExternalLink size={16} />
                 </a>
@@ -132,6 +150,7 @@ export default function Resume() {
               <iframe 
                 src={`https://docs.google.com/gview?url=${encodeURIComponent(resumeUrl)}&embedded=true`} 
                 title="Resume Preview"
+                loading="lazy"
                 className="w-full h-full border-0"
               />
             </div>
@@ -211,7 +230,7 @@ export default function Resume() {
 
       {/* Fullscreen Preview Modal */}
       {isPreviewOpen && resumeUrl && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col p-4 md:p-8">
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col p-4 md:p-8" role="dialog" aria-modal="true" aria-label="Resume document preview">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-display font-bold text-white flex items-center gap-2">
               <FileText className="text-[#00F0FF]" size={20} />

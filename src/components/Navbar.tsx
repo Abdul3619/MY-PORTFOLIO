@@ -4,6 +4,7 @@ import { motion, useScroll, useMotionValueEvent } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Lock } from "lucide-react";
+import { setManualLanguage } from "@/lib/i18n";
 
 const navLinks = [
   { name: "Home", key: "home", path: "/" },
@@ -43,6 +44,7 @@ export function Navbar() {
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
     >
       <motion.nav
+        aria-label="Main navigation"
         className={cn(
           "glass-panel rounded-full px-6 py-3 flex items-center gap-1 md:gap-2 transition-all duration-500 overflow-x-auto no-scrollbar",
           isScrolled ? "scale-95 bg-white/10" : "scale-100"
@@ -94,10 +96,10 @@ export function Navbar() {
           {languages.map((lang) => (
             <button
               key={lang.code}
-              onClick={() => {
-                localStorage.setItem('app_manual_lang', lang.code);
-                i18n.changeLanguage(lang.code);
-              }}
+              type="button"
+              onClick={() => setManualLanguage(lang.code)}
+              aria-pressed={currentLang === lang.code}
+              aria-label={`Switch language to ${lang.label}`}
               className={cn(
                 "px-2 py-1 rounded-full text-[10px] font-bold tracking-wider transition-all duration-300 cursor-pointer",
                 currentLang === lang.code

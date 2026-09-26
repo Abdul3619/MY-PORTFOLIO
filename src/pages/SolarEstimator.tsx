@@ -135,21 +135,6 @@ export default function SolarEstimator() {
         throw new Error('Endpoint failure');
       }
 
-      const result = await res.json();
-      
-      // Save locally as fallback if needed
-      if (result.fallback) {
-        const cachedLeads = JSON.parse(localStorage.getItem('crm_leads_cache') || '[]');
-        leadData.company = 'Local Solar Inbound';
-        cachedLeads.unshift({
-          id: 'l_loc_' + Date.now(),
-          ...leadData,
-          status: 'New',
-          created_at: new Date().toISOString()
-        });
-        localStorage.setItem('crm_leads_cache', JSON.stringify(cachedLeads));
-      }
-
       setSubmitStatus('success');
       setName('');
       setEmail('');
@@ -160,7 +145,6 @@ export default function SolarEstimator() {
         setSubmitStatus('idle');
       }, 3000);
     } catch (err) {
-      console.error(err);
       setSubmitStatus('error');
     } finally {
       setIsSubmitting(false);
@@ -504,10 +488,11 @@ export default function SolarEstimator() {
                       
                       {/* Name input */}
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Full Name *</label>
+                        <label htmlFor="solar-name" className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Full Name *</label>
                         <input
                           type="text"
                           required
+                          id="solar-name"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="e.g. Sultan Al-Ghamdi"
@@ -517,10 +502,11 @@ export default function SolarEstimator() {
 
                       {/* Email input */}
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Email Address *</label>
+                        <label htmlFor="solar-email" className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Email Address *</label>
                         <input
                           type="email"
                           required
+                          id="solar-email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="sultan@energy-saudi.com"
@@ -530,9 +516,10 @@ export default function SolarEstimator() {
 
                       {/* Phone input */}
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Phone / WhatsApp (Optional)</label>
+                        <label htmlFor="solar-phone" className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Phone / WhatsApp (Optional)</label>
                         <input
                           type="tel"
+                          id="solar-phone"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="+966-50-123-4567"
@@ -542,8 +529,9 @@ export default function SolarEstimator() {
 
                       {/* Additional notes */}
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Additional Requirements / Roof Details</label>
+                        <label htmlFor="solar-notes" className="block text-[10px] font-mono uppercase text-gray-400 tracking-wider">Additional Requirements / Roof Details</label>
                         <textarea
+                          id="solar-notes"
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
                           placeholder="e.g. Shading from adjacent building on the east corner, flat concrete roof design..."

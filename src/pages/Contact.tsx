@@ -11,19 +11,29 @@ export default function Contact() {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
   const [success, setSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const submitContact = useSubmitContact();
   const { data: contactInfo } = useContactInfo();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     try {
       await submitContact.mutateAsync(formData);
       setSuccess(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
     } catch (err) {
-      console.error(err);
+      setSubmitError(
+        err instanceof Error && err.message
+          ? err.message
+          : t("contact.error_message", "Your message could not be sent. Please try again or reach out by email.")
+      );
     }
   };
+
+  const email = contactInfo?.email || "abdulwahababdullah3619@gmail.com";
+  const whatsappNumber = contactInfo?.whatsapp || "+228 71 60 66 97";
+  const whatsappLink = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}`;
 
   return (
     <PageTransition className="w-full flex-1 flex flex-col justify-center min-h-[calc(100vh-12rem)]">
@@ -55,23 +65,23 @@ export default function Contact() {
               <h2 className="text-3xl font-display font-semibold text-white mb-8">{t("contact.reach_out_title", "Reach Out directly")}</h2>
               
               <div className="space-y-6">
-                <a href={`mailto:${contactInfo?.email || "abdulwahababdullah3619@gmail.com"}`} className="flex items-center gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
+                <a href={`mailto:${email}`} className="flex items-center gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
                   <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform">
                     <Mail size={24} />
                   </div>
                   <div>
                     <p className="text-sm text-gray-400 mb-1">{t("contact.email", "Email")}</p>
-                    <p className="text-lg text-white font-medium">{contactInfo?.email || "abdulwahababdullah3619@gmail.com"}</p>
+                    <p className="text-lg text-white font-medium">{email}</p>
                   </div>
                 </a>
                 
-                <a href="https://wa.me/22871606697" target="_blank" rel="noreferrer" className="flex items-center gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
                   <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform border-green-400/20 group-hover:bg-green-400/10">
                     <MessageCircle size={24} />
                   </div>
                   <div>
                     <p className="text-sm text-gray-400 mb-1">WhatsApp</p>
-                    <p className="text-lg text-white font-medium">+228 71 60 66 97</p>
+                    <p className="text-lg text-white font-medium">{whatsappNumber}</p>
                   </div>
                 </a>
               </div>
@@ -81,12 +91,12 @@ export default function Contact() {
               <h3 className="text-xl font-display font-semibold text-white mb-6">{t("contact.connect", "Connect")}</h3>
               <div className="flex gap-4">
                 {contactInfo?.github_url && (
-                  <a href={contactInfo.github_url} target="_blank" rel="noreferrer" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                  <a href={contactInfo.github_url} target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
                     <Github size={24} />
                   </a>
                 )}
                 {contactInfo?.linkedin_url && (
-                  <a href={contactInfo.linkedin_url} target="_blank" rel="noreferrer" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                  <a href={contactInfo.linkedin_url} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
                     <Linkedin size={24} />
                   </a>
                 )}
@@ -116,10 +126,12 @@ export default function Contact() {
                 <form className="space-y-6" onSubmit={handleSubmit}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-400 font-medium">{t("contact.label_name", "Name")}</label>
+                      <label htmlFor="contact-name" className="text-sm text-gray-400 font-medium">{t("contact.label_name", "Name")}</label>
                       <input 
                         type="text" 
                         required
+                        id="contact-name"
+                        name="name"
                         value={formData.name}
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold/50 transition-colors"
@@ -127,10 +139,12 @@ export default function Contact() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-400 font-medium">{t("contact.label_email", "Email")}</label>
+                      <label htmlFor="contact-email" className="text-sm text-gray-400 font-medium">{t("contact.label_email", "Email")}</label>
                       <input 
                         type="email" 
                         required
+                        id="contact-email"
+                        name="email"
                         value={formData.email}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold/50 transition-colors"
@@ -140,9 +154,11 @@ export default function Contact() {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-400 font-medium">{t("contact.label_subject", "Subject")}</label>
+                    <label htmlFor="contact-subject" className="text-sm text-gray-400 font-medium">{t("contact.label_subject", "Subject")}</label>
                     <input 
                       type="text" 
+                      id="contact-subject"
+                      name="subject"
                       value={formData.subject}
                       onChange={(e) => setFormData({...formData, subject: e.target.value})}
                       className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold/50 transition-colors"
@@ -151,16 +167,22 @@ export default function Contact() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-400 font-medium">{t("contact.label_message", "Message")}</label>
+                    <label htmlFor="contact-message" className="text-sm text-gray-400 font-medium">{t("contact.label_message", "Message")}</label>
                     <textarea 
                       rows={5}
                       required
+                      id="contact-message"
+                      name="message"
                       value={formData.message}
                       onChange={(e) => setFormData({...formData, message: e.target.value})}
                       className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold/50 transition-colors resize-none"
                       placeholder={t("contact.placeholder_message", "Tell me about your project...")}
                     />
                   </div>
+
+                  {submitError && (
+                    <p role="alert" className="text-sm text-red-400">{submitError}</p>
+                  )}
 
                   <button disabled={submitContact.isPending} className="w-full py-4 interactive glass-button bg-gold text-black rounded-lg font-bold flex justify-center items-center gap-2 disabled:opacity-50" type="submit">
                     <span>{submitContact.isPending ? t("contact.button_sending", "Sending...") : t("contact.button_send", "Send Message")}</span>

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Search } from "lucide-react";
+import { X, Search, Award } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -34,6 +34,17 @@ const certificates = [
 export default function Certificates() {
   const { t } = useTranslation();
   const { data: certsData, isLoading } = useCertificates();
+  // Hooks must run on every render, before any early return
+  const [selectedCert, setSelectedCert] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!selectedCert) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedCert(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedCert]);
 
   if (isLoading) {
     return (
@@ -58,7 +69,6 @@ export default function Certificates() {
   }
 
   const displayCerts = certsData && certsData.length > 0 ? certsData : certificates;
-  const [selectedCert, setSelectedCert] = useState<any | null>(null);
 
   return (
     <PageTransition className="w-full">
@@ -80,7 +90,7 @@ export default function Certificates() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {displayCerts.map((cert, index) => (
             <motion.div
-              key={cert.id}
+              key={cert.id ?? index}
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.2, type: "spring", stiffness: 100 }}
@@ -89,6 +99,15 @@ export default function Certificates() {
                 className="cursor-pointer group h-full flex flex-col" 
                 glowOnHover
                 onClick={() => setSelectedCert(cert)}
+                role="button"
+                tabIndex={0}
+                aria-label={`View certificate: ${cert.title}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedCert(cert);
+                  }
+                }}
               >
                 <div className="relative h-48 overflow-hidden rounded-t-2xl">
                   <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors z-10 flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -96,12 +115,18 @@ export default function Certificates() {
                       <Search size={24} />
                     </div>
                   </div>
-                  <img 
-                    src={(cert.image_url || cert.image)} 
-                    alt={cert.title} 
-                    loading="lazy"
-                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-105"
-                  />
+                  {(cert.image_url || cert.image) ? (
+                    <img 
+                      src={(cert.image_url || cert.image)} 
+                      alt={cert.title} 
+                      loading="lazy"
+                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-white/5 flex items-center justify-center text-gold/40" aria-hidden="true">
+                      <Award size={48} />
+                    </div>
+                  )}
                 </div>
                 <div className="p-6 flex-1 flex flex-col">
                   <span className="text-gold text-sm font-medium tracking-wider mb-2">{(cert.date_issued || cert.date)}</span>
@@ -133,21 +158,31 @@ export default function Certificates() {
                 exit={{ scale: 0.9, y: 20 }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
                 className="relative max-w-4xl w-full"
+                role="dialog"
+                aria-modal="true"
+                aria-label={selectedCert.title}
                 onClick={(e) => e.stopPropagation()}
               >
                 <button 
                   onClick={() => setSelectedCert(null)}
+                  aria-label="Close certificate preview"
                   className="absolute -top-12 right-0 md:-right-12 text-gray-400 hover:text-white transition-colors bg-white/10 p-2 rounded-full backdrop-blur-md"
                 >
                   <X size={24} />
                 </button>
                 <div className="rounded-2xl overflow-hidden border border-white/20 shadow-[0_0_50px_rgba(212,175,55,0.2)] bg-bg-darker">
-                  <img 
-                    src={selectedCert.image_url || selectedCert.image} 
-                    alt={selectedCert.title} 
-                    loading="lazy"
-                    className="w-full max-h-[80vh] object-contain"
-                  />
+                  {(selectedCert.image_url || selectedCert.image) ? (
+                    <img 
+                      src={selectedCert.image_url || selectedCert.image} 
+                      alt={selectedCert.title} 
+                      loading="lazy"
+                      className="w-full max-h-[80vh] object-contain"
+                    />
+                  ) : (
+                    <div className="w-full h-64 flex items-center justify-center text-gold/40" aria-hidden="true">
+                      <Award size={64} />
+                    </div>
+                  )}
                   <div className="p-6 bg-gradient-to-t from-bg-dark to-transparent absolute bottom-0 left-0 right-0">
                     <h2 className="text-2xl font-display font-bold text-white">
                       {t(`certificates.cert_title_${selectedCert.id}`, selectedCert.title) as string}

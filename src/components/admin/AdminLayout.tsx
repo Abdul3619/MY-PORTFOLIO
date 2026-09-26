@@ -57,6 +57,8 @@ export const useAdmin = () => {
   return context;
 };
 
+const ADMIN_EMAIL = 'abdulwahababdullah3619@gmail.com';
+
 export const ProtectedRoute: React.FC = () => {
   const { user, loading, signOut } = useAuth();
 
@@ -74,7 +76,7 @@ export const ProtectedRoute: React.FC = () => {
   }
 
   // High-end security: Strictly allow only the owner's email
-  if (user.email?.toLowerCase() !== 'abdulwahababdullah3619@gmail.com') {
+  if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
     signOut();
     return <Navigate to="/admin/login" replace state={{ error: 'Access Denied: This portfolio dashboard is strictly locked.' }} />;
   }
@@ -663,7 +665,7 @@ export const AdminLogin: React.FC = () => {
     }
   }, [location.state]);
 
-  if (user && user.email?.toLowerCase() === 'abdulwahababdullah3619@gmail.com') {
+  if (user && user.email?.toLowerCase() === ADMIN_EMAIL) {
     return <Navigate to="/admin" replace />;
   }
 
@@ -673,14 +675,8 @@ export const AdminLogin: React.FC = () => {
     setError('');
     setSuccess('');
 
-    const targetEmail = email.trim().toLowerCase();
-    
-    // High-end security: Fail fast on incorrect email before hitting Supabase
-    if (targetEmail !== 'abdulwahababdullah3619@gmail.com') {
-      setError('Access Denied: Unauthorized email address.');
-      setLoading(false);
-      return;
-    }
+    // The login form only accepts the owner account (its email field is fixed)
+    const targetEmail = ADMIN_EMAIL;
     
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
@@ -707,7 +703,7 @@ export const AdminLogin: React.FC = () => {
       return;
     }
 
-    if (targetEmail !== 'abdulwahababdullah3619@gmail.com') {
+    if (targetEmail !== ADMIN_EMAIL) {
       setError('Access Denied: Unauthorized email address.');
       setLoading(false);
       return;
@@ -720,37 +716,12 @@ export const AdminLogin: React.FC = () => {
       });
 
       if (error) {
-        // Fallback to clear user instructions in case email fails to deliver
         throw new Error(error.message);
       }
 
       setSuccess('Recovery link dispatched! Check your inbox for the password reset instructions.');
     } catch (err: any) {
-      // Inform about successful direct recovery bypass since we preset the key
-      setSuccess('Direct recovery initialized! Since mail dispatch is pending setup, you can established your session right now using the temporary password: AdminSecure2026!');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInstantReset = async () => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    try {
-      const res = await fetch('/api/admin/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'abdulwahababdullah3619@gmail.com' })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to reset password');
-      setSuccess('Password successfully reset to AdminSecure2026! You can now log in.');
-      setPassword('AdminSecure2026!');
-      setEmail('abdulwahababdullah3619@gmail.com');
-      setIsForgotPasswordMode(false);
-    } catch (err: any) {
-      setError(err.message || 'Password reset failed');
+      setError(err.message || 'Could not send the recovery email. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -818,8 +789,9 @@ export const AdminLogin: React.FC = () => {
               <label className="block text-[10px] font-mono uppercase tracking-widest text-[#00F0FF] mb-1.5">Email Protocol</label>
               <input
                 type="email"
-                value="abdulwahababdullah3619@gmail.com"
+                value={ADMIN_EMAIL}
                 disabled
+                aria-label="Administrator email"
                 className="w-full bg-[#161616] border border-white/8 rounded-lg px-4 py-2.5 text-xs text-gray-400 placeholder:text-gray-600 outline-none cursor-not-allowed font-mono"
               />
               <p className="text-[10px] text-gray-500 mt-1 font-mono">Restricted owner identity. Only authorized access permitted.</p>
@@ -841,6 +813,8 @@ export const AdminLogin: React.FC = () => {
               </div>
               <input
                 type="password"
+                aria-label="Password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -907,16 +881,6 @@ export const AdminLogin: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={handleInstantReset}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-semibold py-2.5 px-4 rounded-lg text-xs font-mono uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(0,240,255,0.3)] cursor-pointer disabled:opacity-50"
-              >
-                Instant Reset Password to AdminSecure2026!
-              </button>
-            </div>
           </form>
         )}
       </motion.div>

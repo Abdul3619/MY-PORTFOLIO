@@ -19,7 +19,7 @@ interface Review {
 
 export function ClientReviewsSection() {
   const { t, i18n } = useTranslation();
-  const isRtl = i18n.language === "ar" || document.documentElement.dir === "rtl";
+  const isRtl = (i18n.language || "en").split("-")[0].toLowerCase() === "ar";
 
   // Data State
   const [reviews, setReviews] = useState<Review[]>([]);

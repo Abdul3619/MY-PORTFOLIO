@@ -28,7 +28,7 @@ import {
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
-import { projectsData } from "@/data/projects";
+import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 import * as Icons from "lucide-react";
 import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects, useSkills, trackEvent } from "@/hooks/useApi";
 
@@ -153,12 +153,15 @@ export default function Home() {
     }
   }, [projects]);
 
+  const roleCount = dynamicRoles.length;
   useEffect(() => {
+    setCurrentRoleIndex(0);
+    if (roleCount < 2) return;
     const interval = setInterval(() => {
-      setCurrentRoleIndex((prev) => (prev + 1) % dynamicRoles.length);
+      setCurrentRoleIndex((prev) => (prev + 1) % roleCount);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [roleCount]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -315,7 +318,7 @@ export default function Home() {
                     transition={{ type: "spring", stiffness: 260, damping: 25 }}
                     className="text-xl md:text-2xl text-gray-400 font-display font-medium absolute text-center lg:text-left"
                   >
-                    {dynamicRoles[currentRoleIndex]}
+                    {dynamicRoles[currentRoleIndex % roleCount]}
                   </motion.span>
                 </AnimatePresence>
               </motion.div>
@@ -529,7 +532,8 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {displayServices.map((card: any, index: number) => {
-              const Icon = card.icon;
+              // CMS services store the icon as a lucide icon name; built-in cards use the component directly
+              const Icon = typeof card.icon === "string" ? (Icons as any)[card.icon] : card.icon;
               return (
                 <GlassCard key={index} className="p-8 flex flex-col space-y-6 border-white/10" glowOnHover>
                   <span className="text-xs font-bold text-gold/80 tracking-widest uppercase">{card.tag ? (t(`home.strengths_card_tag_${index}`, card.tag) as string) : ""}</span>
@@ -598,7 +602,7 @@ export default function Home() {
                     <div className="relative h-60 overflow-hidden rounded-t-2xl">
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors duration-500 z-10" />
                       <img 
-                        src={project.thumbnail_url || project.hero_image_url || project.image || 'https://via.placeholder.com/600x400?text=No+Image'} 
+                        src={project.thumbnail_url || project.hero_image_url || project.image || PLACEHOLDER_IMAGE} 
                         alt={project.title}
                         loading={index === 0 ? "eager" : "lazy"}
                         {...(index === 0 ? { fetchPriority: "high" } : {})}
@@ -657,7 +661,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t border-white/5 text-xs text-gray-500 font-mono">
                   <span>{t("certificates.issued_date", "Issued Date")}</span>
-                  <span>{cert.year}</span>
+                  <span>{cert.year || cert.date_issued || cert.date}</span>
                 </div>
               </GlassCard>
             ))}
@@ -687,30 +691,42 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {displayTestimonials.map((tItem, index) => (
+            {displayTestimonials.map((tItem, index) => {
+              // CMS testimonials use content/image_url/company; the built-in ones use review/avatar
+              const reviewText = tItem.review || tItem.content;
+              const avatar = tItem.avatar || tItem.image_url || tItem.photo;
+              const roleLine = [tItem.role || tItem.position, tItem.company].filter(Boolean).join(", ");
+              return (
               <GlassCard key={index} className="p-8 space-y-6 border-white/15" glowOnHover>
                 <div className="flex items-center gap-1 text-gold">
-                  {Array.from({ length: tItem.rating }).map((_, i) => (
+                  {Array.from({ length: Number(tItem.rating) || 0 }).map((_, i) => (
                     <Star key={i} size={14} fill="currentColor" />
                   ))}
                 </div>
                 <p className="text-gray-300 italic text-sm md:text-base leading-relaxed">
-                  "{tItem.review}"
+                  "{reviewText}"
                 </p>
                 <div className="flex items-center gap-4 pt-4 border-t border-white/5">
-                  <img 
-                    src={tItem.avatar} 
-                    alt={tItem.name}
-                    loading="lazy"
-                    className="w-12 h-12 rounded-full object-cover border border-gold/30"
-                  />
+                  {avatar ? (
+                    <img 
+                      src={avatar} 
+                      alt={tItem.name}
+                      loading="lazy"
+                      className="w-12 h-12 rounded-full object-cover border border-gold/30"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full border border-gold/30 bg-white/5 flex items-center justify-center text-gold font-display font-bold" aria-hidden="true">
+                      {(tItem.name || "?").charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <h4 className="text-sm font-bold text-white font-display">{tItem.name}</h4>
-                    <p className="text-xs text-gold font-medium">{tItem.role}</p>
+                    <p className="text-xs text-gold font-medium">{roleLine}</p>
                   </div>
                 </div>
               </GlassCard>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -803,12 +819,12 @@ export default function Home() {
               <h4 className="text-xs uppercase tracking-widest text-gold font-bold">{t("common.connect_directly", "Connect Directly")}</h4>
               <div className="flex gap-4">
                 {socialLinks.github !== "#" && (
-                  <a href={socialLinks.github} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                  <a href={socialLinks.github} target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
                     <Github size={18} />
                   </a>
                 )}
                 {socialLinks.linkedin !== "#" && (
-                  <a href={socialLinks.linkedin} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                  <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
                     <Linkedin size={18} />
                   </a>
                 )}
