@@ -2247,7 +2247,7 @@ async function loadRenderer() {
 
 async function loadTemplate(url: string): Promise<string> {
   if (viteDevServer) {
-    const raw = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+    const raw = fs.readFileSync(path.resolve(process.cwd(), 'app.html'), 'utf-8');
     return viteDevServer.transformIndexHtml(url, raw);
   }
   if (!prodTemplate) {
@@ -2359,7 +2359,7 @@ async function startServer() {
     viteDevServer = await createViteServer({ server: { middlewareMode: true, hmr: false, watch: null }, appType: 'custom' });
     app.use(viteDevServer.middlewares);
   } else {
-    // index.html is moved out of dist/client at build time, so every page goes through the renderer
+    // The HTML template is moved out of dist/client at build time, so every page goes through the renderer
     app.use(express.static(path.join(process.cwd(), 'dist/client'), { index: false, maxAge: '1y', immutable: true }));
   }
   app.use(renderPage);

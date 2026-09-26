@@ -25,6 +25,9 @@ export default defineConfig(({ isSsrBuild }) => {
     },
     build: {
       chunkSizeWarningLimit: 3000,
+      // The HTML template is deliberately not named index.html: static hosts (Vercel included) serve an
+      // index.html for "/" before any rewrite runs, which would bypass server-side rendering.
+      rollupOptions: isSsrBuild ? undefined : { input: path.resolve(__dirname, 'app.html') },
     },
   };
 });
