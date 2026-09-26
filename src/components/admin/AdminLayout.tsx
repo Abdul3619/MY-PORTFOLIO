@@ -2,6 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Navigate, Outlet, Link, useLocation, useOutlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { getAuthRedirectUrl } from '../../lib/siteUrl';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../hooks/useApi';
@@ -713,9 +714,10 @@ export const AdminLogin: React.FC = () => {
     }
 
     try {
-      // Trigger Supabase standard reset
+      // The redirect is always explicit (never the Supabase dashboard's "Site URL" default) and points at the
+      // production site, so the link works wherever the request was made from; see src/lib/siteUrl.ts
       const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo: `${window.location.origin}/admin/account`,
+        redirectTo: getAuthRedirectUrl('/admin/account'),
       });
 
       if (error) {
