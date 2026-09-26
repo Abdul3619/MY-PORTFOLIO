@@ -11,7 +11,7 @@ import { BackgroundProvider } from "./contexts/BackgroundContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { Layout } from "./Layout";
 import { applyUserLanguage } from "./lib/i18n";
-import { getSiteTitle } from "./lib/seo";
+import { getRouteMeta, getSiteTitle } from "./lib/seo";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Skills from "./pages/Skills";
@@ -56,17 +56,23 @@ function adminPage(Page: ComponentType) {
 
 function AnimatedRoutes() {
   const { seo, profile } = useAppData();
+  const location = useLocation();
 
   // The server always renders in English; switch to the visitor's language once hydrated
   useEffect(() => {
     applyUserLanguage();
   }, []);
 
+  // Keep the tab title in step with the page (the server renders the same titles; see src/lib/seo.ts).
+  // Project pages set their own title in ProjectDetail.
   useEffect(() => {
-    if (seo || profile) {
-      document.title = getSiteTitle(seo, profile);
-    }
-    
+    if (!seo && !profile) return;
+    const meta = getRouteMeta(location.pathname, seo, profile);
+    if (meta) document.title = meta.title;
+    else if (!/^\/projects\/[^/]+\/?$/.test(location.pathname)) document.title = getSiteTitle(seo, profile);
+  }, [seo, profile, location.pathname]);
+
+  useEffect(() => {
     if (seo?.google_analytics_id && !document.getElementById('ga-script')) {
       const script = document.createElement('script');
       script.id = 'ga-script';
@@ -102,8 +108,6 @@ function AnimatedRoutes() {
       document.head.appendChild(script);
     }
   }, [seo, profile]);
-
-  const location = useLocation();
 
   useEffect(() => {
     window.scrollTo(0, 0);

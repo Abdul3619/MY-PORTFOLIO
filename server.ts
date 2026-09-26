@@ -12,6 +12,7 @@ import cors from 'cors';
 import crypto from 'crypto';
 import { pathToFileURL } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
+import { STATIC_ROUTES } from './src/lib/seo';
 
 dotenv.config();
 
@@ -1030,13 +1031,17 @@ app.get('/api/seo', async (req, res) => {
 app.post('/api/seo', requireAuth, async (req, res) => {
   try {
     const validatedData = seoSchema.parse(req.body);
-    const result = await saveBioJson((current) => {
-      return {
-        ...current,
-        seo_settings: validatedData
-      };
+    let saved: any = validatedData;
+    await saveBioJson((current) => {
+      // An empty secret field means "unchanged": the admin form may have been filled from public data
+      // that never contains the secret, and saving it must not wipe the stored value.
+      saved = { ...validatedData };
+      for (const field of SECRET_SEO_FIELDS) {
+        if (!saved[field] && current?.seo_settings?.[field]) saved[field] = current.seo_settings[field];
+      }
+      return { ...current, seo_settings: saved };
     });
-    res.json(validatedData);
+    res.json(saved);
   } catch (err: any) {
     res.status(400).json({ error: formatZodError(err) });
   }
@@ -2108,7 +2113,19 @@ async function loadBioResource(ctx: LoadContext, draft: boolean, publishedKey: s
 
 const loadServices = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'services', 'services', []);
 const loadAbout = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'about', 'about_sections', []);
-const loadSeo = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'seo', 'seo_settings', {});
+// Fields of the SEO/analytics settings that are secrets: only admins may see them. Public responses (and the
+// state embedded in server-rendered pages) never include them.
+const SECRET_SEO_FIELDS = ['plausible_api_key'];
+function publicSeo(seo: any) {
+  if (!seo || typeof seo !== 'object') return seo;
+  const copy = { ...seo };
+  for (const field of SECRET_SEO_FIELDS) delete copy[field];
+  return copy;
+}
+const loadSeo = async (ctx: LoadContext, draft: boolean) => {
+  const seo = await loadBioResource(ctx, draft, 'seo', 'seo_settings', {});
+  return draft ? seo : publicSeo(seo);
+};
 const loadContactInfo = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'contact_info', 'contact_information', {});
 
 async function loadResumeExperience(ctx: LoadContext, draft: boolean) {
@@ -2318,6 +2335,72 @@ function fillTemplate(template: string, result: { html: string; head: string; st
   return html;
 }
 
+// Public base URL (no trailing slash) for canonical links, the sitemap and robots.txt: the CMS canonical URL
+// if set, then SITE_URL, then Vercel's production domain, then the host of the current request.
+function resolveSiteUrl(req: express.Request, seo?: any): string {
+  for (const candidate of [seo?.canonical_url, process.env.SITE_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]) {
+    if (typeof candidate !== 'string' || !candidate.trim()) continue;
+    const withScheme = /^https?:\/\//i.test(candidate.trim()) ? candidate.trim() : `https://${candidate.trim()}`;
+    try {
+      const url = new URL(withScheme);
+      return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
+    } catch {
+      // ignore malformed values and try the next source
+    }
+  }
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+async function loadPublicSeo(): Promise<any> {
+  try {
+    return await withTimeout(loadSeo(createLoadContext(), false), SSR_DATA_TIMEOUT_MS);
+  } catch {
+    return {};
+  }
+}
+
+const xmlEscape = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+// Lists the public pages plus every published project, straight from the CMS, so it never goes stale.
+app.get('/sitemap.xml', async (req, res) => {
+  const [seo, projects] = await Promise.all([
+    loadPublicSeo(),
+    withTimeout(loadProjects(false), SSR_DATA_TIMEOUT_MS).catch((err: any) => {
+      console.warn('[sitemap] Could not load projects:', err.message);
+      return [] as any[];
+    }),
+  ]);
+  const base = resolveSiteUrl(req, seo);
+  const entries: { loc: string; lastmod?: string; priority: string }[] = STATIC_ROUTES.map((route) => ({
+    loc: base + (route === '/' ? '/' : route),
+    priority: route === '/' ? '1.0' : route === '/projects' ? '0.9' : '0.7',
+  }));
+  const seen = new Set<string>();
+  for (const project of projects) {
+    const slug = project?.slug || project?.id;
+    if (!slug || seen.has(String(slug))) continue;
+    seen.add(String(slug));
+    const updated = project.updated_at || project.created_at;
+    const lastmod = updated && !Number.isNaN(Date.parse(updated)) ? new Date(updated).toISOString().slice(0, 10) : undefined;
+    entries.push({ loc: `${base}/projects/${encodeURIComponent(String(slug))}`, lastmod, priority: '0.8' });
+  }
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...entries.map((e) => `  <url><loc>${xmlEscape(e.loc)}</loc>${e.lastmod ? `<lastmod>${e.lastmod}</lastmod>` : ''}<priority>${e.priority}</priority></url>`),
+    '</urlset>',
+    '',
+  ].join('\n');
+  res.status(200).set({ 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=0, s-maxage=3600' }).send(xml);
+});
+
+app.get('/robots.txt', async (req, res) => {
+  const base = resolveSiteUrl(req, await loadPublicSeo());
+  const body = ['User-agent: *', 'Allow: /', 'Disallow: /admin', 'Disallow: /api/', '', `Sitemap: ${base}/sitemap.xml`, ''].join('\n');
+  res.status(200).set({ 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=0, s-maxage=3600' }).send(body);
+});
+
 async function renderPage(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   // Missing static files (robots.txt, stale asset hashes, ...) get a plain 404 instead of a full page render
@@ -2336,7 +2419,7 @@ async function renderPage(req: express.Request, res: express.Response, next: exp
     }
 
     const data = await loadPageData(plan);
-    const result = renderer.render(url, plan, data);
+    const result = renderer.render(url, plan, data, resolveSiteUrl(req, data.get('seo')));
     res.status(result.status).set({
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': result.status === 200 ? 'public, max-age=0, s-maxage=30, stale-while-revalidate=300' : 'no-store',
