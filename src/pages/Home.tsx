@@ -75,41 +75,6 @@ let differentCards = [
   }
 ];
 
-const homeCertificates = [
-  {
-    title: "Advanced React Patterns",
-    issuer: "Frontend Masters",
-    year: "2023"
-  },
-  {
-    title: "Solar Energy Systems Design",
-    issuer: "Renewable Energy Institute",
-    year: "2022"
-  },
-  {
-    title: "Full Stack Web Development",
-    issuer: "Udacity",
-    year: "2024"
-  }
-];
-
-const homeTestimonials = [
-  {
-    name: "Sarah Jenkins",
-    role: "Creative Director",
-    review: "Abdul has a rare combination of technical precision and an eye for high-end design. The website he built didn't just meet our expectations; it completely redefined our digital presence.",
-    rating: 5,
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop"
-  },
-  {
-    name: "Michael Chang",
-    role: "Founder, Apex Solar",
-    review: "Having someone who understands both the physical engineering of solar systems and the digital architecture of our internal tools was a game-changer.",
-    rating: 5,
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&auto=format&fit=crop"
-  }
-];
-
 export default function Home() {
   const { t } = useTranslation();
   const { data: profile } = useProfile();
@@ -122,8 +87,9 @@ export default function Home() {
 
   const dynamicRoles = profile?.title ? profile.title.split(',').map((s: string) => s.trim()) : roles;
   const displayServices = services && services.length > 0 ? services : differentCards;
-  const displayTestimonials = testimonials && testimonials.length > 0 ? testimonials : homeTestimonials;
-  const displayCertificates = certificates && certificates.length > 0 ? certificates : homeCertificates;
+  // Only real CMS entries are shown; there is no placeholder content presented as genuine
+  const displayTestimonials: any[] = Array.isArray(testimonials) ? testimonials : [];
+  const displayCertificates: any[] = Array.isArray(certificates) ? certificates : [];
   const displayProjects = projects && projects.length > 0 ? projects.slice(0,4) : [];
   const socialLinks = {
     github: contact?.github_url || "#",
@@ -649,6 +615,13 @@ export default function Home() {
             </h2>
           </div>
 
+          {displayCertificates.length === 0 ? (
+            <GlassCard className="p-8 border-white/10 text-center">
+              <p className="text-gray-400 text-sm md:text-base">
+                {t("certificates.empty_state", "No certificates have been added yet.")}
+              </p>
+            </GlassCard>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {displayCertificates.map((cert, index) => (
               <GlassCard key={index} className="p-6 border-white/10 space-y-4 flex flex-col justify-between" glowOnHover>
@@ -666,6 +639,7 @@ export default function Home() {
               </GlassCard>
             ))}
           </div>
+          )}
 
           <div className="text-center mt-12">
             <Link to="/certificates" className="interactive">
@@ -690,6 +664,17 @@ export default function Home() {
             </h2>
           </div>
 
+          {displayTestimonials.length === 0 ? (
+            <GlassCard className="p-8 border-white/10 text-center space-y-4">
+              <p className="text-gray-400 text-sm md:text-base">
+                {t("testimonials.empty_state", "No client testimonials yet.")}
+              </p>
+              <Link to="/testimonials" className="inline-flex items-center gap-2 text-gold hover:text-white transition-colors duration-300 text-sm font-medium interactive">
+                <span>{t("testimonials.leave_review_cta", "Worked with me? Leave a review")}</span>
+                <ArrowRight size={16} />
+              </Link>
+            </GlassCard>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {displayTestimonials.map((tItem, index) => {
               // CMS testimonials use content/image_url/company; the built-in ones use review/avatar
@@ -728,6 +713,7 @@ export default function Home() {
               );
             })}
           </div>
+          )}
         </div>
       </section>
 

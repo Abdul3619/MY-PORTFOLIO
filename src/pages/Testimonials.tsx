@@ -8,30 +8,6 @@ import { useTestimonials } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 import { ClientReviewsSection } from "@/components/ClientReviewsSection";
 
-const testimonials = [
-  {
-    id: 1,
-    name: "Sarah Jenkins",
-    position: "Creative Director",
-    photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop",
-    review: "Abdul has a rare combination of technical precision and an eye for high-end design. The website he built for our agency didn't just meet our expectations; it completely redefined our digital presence."
-  },
-  {
-    id: 2,
-    name: "Michael Chang",
-    position: "Founder, Apex Solar",
-    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop",
-    review: "Having someone who understands both the physical engineering of solar systems and the digital architecture of our internal tools was a game-changer. Abdul is brilliant and relentlessly dedicated."
-  },
-  {
-    id: 3,
-    name: "Elena Rodriguez",
-    position: "Marketing Lead",
-    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200&auto=format&fit=crop",
-    review: "The level of polish Abdul brings to frontend development is astounding. His attention to micro-interactions and performance optimization sets him apart from anyone we've worked with before."
-  }
-];
-
 export default function Testimonials() {
   const { t } = useTranslation();
   const { data: testimonialsData, isLoading } = useTestimonials();
@@ -39,7 +15,8 @@ export default function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
 
-  const displayTestimonials = testimonialsData && testimonialsData.length > 0 ? testimonialsData : testimonials;
+  // Only real CMS entries are shown; there is no placeholder content presented as genuine
+  const displayTestimonials: any[] = Array.isArray(testimonialsData) ? testimonialsData : [];
   const count = displayTestimonials.length;
 
   useEffect(() => {
@@ -81,10 +58,10 @@ export default function Testimonials() {
   };
 
   // CMS testimonials use content/image_url/role/company; the built-in ones use review/photo/position
-  const current = displayTestimonials[currentIndex % count];
-  const currentReview = current.review || current.content;
-  const currentPhoto = current.photo || current.avatar || current.image_url;
-  const currentRole = [current.position || current.role, current.company].filter(Boolean).join(", ");
+  const current = count > 0 ? displayTestimonials[currentIndex % count] : null;
+  const currentReview = current?.review || current?.content;
+  const currentPhoto = current?.photo || current?.avatar || current?.image_url;
+  const currentRole = [current?.position || current?.role, current?.company].filter(Boolean).join(", ");
 
   const variants = {
     enter: (direction: number) => ({
@@ -120,6 +97,17 @@ export default function Testimonials() {
           </h1>
         </motion.div>
 
+        {!current ? (
+          <GlassCard className="p-8 md:p-12 text-center max-w-2xl mx-auto">
+            <p className="text-xl text-gray-300">
+              {t("testimonials.empty_state", "No client testimonials yet.")}
+            </p>
+            <p className="text-gray-400 mt-3">
+              {t("testimonials.empty_state_help", "Worked with me? Share your experience in the reviews section below.")}
+            </p>
+          </GlassCard>
+        ) : (
+        <>
         <div className="relative h-[400px] md:h-[350px] w-full flex items-center justify-center">
           
           <button 
@@ -212,6 +200,8 @@ export default function Testimonials() {
             />
           ))}
         </div>
+        </>
+        )}
 
         {/* Brand-new Client Reviews and Star Ratings Moderation Board */}
         <ClientReviewsSection />
