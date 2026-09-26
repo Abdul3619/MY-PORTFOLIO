@@ -91,7 +91,7 @@ function AnimatedRoutes() {
       document.head.appendChild(script);
     }
 
-    // index.html already loads Plausible; don't inject a second tracker (it would double count page views)
+    // The HTML template (app.html) already loads Plausible; don't inject a second tracker (it would double count page views)
     if (seo?.plausible_domain && !document.getElementById('plausible-script') && !document.querySelector('script[src*="plausible.io"]')) {
       const script = document.createElement('script');
       script.id = 'plausible-script';
