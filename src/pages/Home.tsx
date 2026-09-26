@@ -29,6 +29,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
+import { isPublicProject } from "@/lib/projectStatus";
 import * as Icons from "lucide-react";
 import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects, useSkills, trackEvent } from "@/hooks/useApi";
 
@@ -91,6 +92,8 @@ export default function Home() {
   const displayTestimonials: any[] = Array.isArray(testimonials) ? testimonials : [];
   const displayCertificates: any[] = Array.isArray(certificates) ? certificates : [];
   const displayProjects = projects && projects.length > 0 ? projects.slice(0,4) : [];
+  // Counted from the CMS so the stat always matches what is actually published (admin previews include drafts, so filter here too)
+  const completedProjectsLabel = Array.isArray(projects) ? `${projects.filter(isPublicProject).length}+` : "—";
   const socialLinks = {
     github: contact?.github_url || "#",
     linkedin: contact?.linkedin_url || "#",
@@ -400,7 +403,7 @@ export default function Home() {
                     <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.self_taught", "Self-Taught")}</p>
                   </div>
                   <div>
-                    <h4 className="text-2xl font-bold font-display text-white">15+</h4>
+                    <h4 className="text-2xl font-bold font-display text-white">{completedProjectsLabel}</h4>
                     <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.completed_proj", "Completed Projects")}</p>
                   </div>
                 </div>
@@ -603,7 +606,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 6. CERTIFICATES PREVIEW SECTION */}
+      {/* 6. CERTIFICATES PREVIEW SECTION (hidden until real certificates exist) */}
+      {displayCertificates.length > 0 && (
       <section className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
@@ -615,13 +619,6 @@ export default function Home() {
             </h2>
           </div>
 
-          {displayCertificates.length === 0 ? (
-            <GlassCard className="p-8 border-white/10 text-center">
-              <p className="text-gray-400 text-sm md:text-base">
-                {t("certificates.empty_state", "No certificates have been added yet.")}
-              </p>
-            </GlassCard>
-          ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {displayCertificates.map((cert, index) => (
               <GlassCard key={index} className="p-6 border-white/10 space-y-4 flex flex-col justify-between" glowOnHover>
@@ -639,7 +636,6 @@ export default function Home() {
               </GlassCard>
             ))}
           </div>
-          )}
 
           <div className="text-center mt-12">
             <Link to="/certificates" className="interactive">
@@ -651,8 +647,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* 7. TESTIMONIALS SECTION */}
+      {/* 7. TESTIMONIALS SECTION (hidden until real testimonials exist) */}
+      {displayTestimonials.length > 0 && (
       <section className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
@@ -664,17 +662,6 @@ export default function Home() {
             </h2>
           </div>
 
-          {displayTestimonials.length === 0 ? (
-            <GlassCard className="p-8 border-white/10 text-center space-y-4">
-              <p className="text-gray-400 text-sm md:text-base">
-                {t("testimonials.empty_state", "No client testimonials yet.")}
-              </p>
-              <Link to="/testimonials" className="inline-flex items-center gap-2 text-gold hover:text-white transition-colors duration-300 text-sm font-medium interactive">
-                <span>{t("testimonials.leave_review_cta", "Worked with me? Leave a review")}</span>
-                <ArrowRight size={16} />
-              </Link>
-            </GlassCard>
-          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {displayTestimonials.map((tItem, index) => {
               // CMS testimonials use content/image_url/company; the built-in ones use review/avatar
@@ -713,9 +700,9 @@ export default function Home() {
               );
             })}
           </div>
-          )}
         </div>
       </section>
+      )}
 
       {/* 8. RESUME CTA SECTION */}
       <section className="relative py-12">
