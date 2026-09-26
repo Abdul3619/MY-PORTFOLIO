@@ -20,13 +20,18 @@ const FIXTURE_PROFILE = {
   id: '00000000-0000-0000-0000-000000000001',
   name: 'Abdul Wahab',
   title: 'Web Developer & Solar Technician',
-  bio: JSON.stringify({ bio_text: 'SSR check fixture bio.' }),
+  bio: JSON.stringify({
+    bio_text: 'SSR check fixture bio.',
+    // A secret that must never reach public pages or /api/seo
+    seo_settings: { plausible_api_key: 'ssr-check-secret-key' },
+  }),
 };
-const EXPECTED_TITLE = 'Abdul Wahab | Web Developer &amp; Solar Technician';
+const SITE_TITLE = 'Abdul Wahab | Web Developer &amp; Solar Technician';
+const SECRET = 'ssr-check-secret-key';
 
 const PAGES = [
-  { path: '/', mustContain: ['Abdul Wahab', 'Web Developer', 'Completed Projects'] },
-  { path: '/about', mustContain: ['Abdul Wahab', 'Web Developer'] },
+  { path: '/', title: SITE_TITLE, mustContain: ['Abdul Wahab', 'Web Developer', 'Completed Projects', '<meta property="og:title"', '<meta property="og:description"', '<link rel="canonical"', 'application/ld+json'] },
+  { path: '/about', title: `About | ${SITE_TITLE}`, mustContain: ['Abdul Wahab', 'Web Developer', '<meta name="description"', '<meta property="og:url"'] },
 ];
 
 // Minimal PostgREST stand-in: the profiles table holds the fixture, every other table is empty
@@ -109,13 +114,35 @@ try {
 
     if (res.status !== 200) fail(`${page.path}: HTTP ${res.status}`);
     if (!title || title === GENERIC_TITLE) fail(`${page.path}: generic or missing <title> ("${title}")`);
-    else if (mock && title !== EXPECTED_TITLE) fail(`${page.path}: <title> is "${title}", expected "${EXPECTED_TITLE}"`);
+    else if (mock && title !== page.title) fail(`${page.path}: <title> is "${title}", expected "${page.title}"`);
+    if (html.includes(SECRET)) fail(`${page.path}: a secret setting (plausible_api_key) is exposed in the page HTML`);
+    if (page.path === '/') {
+      const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+      try {
+        const graph = JSON.parse(ld?.[1] ?? 'null')?.['@graph'] ?? [];
+        if (!graph.some((node) => node['@type'] === 'Person' && node.name === 'Abdul Wahab')) fail('/: JSON-LD has no Person named Abdul Wahab');
+      } catch {
+        fail('/: JSON-LD is missing or is not valid JSON');
+      }
+    }
     if (rootLength < MIN_ROOT_HTML) fail(`${page.path}: #root is empty or nearly empty (${rootLength} chars) - server render fell back to the client shell`);
     for (const text of page.mustContain) {
       if (!html.includes(text)) fail(`${page.path}: expected text "${text}" not found in server HTML`);
     }
     console.log(`check-ssr: ${page.path} -> ${res.status}, title "${title}", ${rootLength} chars rendered`);
   }
+  const sitemap = await fetch(`${BASE}/sitemap.xml`, { signal: AbortSignal.timeout(30000) });
+  const sitemapXml = await sitemap.text();
+  if (sitemap.status !== 200 || !sitemapXml.includes('<urlset') || !sitemapXml.includes('/about</loc>')) {
+    fail(`/sitemap.xml: expected 200 with a <urlset> listing /about (got ${sitemap.status})`);
+  }
+  const robots = await fetch(`${BASE}/robots.txt`, { signal: AbortSignal.timeout(30000) });
+  const robotsTxt = await robots.text();
+  if (robots.status !== 200 || !/^Sitemap: https?:\/\/\S+\/sitemap\.xml$/m.test(robotsTxt)) fail(`/robots.txt: expected 200 with a Sitemap line (got ${robots.status})`);
+  const seoApi = await (await fetch(`${BASE}/api/seo`, { signal: AbortSignal.timeout(30000) })).text();
+  if (seoApi.includes(SECRET)) fail('/api/seo: the public response exposes plausible_api_key');
+  console.log(`check-ssr: /sitemap.xml -> ${sitemap.status} (${(sitemapXml.match(/<url>/g) || []).length} URLs), /robots.txt -> ${robots.status}`);
+
   if (serverLog.includes('[SSR] Render failed')) {
     fail('server logged "[SSR] Render failed":\n' + serverLog.split('\n').filter((l) => l.includes('Render failed') || l.includes('Error')).slice(0, 5).join('\n'));
   }
