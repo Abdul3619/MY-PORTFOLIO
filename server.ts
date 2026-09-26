@@ -1937,6 +1937,7 @@ app.post('/api/leads', async (req, res) => {
     const notes = typeof req.body?.notes === 'string' ? req.body.notes.slice(0, 5000) : '';
     const leadPayload = {
       ...validatedData,
+      notes: notes || null,
       created_at: validatedData.created_at || new Date().toISOString()
     };
     
@@ -1948,7 +1949,7 @@ app.post('/api/leads', async (req, res) => {
 
     const lead = data?.[0];
 
-    // Attach the submitted details (e.g. solar sizing snapshot) as a lead note, where the CRM reads them
+    // Also add the submitted details (e.g. solar sizing snapshot) to the lead's note timeline shown in the CRM
     if (notes && lead?.id) {
       const { error: noteError } = await supabaseAdmin.from('lead_notes').insert([{
         lead_id: lead.id,

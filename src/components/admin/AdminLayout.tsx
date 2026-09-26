@@ -29,7 +29,8 @@ import {
   Info,
   Globe,
   ArrowLeft,
-  Star
+  Star,
+  KeyRound
 } from 'lucide-react';
 
 // Real-time Toast Notification Type
@@ -218,6 +219,7 @@ export const AdminLayout: React.FC = () => {
       case '/admin/reviews': return 'Client Reviews Manager';
       case '/admin/media': return 'Media Library';
       case '/admin/profile': return 'SEO & Profile Settings';
+      case '/admin/account': return 'Account & Security';
       default: return 'Admin Console';
     }
   };
@@ -262,7 +264,8 @@ export const AdminLayout: React.FC = () => {
     {
       title: 'System',
       items: [
-        { name: 'Settings & SEO', path: '/admin/profile', icon: <Settings size={18} /> }
+        { name: 'Settings & SEO', path: '/admin/profile', icon: <Settings size={18} /> },
+        { name: 'Account & Security', path: '/admin/account', icon: <KeyRound size={18} /> }
       ]
     }
   ];
@@ -605,9 +608,9 @@ export const AdminLayout: React.FC = () => {
             <User size={18} />
             <span className="text-[8px] mt-0.5 font-mono">Profile</span>
           </Link>
-          <Link to="/admin/settings" className={`flex flex-col items-center justify-center w-12 h-12 rounded ${location.pathname === '/admin/settings' ? 'text-[#00F0FF]' : 'hover:text-white'}`}>
-            <Settings size={18} />
-            <span className="text-[8px] mt-0.5 font-mono">Settings</span>
+          <Link to="/admin/account" className={`flex flex-col items-center justify-center w-12 h-12 rounded ${location.pathname === '/admin/account' ? 'text-[#00F0FF]' : 'hover:text-white'}`}>
+            <KeyRound size={18} />
+            <span className="text-[8px] mt-0.5 font-mono">Account</span>
           </Link>
         </div>
 
@@ -712,7 +715,7 @@ export const AdminLogin: React.FC = () => {
     try {
       // Trigger Supabase standard reset
       const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo: `${window.location.origin}/admin/login`,
+        redirectTo: `${window.location.origin}/admin/account`,
       });
 
       if (error) {

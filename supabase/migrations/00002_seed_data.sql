@@ -13,12 +13,4 @@ INSERT INTO public.skills (name, category, proficiency, order_index) VALUES
 ('Tailwind CSS', 'Frontend', 95, 5),
 ('Solar Installation', 'Hardware', 85, 6);
 
--- Certificates
-INSERT INTO public.certificates (title, issuer, date_issued) VALUES 
-('AWS Certified Developer', 'Amazon Web Services', '2023-05-15'),
-('Certified Solar Technician', 'NABCEP', '2022-10-10');
-
--- Testimonials
-INSERT INTO public.testimonials (name, role, company, content, is_approved) VALUES 
-('Sarah Jenkins', 'CTO', 'TechStart Inc.', 'Abdul delivered our new web application ahead of schedule. His attention to detail and ability to translate our requirements into a working product was exceptional.', true),
-('Michael Chen', 'Operations Manager', 'GreenEnergy Solutions', 'The solar monitoring dashboard he built for us completely revolutionized how we track panel efficiency. Highly recommended.', true);
+-- Certificates and testimonials are intentionally not seeded: they must come from real credentials and real clients via the admin dashboard.

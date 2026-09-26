@@ -37,6 +37,7 @@ const AdminReviews = lazy(() => import("./pages/admin/AdminReviews"));
 const AdminMedia = lazy(() => import("./pages/admin/AdminMedia"));
 const AdminSiteSettings = lazy(() => import("./pages/admin/AdminSiteSettings"));
 const AdminSkills = lazy(() => import("./pages/admin/AdminSkills"));
+const AdminAccount = lazy(() => import("./pages/admin/AdminAccount"));
 
 function adminPage(Page: ComponentType) {
   return (
@@ -149,6 +150,7 @@ function AnimatedRoutes() {
           <Route path="/admin/analytics" element={adminPage(AdminAnalytics)} />
           <Route path="/admin/resume" element={adminPage(AdminResume)} />
           <Route path="/admin/media" element={adminPage(AdminMedia)} />
+          <Route path="/admin/account" element={adminPage(AdminAccount)} />
         </Route>
       </Route>
     </Routes>

@@ -7,30 +7,6 @@ import { CardSkeleton } from "@/components/Skeleton";
 import { useCertificates } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 
-const certificates = [
-  {
-    id: 1,
-    title: "Advanced React Patterns",
-    issuer: "Frontend Masters",
-    date: "2023",
-    image: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop"
-  },
-  {
-    id: 2,
-    title: "Solar Energy Systems Design",
-    issuer: "Renewable Energy Institute",
-    date: "2022",
-    image: "https://images.unsplash.com/photo-1509391366360-1e6e2163ca81?q=80&w=1200&auto=format&fit=crop"
-  },
-  {
-    id: 3,
-    title: "Full Stack Web Development",
-    issuer: "Udacity",
-    date: "2024",
-    image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1200&auto=format&fit=crop"
-  }
-];
-
 export default function Certificates() {
   const { t } = useTranslation();
   const { data: certsData, isLoading } = useCertificates();
@@ -68,7 +44,8 @@ export default function Certificates() {
     );
   }
 
-  const displayCerts = certsData && certsData.length > 0 ? certsData : certificates;
+  // Only real CMS entries are shown; there is no placeholder content presented as genuine
+  const displayCerts: any[] = Array.isArray(certsData) ? certsData : [];
 
   return (
     <PageTransition className="w-full">
@@ -86,6 +63,14 @@ export default function Certificates() {
             {t("certificates.subtitle", "Verified knowledge across engineering and software development.")}
           </p>
         </motion.div>
+
+        {displayCerts.length === 0 && (
+          <GlassCard className="p-8 text-center max-w-xl mx-auto">
+            <p className="text-gray-400">
+              {t("certificates.empty_state", "No certificates have been added yet.")}
+            </p>
+          </GlassCard>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {displayCerts.map((cert, index) => (
