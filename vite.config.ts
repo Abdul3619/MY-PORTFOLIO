@@ -2,10 +2,15 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
+import {siteUrlFromEnv} from './src/lib/siteUrl';
 
 export default defineConfig(({ isSsrBuild }) => {
   return {
     plugins: [react(), tailwindcss()],
+    define: {
+      // Public site URL for absolute links built in the browser (e.g. password-reset redirects); see src/lib/siteUrl.ts
+      __SITE_URL__: JSON.stringify(siteUrlFromEnv(process.env)),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

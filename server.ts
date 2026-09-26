@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import { pathToFileURL } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 import { STATIC_ROUTES } from './src/lib/seo';
+import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl';
 
 dotenv.config();
 
@@ -2338,17 +2339,7 @@ function fillTemplate(template: string, result: { html: string; head: string; st
 // Public base URL (no trailing slash) for canonical links, the sitemap and robots.txt: the CMS canonical URL
 // if set, then SITE_URL, then Vercel's production domain, then the host of the current request.
 function resolveSiteUrl(req: express.Request, seo?: any): string {
-  for (const candidate of [seo?.canonical_url, process.env.SITE_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]) {
-    if (typeof candidate !== 'string' || !candidate.trim()) continue;
-    const withScheme = /^https?:\/\//i.test(candidate.trim()) ? candidate.trim() : `https://${candidate.trim()}`;
-    try {
-      const url = new URL(withScheme);
-      return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
-    } catch {
-      // ignore malformed values and try the next source
-    }
-  }
-  return `${req.protocol}://${req.get('host')}`;
+  return normalizeSiteUrl(seo?.canonical_url) || siteUrlFromEnv(process.env) || `${req.protocol}://${req.get('host')}`;
 }
 
 async function loadPublicSeo(): Promise<any> {
