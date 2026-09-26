@@ -8,6 +8,7 @@ import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { AppDataProvider, useAppData } from "./contexts/AppDataContext";
 import { BackgroundProvider } from "./contexts/BackgroundContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { Layout } from "./Layout";
 import { applyUserLanguage } from "./lib/i18n";
 import { getSiteTitle } from "./lib/seo";
@@ -160,10 +161,12 @@ function AnimatedRoutes() {
 // The router is provided by the entry point: BrowserRouter on the client, StaticRouter on the server
 export default function App() {
   return (
-    <BackgroundProvider>
-      <AppDataProvider>
-        <AnimatedRoutes />
-      </AppDataProvider>
-    </BackgroundProvider>
+    <ThemeProvider>
+      <BackgroundProvider>
+        <AppDataProvider>
+          <AnimatedRoutes />
+        </AppDataProvider>
+      </BackgroundProvider>
+    </ThemeProvider>
   );
 }
