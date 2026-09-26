@@ -12,8 +12,8 @@ import cors from 'cors';
 import crypto from 'crypto';
 import { pathToFileURL } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
-import { STATIC_ROUTES } from './src/lib/seo';
-import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl';
+import { STATIC_ROUTES } from './src/lib/seo.js';
+import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl.js';
 
 dotenv.config();
 
