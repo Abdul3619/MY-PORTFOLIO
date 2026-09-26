@@ -1,9 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Kanit:wght@900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
-@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *, .light, .light *));
-
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
@@ -18,90 +15,21 @@
   --color-cyan-accent: #00F0FF;
 }
 
-:root, .dark, [data-theme="dark"] {
-  --bg-primary: #050505;
-  --bg-secondary: #0A0A0A;
-  --bg-surface: rgba(255, 255, 255, 0.03);
-  --bg-surface-elevated: rgba(255, 255, 255, 0.06);
-  --bg-glass: rgba(255, 255, 255, 0.05);
-  --bg-glass-card: rgba(12, 12, 12, 0.65);
-  --text-primary: #F9FAFB;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-glass: rgba(255, 255, 255, 0.1);
-  --accent-gold: #D4AF37;
-  --accent-cyan: #00F0FF;
-  --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.3);
-  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-  --input-bg: rgba(255, 255, 255, 0.04);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --input-text: #FFFFFF;
-}
-
-.light, [data-theme="light"] {
-  --bg-primary: #F8FAFC;
-  --bg-secondary: #F1F5F9;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #F8FAFC;
-  --bg-glass: rgba(255, 255, 255, 0.88);
-  --bg-glass-card: rgba(255, 255, 255, 0.94);
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #64748B;
-  --border-subtle: rgba(15, 23, 42, 0.08);
-  --border-glass: rgba(15, 23, 42, 0.09);
-  --accent-gold: #B8860B;
-  --accent-cyan: #0284C7;
-  --shadow-glass: 0 10px 30px -5px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.03);
-  --shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
-  --input-bg: #FFFFFF;
-  --input-border: rgba(15, 23, 42, 0.12);
-  --input-text: #0F172A;
-}
-
 @layer base {
   body {
-    @apply bg-bg-dark text-gray-200 font-sans antialiased overflow-x-hidden selection:bg-gold selection:text-black transition-colors duration-300;
-  }
-  
-  .light body,
-  [data-theme="light"] body {
-    background-color: #F8FAFC;
-    color: #1E293B;
+    @apply bg-bg-dark text-gray-200 font-sans antialiased overflow-x-hidden selection:bg-gold selection:text-black;
   }
 }
 
 @layer utilities {
   .glass-panel {
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    background-color: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
-  }
-
-  .light .glass-panel,
-  [data-theme="light"] .glass-panel {
-    background-color: rgba(255, 255, 255, 0.88);
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.03);
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.1)];
   }
   
   .glass-admin {
     backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: background 0.3s ease, border-color 0.3s ease;
-  }
-
-  .light .glass-admin,
-  [data-theme="light"] .glass-admin {
-    background: rgba(255, 255, 255, 0.94);
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);
   }
   
   .cyan-glow {
@@ -109,53 +37,20 @@
     border-color: rgba(0, 240, 255, 0.5) !important;
   }
 
-  .light .cyan-glow,
-  [data-theme="light"] .cyan-glow {
-    box-shadow: 0 0 15px rgba(2, 132, 199, 0.16);
-    border-color: rgba(2, 132, 199, 0.35) !important;
-  }
-
   .text-cyan-glow {
     text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
-  }
-
-  .light .text-cyan-glow,
-  [data-theme="light"] .text-cyan-glow {
-    text-shadow: none;
-    color: #0284C7;
   }
   
   .glass-button {
     @apply relative overflow-hidden bg-white/5 backdrop-blur-md border border-white/10 hover:border-gold/50 transition-all duration-300;
   }
-
-  .light .glass-button,
-  [data-theme="light"] .glass-button {
-    background-color: rgba(15, 23, 42, 0.04);
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    color: #0F172A;
-  }
   
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-gold to-bronze;
   }
-
-  .light .text-gradient,
-  [data-theme="light"] .text-gradient {
-    background: linear-gradient(135deg, #B8860B 0%, #A16207 50%, #92400E 100%) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    color: transparent !important;
-  }
   
   .text-glow {
     text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
-  }
-
-  .light .text-glow,
-  [data-theme="light"] .text-glow {
-    text-shadow: 0 0 10px rgba(184, 134, 11, 0.25);
   }
 
   .silver-shimmer {
@@ -169,227 +64,6 @@
     );
     background-size: 200% 100%;
     animation: silverShimmer 2s infinite linear;
-  }
-
-  .light .silver-shimmer,
-  [data-theme="light"] .silver-shimmer {
-    background: linear-gradient(
-      90deg,
-      rgba(15, 23, 42, 0.02) 0%,
-      rgba(15, 23, 42, 0.06) 20%,
-      rgba(15, 23, 42, 0.12) 40%,
-      rgba(15, 23, 42, 0.06) 60%,
-      rgba(15, 23, 42, 0.02) 100%
-    );
-    background-size: 200% 100%;
-    animation: silverShimmer 2s infinite linear;
-  }
-}
-
-/* =========================================================
-   COMPREHENSIVE LIGHT THEME RULES & ELEVATIONS
-   Ensures every section, card, typography, form & input adopts
-   the daylight palette without leaving dark patches.
-   ========================================================= */
-.light, [data-theme="light"] {
-  /* Headings & Display Typography */
-  h1, h2, h3, h4, h5, h6, .font-display, .font-kanit {
-    color: #0F172A;
-  }
-
-  /* Deep navy/charcoal for white text (except elements explicitly preserving white) */
-  .text-white:not([data-keep-white]):not(.keep-white) {
-    color: #0F172A;
-  }
-
-  /* Accessible slate tones for muted and secondary text */
-  .text-gray-400 {
-    color: #475569;
-  }
-
-  .text-gray-500 {
-    color: #64748B;
-  }
-
-  .text-gray-300 {
-    color: #334155;
-  }
-
-  .text-gray-200, .text-gray-100 {
-    color: #1E293B;
-  }
-
-  .text-gray-600 {
-    color: #64748B;
-  }
-
-  /* Rich high-contrast Gold for light mode */
-  .text-gold {
-    color: #A16207;
-  }
-
-  .text-gold\/80 {
-    color: #A16207;
-  }
-
-  /* Cyan text in light mode */
-  .text-\[\#00F0FF\] {
-    color: #0284C7;
-  }
-
-  /* Structural Border Adaptations */
-  .border-white\/5,
-  .border-white\/8,
-  .border-white\/10,
-  .border-white\/15,
-  .border-white\/20 {
-    border-color: rgba(15, 23, 42, 0.08) !important;
-  }
-
-  .border-white\/30,
-  .border-white\/40,
-  .border-white\/50 {
-    border-color: rgba(15, 23, 42, 0.15) !important;
-  }
-
-  /* Structural Surface Backgrounds */
-  .bg-white\/2,
-  .bg-white\/4,
-  .bg-white\/5,
-  .bg-white\/10 {
-    background-color: rgba(15, 23, 42, 0.035) !important;
-  }
-
-  .bg-black\/20,
-  .bg-black\/30,
-  .bg-black\/40,
-  .bg-black\/50,
-  .bg-black\/60 {
-    background-color: rgba(255, 255, 255, 0.9) !important;
-  }
-
-  .bg-black\/70,
-  .bg-black\/80,
-  .bg-black\/90 {
-    background-color: rgba(15, 23, 42, 0.45) !important;
-  }
-
-  .bg-bg-dark,
-  .bg-bg-darker,
-  .bg-bg-darkest {
-    background-color: #F8FAFC !important;
-  }
-
-  .bg-\[\#050505\],
-  .bg-\[\#0A0A0A\],
-  .bg-\[\#0c0c0c\],
-  .bg-\[\#111111\],
-  .bg-\[\#161616\] {
-    background-color: #FFFFFF !important;
-  }
-
-  /* Form Inputs, Textareas and Dropdowns */
-  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
-  textarea,
-  select {
-    background-color: #FFFFFF !important;
-    color: #0F172A !important;
-    border-color: rgba(15, 23, 42, 0.12) !important;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: #94A3B8 !important;
-  }
-
-  input:focus,
-  textarea:focus,
-  select:focus {
-    border-color: #D4AF37 !important;
-    box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2) !important;
-  }
-
-  /* Range Sliders */
-  input[type="range"] {
-    background-color: #E2E8F0 !important;
-  }
-
-  /* Badges and Tags */
-  .bg-gold\/10 {
-    background-color: rgba(212, 175, 55, 0.12) !important;
-    color: #854D0E !important;
-    border-color: rgba(212, 175, 55, 0.28) !important;
-  }
-
-  .bg-\[\#00F0FF\]\/5,
-  .bg-\[\#00F0FF\]\/10,
-  .bg-\[\#00F0FF\]\/20 {
-    background-color: rgba(2, 132, 199, 0.08) !important;
-    color: #0369A1 !important;
-    border-color: rgba(2, 132, 199, 0.24) !important;
-  }
-
-  .bg-emerald-500\/10 {
-    background-color: rgba(16, 185, 129, 0.1) !important;
-    color: #047857 !important;
-    border-color: rgba(16, 185, 129, 0.25) !important;
-  }
-
-  .bg-amber-500\/10 {
-    background-color: rgba(245, 158, 11, 0.1) !important;
-    color: #B45309 !important;
-    border-color: rgba(245, 158, 11, 0.25) !important;
-  }
-
-  /* Modals and Dialog Overlays */
-  .modal-overlay {
-    background-color: rgba(15, 23, 42, 0.45) !important;
-    backdrop-filter: blur(8px);
-  }
-
-  .modal-box {
-    background-color: #FFFFFF !important;
-    border: 1px solid rgba(15, 23, 42, 0.1) !important;
-    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18) !important;
-  }
-
-  /* Grid lines in background */
-  .bg-\[linear-gradient\(to_right\,\#00F0FF_1px\,transparent_1px\)\,linear-gradient\(to_bottom\,\#00F0FF_1px\,transparent_1px\)\] {
-    opacity: 0.06 !important;
-    filter: invert(0.85);
-  }
-
-  /* Table styling */
-  table {
-    border-color: rgba(15, 23, 42, 0.08) !important;
-  }
-  th {
-    background-color: #F8FAFC !important;
-    color: #0F172A !important;
-    border-color: rgba(15, 23, 42, 0.08) !important;
-  }
-  td {
-    border-color: rgba(15, 23, 42, 0.06) !important;
-    color: #334155 !important;
-  }
-  tr:hover td {
-    background-color: rgba(15, 23, 42, 0.02) !important;
-  }
-
-  /* Scrollbars in Light Mode */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #F1F5F9;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #CBD5E1;
-    border-radius: 4px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #94A3B8;
   }
 }
 
