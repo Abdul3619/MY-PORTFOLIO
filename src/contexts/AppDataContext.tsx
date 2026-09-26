@@ -1,6 +1,7 @@
 import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useProfile, useSeo, useContactInfo, useServices, useSkills, useProjects, useCertificates, useTestimonials } from '../hooks/useApi';
 
 interface AppDataContextType {
@@ -21,8 +22,13 @@ const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
+  // Re-render on language changes so the queries below pick up the new language key
+  useTranslation();
 
   useEffect(() => {
+    // Live updates need a configured Supabase project; otherwise the socket can only fail
+    if (!isSupabaseConfigured) return;
+
     const projectsChannel = supabase
       .channel('public:projects')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {

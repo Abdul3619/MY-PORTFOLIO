@@ -1,28 +1,24 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
 
 // English is the default and fallback language, statically loaded to prevent screen flickering
 import enTranslations from '../locales/en.json';
 
+const isBrowser = typeof window !== 'undefined';
+const MANUAL_LANG_KEY = 'app_manual_lang';
+
+// Always start in English so server-rendered HTML and the client's first (hydration) render match.
+// The visitor's preferred language is applied right after hydration via applyUserLanguage().
 i18n
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
+    lng: 'en',
     resources: {
       en: { translation: enTranslations }
     },
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false // React already escapes values to prevent XSS
-    },
-    detection: {
-      // Prioritize manually selected language first, then device language (navigator)
-      order: ['localStorage', 'navigator'],
-      // We will only cache to localStorage MANUALLY when the user clicks the language button,
-      // so we remove 'localStorage' from the auto-caches array.
-      caches: [],
-      lookupLocalStorage: 'app_manual_lang',
     }
   });
 
@@ -53,13 +49,36 @@ export async function loadLanguageResources(lang: string) {
   }
 }
 
-// Automatically load the detected language
-const detectedLang = i18n.language || 'en';
-const cleanDetected = detectedLang.split('-')[0].toLowerCase();
-loadLanguageResources(cleanDetected);
+// Prioritize a manually selected language first, then the device language
+export function detectUserLanguage(): string {
+  try {
+    const manual = window.localStorage.getItem(MANUAL_LANG_KEY);
+    if (manual) return manual;
+  } catch {
+    // Storage can be unavailable (private mode, blocked cookies)
+  }
+  return (typeof navigator !== 'undefined' && navigator.language) || 'en';
+}
+
+export function setManualLanguage(lang: string) {
+  try {
+    window.localStorage.setItem(MANUAL_LANG_KEY, lang);
+  } catch {
+    // Ignore storage failures; the language still changes for this session
+  }
+  i18n.changeLanguage(lang);
+}
+
+export function applyUserLanguage() {
+  const detected = detectUserLanguage();
+  if (detected !== i18n.language) {
+    i18n.changeLanguage(detected);
+  }
+}
 
 // Helper to set up document direction (RTL/LTR) and lang attribute
 const handleLanguageSetup = (lang: string) => {
+  if (!isBrowser) return;
   const cleanLang = lang.split('-')[0].toLowerCase();
   const dir = cleanLang === 'ar' ? 'rtl' : 'ltr';
   document.documentElement.dir = dir;
@@ -67,13 +86,9 @@ const handleLanguageSetup = (lang: string) => {
 };
 
 i18n.on('languageChanged', (lang) => {
-  const cleanLang = lang.split('-')[0].toLowerCase();
-  loadLanguageResources(cleanLang).then(() => {
+  loadLanguageResources(lang).then(() => {
     handleLanguageSetup(lang);
   });
 });
-
-// Setup initial document attributes
-handleLanguageSetup(detectedLang);
 
 export default i18n;

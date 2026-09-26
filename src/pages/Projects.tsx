@@ -6,6 +6,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { CardSkeleton } from "@/components/Skeleton";
 import { useProjects } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
+import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -54,22 +55,8 @@ export default function Projects() {
 
   if (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    let diagnosticTitle = t("projects.failed_load", "Failed to load projects.");
-    let diagnosticHelp = "The server returned an error when fetching project records from Supabase.";
-
-    if (errorMsg.includes("404")) {
-      diagnosticTitle = "API Route Not Found (404)";
-      diagnosticHelp = "The projects API endpoint could not be reached. This usually indicates a routing issue or serverless configuration error on Vercel.";
-    } else if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-      diagnosticTitle = "Network Connection Failed";
-      diagnosticHelp = "Unable to connect to the backend server. The backend might be offline, restarting, or blocked by CORS/security policies.";
-    } else if (errorMsg.includes("401") || errorMsg.includes("403") || errorMsg.includes("Unauthorized") || errorMsg.includes("JWT")) {
-      diagnosticTitle = "Access Denied / Permission Error";
-      diagnosticHelp = "The server refused access. Please verify your Supabase API keys and ensure that Row Level Security (RLS) policies allow public SELECT queries.";
-    } else if (errorMsg.includes("database") || errorMsg.includes("relation") || errorMsg.includes("table") || errorMsg.includes("column")) {
-      diagnosticTitle = "Database Table Not Found";
-      diagnosticHelp = "The 'projects' table or its columns could not be found. Please ensure your Supabase database migrations have been executed successfully.";
-    }
+    // Detailed diagnostics are only useful to the site owner during development
+    const showDiagnostics = import.meta.env.DEV;
 
     return (
       <PageTransition className="w-full min-h-[60vh] flex items-center justify-center p-4">
@@ -77,15 +64,16 @@ export default function Projects() {
           <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto border border-red-500/20">
             <span className="text-red-400 text-lg font-mono">!</span>
           </div>
-          <h2 className="text-xl font-display font-semibold text-red-400">{diagnosticTitle}</h2>
-          <p className="text-sm text-gray-400 leading-relaxed">{diagnosticHelp}</p>
-          <div className="p-3 rounded-lg bg-black/40 border border-white/5 text-left text-[11px] font-mono text-gray-400 overflow-x-auto max-h-32">
-            <span className="text-red-400/80 font-bold block mb-1">Diagnostic Log:</span>
-            {errorMsg}
-          </div>
-          <p className="text-[11px] text-gray-500">
-            Please check your Vercel Environment Variables and local database logs.
+          <h2 className="text-xl font-display font-semibold text-red-400">{t("projects.failed_load", "Failed to load projects.")}</h2>
+          <p className="text-sm text-gray-400 leading-relaxed">
+            {t("projects.failed_load_help", "Projects are temporarily unavailable. Please refresh the page or try again in a moment.")}
           </p>
+          {showDiagnostics && (
+            <div className="p-3 rounded-lg bg-black/40 border border-white/5 text-left text-[11px] font-mono text-gray-400 overflow-x-auto max-h-32">
+              <span className="text-red-400/80 font-bold block mb-1">Diagnostic Log:</span>
+              {errorMsg}
+            </div>
+          )}
         </div>
       </PageTransition>
     );
@@ -97,8 +85,7 @@ export default function Projects() {
         <div className="text-center space-y-4 max-w-sm px-4">
           <div className="text-xl text-gray-400 font-display font-semibold">{t("projects.no_projects", "No Published Projects Found")}</div>
           <p className="text-sm text-gray-500 leading-relaxed">
-            There are no projects currently published to the live site. 
-            Log in to your admin panel and change a project's status to <strong>Published</strong> to show it here.
+            {t("projects.no_projects_help", "New work is on its way. Please check back soon.")}
           </p>
         </div>
       </PageTransition>
@@ -129,14 +116,14 @@ export default function Projects() {
           animate="visible"
         >
           {projectsData.map((project: any) => (
-            <motion.div key={project.id} variants={itemVariants} className="h-full">
+            <motion.div key={project.id || project.slug} variants={itemVariants} className="h-full">
               <GlassCard className="h-full flex flex-col group" glowOnHover>
                 
                 {/* Image Container with hover effect */}
                 <div className="relative h-64 overflow-hidden rounded-t-2xl">
                   <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors duration-500 z-10" />
                   <motion.img 
-                    src={project.thumbnail_url || project.hero_image_url || 'https://via.placeholder.com/600x400?text=No+Image'} 
+                    src={project.thumbnail_url || project.hero_image_url || PLACEHOLDER_IMAGE} 
                     alt={project.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
@@ -170,7 +157,7 @@ export default function Projects() {
                     </Link>
                     
                     {project.live_url && (
-                      <a href={project.live_url} target="_blank" rel="noreferrer" className="p-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-gold hover:border-gold/50 transition-all duration-300 interactive">
+                      <a href={project.live_url} target="_blank" rel="noopener noreferrer" aria-label={`Open live site for ${project.title}`} className="p-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-gold hover:border-gold/50 transition-all duration-300 interactive">
                         <ExternalLink size={20} />
                       </a>
                     )}

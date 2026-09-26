@@ -10,6 +10,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
 import crypto from 'crypto';
+import { pathToFileURL } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 
 dotenv.config();
@@ -20,8 +21,8 @@ const PORT = 3000;
 
 app.use(helmet({ contentSecurityPolicy: false })); // allow dev scripts
 app.use(cors());
-app.use(express.json({ limit: "100mb" }));
-app.use(express.urlencoded({ limit: "100mb", extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // Rate Limiter
 const apiLimiter = rateLimit({
@@ -68,7 +69,7 @@ let rawUrl = getCleanEnv('SUPABASE_URL') || getCleanEnv('VITE_SUPABASE_URL');
 if (rawUrl && !rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
   rawUrl = 'https://' + rawUrl;
 }
-const isValidUrl = rawUrl && rawUrl.startsWith('https://');
+const isValidUrl = rawUrl && (rawUrl.startsWith('https://') || rawUrl.startsWith('http://'));
 const supabaseUrl = isValidUrl ? rawUrl : 'https://placeholder-please-configure-secrets.supabase.co';
 
 const supabaseServiceKey = getCleanEnv('SUPABASE_SERVICE_ROLE_KEY') || 
@@ -246,16 +247,47 @@ const resumeEducationSchema = z.object({
   order_index: z.number().default(0),
 });
 
-const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const ADMIN_EMAIL = 'abdulwahababdullah3619@gmail.com';
+
+function getBearerToken(req: express.Request): string | null {
   const token = req.headers.authorization?.split('Bearer ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized: Missing token' });
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
-  if (user.email?.toLowerCase() !== 'abdulwahababdullah3619@gmail.com') {
-    return res.status(403).json({ error: 'Forbidden: Unauthorized system access' });
+  if (!token || token === 'undefined' || token === 'null' || token.trim() === '') return null;
+  return token;
+}
+
+// Resolves the authenticated admin user for this request (memoized per request).
+async function getAdminUser(req: express.Request): Promise<any | null> {
+  const cached = (req as any)._adminUser;
+  if (cached !== undefined) return cached;
+  let adminUser = null;
+  const token = getBearerToken(req);
+  if (token) {
+    try {
+      const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+      if (!error && user && user.email?.toLowerCase() === ADMIN_EMAIL) adminUser = user;
+    } catch (e) {
+      console.error('Auth verification failed:', (e as Error).message);
+    }
   }
-  (req as any).user = user;
-  next();
+  (req as any)._adminUser = adminUser;
+  return adminUser;
+}
+
+const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ error: 'Unauthorized: Missing token' });
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
+      return res.status(403).json({ error: 'Forbidden: Unauthorized system access' });
+    }
+    (req as any).user = user;
+    (req as any)._adminUser = user;
+    next();
+  } catch (err: any) {
+    res.status(503).json({ error: 'Authentication service unavailable' });
+  }
 };
 
 // Helper to safely parse JSON strings
@@ -270,8 +302,9 @@ function safeParseJson(str: any, defaultVal: any = null) {
 
 // Helper to format Zod errors into a single, clean human-readable string
 function formatZodError(error: any): string {
-  if (error && error.errors && Array.isArray(error.errors)) {
-    return error.errors.map((issue: any) => {
+  const issues = error?.issues || error?.errors;
+  if (Array.isArray(issues)) {
+    return issues.map((issue: any) => {
       const field = issue.path.join('.');
       return `${field ? `Field '${field}'` : 'Input'}: ${issue.message}`;
     }).join(', ');
@@ -466,37 +499,52 @@ async function handleTranslation(data: any, req: any, itemType: string): Promise
   }
 }
 
-function isDraftRequest(req: express.Request): boolean {
-  if (req.query.preview === 'true' || req.query.draft === 'true' || req.headers['x-portfolio-draft'] === 'true') return true;
-  const token = req.headers.authorization?.split('Bearer ')[1];
-  if (token && token !== 'undefined' && token !== 'null' && token.trim() !== '') {
-    // If authorization header is present and we are on an admin route, assume draft
-    if (req.path.startsWith('/api/admin') || req.headers['referer']?.includes('/admin')) {
-      return true;
-    }
-  }
-  return false;
+// Draft (unpublished) content is only served to the authenticated admin.
+async function isDraftRequest(req: express.Request): Promise<boolean> {
+  const token = getBearerToken(req);
+  const wantsDraft =
+    req.query.preview === 'true' ||
+    req.query.draft === 'true' ||
+    req.headers['x-portfolio-draft'] === 'true' ||
+    (!!token && (req.path.startsWith('/api/admin') || !!req.headers['referer']?.includes('/admin')));
+  if (!wantsDraft) return false;
+  return !!(await getAdminUser(req));
 }
 
-async function getPublishedResource(resourceKey: string, fallbackFn: () => Promise<any>) {
-  try {
-    const { data, error } = await supabaseAdmin.from('profiles').select('bio').limit(1).single();
-    if (!error && data && data.bio) {
-      const bio = safeParseJson(data.bio);
-      if (bio && bio.published_snapshot && bio.published_snapshot[resourceKey] !== undefined) {
-        return bio.published_snapshot[resourceKey];
+// Per-request cache so a single page render doesn't re-query the profile row for every resource.
+function createLoadContext() {
+  let profileRowPromise: Promise<any | null> | null = null;
+  return {
+    profileRow(): Promise<any | null> {
+      if (!profileRowPromise) {
+        profileRowPromise = Promise.resolve(supabaseAdmin.from('profiles').select('*').limit(1).single())
+          .then(({ data, error }) => (error || !data ? null : data))
+          .catch((e) => {
+            console.error('Error loading profile row:', e?.message || e);
+            return null;
+          });
       }
+      return profileRowPromise;
     }
-  } catch (e) {
-    console.error(`Error loading published resource ${resourceKey}:`, e);
+  };
+}
+type LoadContext = ReturnType<typeof createLoadContext>;
+
+async function getPublishedResource(resourceKey: string, fallbackFn: () => Promise<any>, ctx: LoadContext = createLoadContext()) {
+  const data = await ctx.profileRow();
+  if (data && data.bio) {
+    const bio = safeParseJson(data.bio);
+    if (bio && bio.published_snapshot && bio.published_snapshot[resourceKey] !== undefined) {
+      return bio.published_snapshot[resourceKey];
+    }
   }
   return await fallbackFn();
 }
 
 // Fetch entire profile bio JSON
-async function getBioJson() {
-  const { data, error } = await supabaseAdmin.from('profiles').select('bio').limit(1).single();
-  if (error || !data || !data.bio) {
+async function getBioJson(ctx: LoadContext = createLoadContext()) {
+  const data = await ctx.profileRow();
+  if (!data || !data.bio) {
     return {};
   }
   const parsed = safeParseJson(data.bio);
@@ -697,18 +745,8 @@ app.post('/api/projects/delete-media', requireAuth, async (req, res) => {
 // Services Routes (Mapped to Profile Bio JSON)
 app.get('/api/services', async (req, res) => {
   try {
-    let services;
-    if (isDraftRequest(req)) {
-      const bio = await getBioJson();
-      services = bio.services || [];
-    } else {
-      services = await getPublishedResource('services', async () => {
-        const bio = await getBioJson();
-        return bio.services || [];
-      });
-    }
-    const translated = await handleTranslation(services, req, 'Service');
-    res.json(translated);
+    const data = await loadServices(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'Service'));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -730,7 +768,7 @@ app.post('/api/services', requireAuth, async (req, res) => {
     });
     res.status(201).json(newService);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -756,7 +794,7 @@ app.put('/api/services/:id', requireAuth, async (req, res) => {
     }
     res.json(updatedService);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -775,18 +813,8 @@ app.delete('/api/services/:id', requireAuth, async (req, res) => {
 // About Routes (Mapped to Profile Bio JSON)
 app.get('/api/about', async (req, res) => {
   try {
-    let about;
-    if (isDraftRequest(req)) {
-      const bio = await getBioJson();
-      about = bio.about_sections || [];
-    } else {
-      about = await getPublishedResource('about', async () => {
-        const bio = await getBioJson();
-        return bio.about_sections || [];
-      });
-    }
-    const translated = await handleTranslation(about, req, 'AboutSection');
-    res.json(translated);
+    const data = await loadAbout(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'AboutSection'));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -808,7 +836,7 @@ app.post('/api/about', requireAuth, async (req, res) => {
     });
     res.status(201).json(newAbout);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -834,7 +862,7 @@ app.put('/api/about/:id', requireAuth, async (req, res) => {
     }
     res.json(updatedAbout);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -884,23 +912,9 @@ const staticSkills = [
 ];
 
 app.get('/api/skills', async (req, res) => {
-
   try {
-    let skills;
-    if (isDraftRequest(req)) {
-      const { data, error } = await supabaseAdmin.from('skills').select('*').order('order_index', { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
-      skills = data || [];
-    } else {
-      skills = await getPublishedResource('skills', async () => {
-        const { data, error } = await supabaseAdmin.from('skills').select('*').order('order_index', { ascending: true });
-        if (error) throw error;
-        return data || [];
-      });
-    }
-    const finalSkills = skills.length > 0 ? skills : staticSkills;
-    const translated = await handleTranslation(finalSkills, req, 'Skill');
-    res.json(translated || []);
+    const data = await loadSkills(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'Skill'));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -913,7 +927,7 @@ app.post('/api/skills', requireAuth, async (req, res) => {
     if (error) throw new Error(error.message);
     res.status(201).json(data[0]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -924,70 +938,25 @@ app.put('/api/skills/:id', requireAuth, async (req, res) => {
     if (error) throw new Error(error.message);
     res.json(data[0]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
 app.delete('/api/skills/:id', requireAuth, async (req, res) => {
-  const { error } = await supabaseAdmin.from('skills').delete().eq('id', req.params.id);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ message: 'Deleted successfully' });
+  try {
+    const { error } = await supabaseAdmin.from('skills').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ message: 'Deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Profile Routes (Unified with Bio JSON storage)
 app.get('/api/profile', async (req, res) => {
   try {
-    let profileObj: any;
-    if (isDraftRequest(req)) {
-      const { data, error } = await supabaseAdmin.from('profiles').select('*').limit(1).single();
-      if (error || !data) {
-        return res.json({ name: "Abdul Wahab", title: "Web Developer", bio: "I build web apps" });
-      }
-      const parsed = safeParseJson(data.bio);
-      if (parsed) {
-        profileObj = {
-          id: data.id,
-          name: parsed.name || data.name,
-          title: parsed.title || data.title,
-          bio: parsed.bio || (parsed.bio_text || data.bio),
-          profile_image_url: parsed.profile_image_url || data.profile_image_url,
-          resume_url: parsed.resume_url || data.resume_url,
-          long_bio: parsed.long_bio || null,
-          tagline: parsed.tagline || null,
-          cover_image_url: parsed.cover_image_url || null,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          journey_events: parsed.journey_events || null
-        };
-      } else {
-        profileObj = data;
-      }
-    } else {
-      profileObj = await getPublishedResource('profile', async () => {
-        const { data, error } = await supabaseAdmin.from('profiles').select('*').limit(1).single();
-        if (error || !data) return { name: "Abdul Wahab", title: "Web Developer", bio: "I build web apps" };
-        const parsed = safeParseJson(data.bio);
-        if (parsed) {
-          return {
-            id: data.id,
-            name: parsed.name || data.name,
-            title: parsed.title || data.title,
-            bio: parsed.bio || (parsed.bio_text || data.bio),
-            profile_image_url: parsed.profile_image_url || data.profile_image_url,
-            resume_url: parsed.resume_url || data.resume_url,
-            long_bio: parsed.long_bio || null,
-            tagline: parsed.tagline || null,
-            cover_image_url: parsed.cover_image_url || null,
-            created_at: data.created_at,
-            updated_at: data.updated_at,
-          journey_events: parsed.journey_events || null
-          };
-        }
-        return data;
-      });
-    }
-    const translated = await handleTranslation(profileObj, req, 'Profile');
-    res.json(translated);
+    const data = await loadProfile(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'Profile'));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1052,17 +1021,7 @@ app.put('/api/profile', requireAuth, async (req, res) => {
 // SEO Settings Routes (Mapped to Profile Bio JSON)
 app.get('/api/seo', async (req, res) => {
   try {
-    let seo;
-    if (isDraftRequest(req)) {
-      const bio = await getBioJson();
-      seo = bio.seo_settings || {};
-    } else {
-      seo = await getPublishedResource('seo', async () => {
-        const bio = await getBioJson();
-        return bio.seo_settings || {};
-      });
-    }
-    res.json(seo);
+    res.json(await loadSeo(createLoadContext(), await isDraftRequest(req)));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1086,17 +1045,7 @@ app.post('/api/seo', requireAuth, async (req, res) => {
 // Contact Information Routes (Mapped to Profile Bio JSON)
 app.get('/api/contact_info', async (req, res) => {
   try {
-    let contactInfo;
-    if (isDraftRequest(req)) {
-      const bio = await getBioJson();
-      contactInfo = bio.contact_information || {};
-    } else {
-      contactInfo = await getPublishedResource('contact_info', async () => {
-        const bio = await getBioJson();
-        return bio.contact_information || {};
-      });
-    }
-    res.json(contactInfo);
+    res.json(await loadContactInfo(createLoadContext(), await isDraftRequest(req)));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1150,43 +1099,19 @@ const staticEducation = [
 
 app.get('/api/resume_experience', async (req, res) => {
   try {
-    let exp;
-    if (isDraftRequest(req)) {
-      const bio = await getBioJson();
-      exp = bio.resume_experience || [];
-    } else {
-      exp = await getPublishedResource('resume_experience', async () => {
-        const bio = await getBioJson();
-        return bio.resume_experience || [];
-      });
-    }
-    const baseData = exp.length > 0 ? exp : staticExperience;
-    const translated = await handleTranslation(baseData, req, 'ResumeExperience');
-    res.json(translated);
+    const data = await loadResumeExperience(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'ResumeExperience'));
   } catch (err: any) {
-    const translated = await handleTranslation(staticExperience, req, 'ResumeExperience');
-    res.json(translated);
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.get('/api/resume_education', async (req, res) => {
   try {
-    let edu;
-    if (isDraftRequest(req)) {
-      const bio = await getBioJson();
-      edu = bio.resume_education || [];
-    } else {
-      edu = await getPublishedResource('resume_education', async () => {
-        const bio = await getBioJson();
-        return bio.resume_education || [];
-      });
-    }
-    const baseData = edu.length > 0 ? edu : staticEducation;
-    const translated = await handleTranslation(baseData, req, 'ResumeEducation');
-    res.json(translated);
+    const data = await loadResumeEducation(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'ResumeEducation'));
   } catch (err: any) {
-    const translated = await handleTranslation(staticEducation, req, 'ResumeEducation');
-    res.json(translated);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1207,7 +1132,7 @@ app.post('/api/resume_experience', requireAuth, async (req, res) => {
     });
     res.status(201).json(newExp);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -1231,7 +1156,7 @@ app.put('/api/resume_experience/:id', requireAuth, async (req, res) => {
     if (!updatedExp) return res.status(404).json({ error: 'Experience not found' });
     res.json(updatedExp);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -1264,7 +1189,7 @@ app.post('/api/resume_education', requireAuth, async (req, res) => {
     });
     res.status(201).json(newEdu);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -1288,7 +1213,7 @@ app.put('/api/resume_education/:id', requireAuth, async (req, res) => {
     if (!updatedEdu) return res.status(404).json({ error: 'Education not found' });
     res.json(updatedEdu);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -1446,90 +1371,24 @@ function serializeProjectDesc(validatedData: any) {
 
 // Projects Routes
 app.get('/api/projects', async (req, res) => {
-  console.log(`[GET /api/projects] Initiated. isDraftRequest: ${isDraftRequest(req)}. Supabase URL: ${supabaseUrl}`);
   try {
-    let projects;
-    
-    const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
-    
-    if (error) {
-      console.error(`[GET /api/projects] Supabase Select Error:`, {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      return res.status(500).json({ error: `Supabase Error: ${error.message} (${error.code})` });
-    }
-    
-    console.log(`[GET /api/projects] Successfully retrieved ${data?.length || 0} rows from Supabase projects table.`);
-    
-    if (data && data.length > 0) {
-      const firstRow = data[0];
-      const columnNames = Object.keys(firstRow);
-      console.log(`[GET /api/projects] Project Table Columns detected:`, columnNames);
-      console.log(`[GET /api/projects] First Row 'gallery_images' key exists: ${'gallery_images' in firstRow}, type: ${typeof firstRow.gallery_images}, value:`, firstRow.gallery_images);
-    } else {
-      console.log(`[GET /api/projects] No project records found in the database.`);
-    }
-
-    try {
-      projects = (data || []).map((row: any) => {
-        try {
-          return deserializeProject(row);
-        } catch (mapErr: any) {
-          console.error(`[GET /api/projects] Error deserializing row ${row?.slug || row?.id}:`, mapErr);
-          throw mapErr;
-        }
-      }).filter(Boolean);
-    } catch (deserErr: any) {
-      console.error(`[GET /api/projects] Deserialization sequence error:`, deserErr);
-      return res.status(500).json({ error: `Deserialization Error: ${deserErr.message}` });
-    }
-
-    if (!isDraftRequest(req)) {
-      projects = projects.filter((p: any) => p.status === 'Published');
-    }
-    
-    console.log(`[GET /api/projects] Processing translation for ${projects.length} projects...`);
-    const translated = await handleTranslation(projects, req, 'Project');
-    console.log(`[GET /api/projects] Success. Returning ${translated?.length || 0} projects.`);
-    res.json(translated);
+    const projects = await loadProjects(await isDraftRequest(req));
+    res.json(await handleTranslation(projects, req, 'Project'));
   } catch (err: any) {
-    console.error(`[GET /api/projects] Unhandled server error:`, err);
+    console.error('[GET /api/projects] Error:', err.message);
     res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 });
 
 app.get('/api/projects/:slug', async (req, res) => {
-  console.log(`[GET /api/projects/:slug] Querying slug: ${req.params.slug}. isDraftRequest: ${isDraftRequest(req)}`);
   try {
-    const { data, error } = await supabaseAdmin.from('projects').select('*').eq('slug', req.params.slug).single();
-    if (error) {
-      console.error(`[GET /api/projects/:slug] Supabase Single Fetch Error for slug "${req.params.slug}":`, {
-        code: error.code,
-        message: error.message,
-        details: error.details
-      });
-      return res.status(404).json({ error: `Project not found: ${error.message}` });
-    }
-    
-    console.log(`[GET /api/projects/:slug] Project data found. Keys:`, Object.keys(data));
-    const project = deserializeProject(data);
+    const project = await loadProject(req.params.slug, await isDraftRequest(req));
     if (!project) {
-      console.warn(`[GET /api/projects/:slug] Project deserialized to null/undefined`);
-      return res.status(404).json({ error: 'Project deserialization failed' });
+      return res.status(404).json({ error: 'Project not found' });
     }
-    
-    if (!isDraftRequest(req) && project.status !== 'Published') {
-      console.warn(`[GET /api/projects/:slug] Project status is not Published. Status: ${project.status}`);
-      return res.status(404).json({ error: 'Project not found or not published' });
-    }
-    
-    const translated = await handleTranslation(project, req, 'Project');
-    res.json(translated);
+    res.json(await handleTranslation(project, req, 'Project'));
   } catch (err: any) {
-    console.error(`[GET /api/projects/:slug] Unhandled error:`, err);
+    console.error(`[GET /api/projects/:slug] Error:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1675,20 +1534,8 @@ app.delete('/api/projects/:id', requireAuth, async (req, res) => {
 // Certificates Routes
 app.get('/api/certificates', async (req, res) => {
   try {
-    let certificates;
-    if (isDraftRequest(req)) {
-      const { data, error } = await supabaseAdmin.from('certificates').select('*').order('created_at', { ascending: false });
-      if (error) return res.status(500).json({ error: error.message });
-      certificates = data || [];
-    } else {
-      certificates = await getPublishedResource('certificates', async () => {
-        const { data, error } = await supabaseAdmin.from('certificates').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-      });
-    }
-    const translated = await handleTranslation(certificates, req, 'Certificate');
-    res.json(translated || []);
+    const data = await loadCertificates(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'Certificate'));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1701,7 +1548,7 @@ app.post('/api/certificates', requireAuth, async (req, res) => {
     if (error) throw new Error(error.message);
     res.status(201).json(data[0]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -1712,7 +1559,7 @@ app.put('/api/certificates/:id', requireAuth, async (req, res) => {
     if (error) throw new Error(error.message);
     res.json(data[0]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -1729,21 +1576,8 @@ app.delete('/api/certificates/:id', requireAuth, async (req, res) => {
 // Testimonials
 app.get('/api/testimonials', async (req, res) => {
   try {
-    let testimonials;
-    if (isDraftRequest(req)) {
-      const { data, error } = await supabaseAdmin.from('testimonials').select('*').eq('is_approved', true).order('created_at', { ascending: false });
-      if (error) return res.status(500).json({ error: error.message });
-      testimonials = data || [];
-    } else {
-      testimonials = await getPublishedResource('testimonials', async () => {
-        const { data, error } = await supabaseAdmin.from('testimonials').select('*').eq('is_approved', true).order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-      });
-    }
-    const approvedTestimonials = testimonials.filter((t: any) => t.is_approved === true);
-    const translated = await handleTranslation(approvedTestimonials, req, 'Testimonial');
-    res.json(translated);
+    const data = await loadTestimonials(createLoadContext(), await isDraftRequest(req));
+    res.json(await handleTranslation(data, req, 'Testimonial'));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1756,13 +1590,17 @@ app.post('/api/testimonials', async (req, res) => {
     if (error) throw new Error(error.message);
     res.status(201).json(data[0]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 app.get('/api/admin/testimonials', requireAuth, async (req, res) => {
-  const { data, error } = await supabaseAdmin.from('testimonials').select('*').order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  try {
+    const { data, error } = await supabaseAdmin.from('testimonials').select('*').order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 app.put('/api/testimonials/:id', requireAuth, async (req, res) => {
   try {
@@ -1787,11 +1625,16 @@ app.put('/api/testimonials/:id', requireAuth, async (req, res) => {
 
     res.json(data[0]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 app.delete('/api/testimonials/:id', requireAuth, async (req, res) => {
-  const { error } = await supabaseAdmin.from('testimonials').delete().eq('id', req.params.id);
+  let error;
+  try {
+    ({ error } = await supabaseAdmin.from('testimonials').delete().eq('id', req.params.id));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
   if (error) return res.status(500).json({ error: error.message });
 
   // Propagate to published snapshot immediately so testimonials update instantly
@@ -1818,6 +1661,12 @@ async function getReviewsJson(): Promise<any[]> {
   return bio.reviews || [];
 }
 
+// Strip reviewer contact details and tracking data before sending reviews to the public
+function toPublicReview(review: any) {
+  const { email, ip_address, browser, ...publicFields } = review || {};
+  return publicFields;
+}
+
 async function saveReviewsJson(reviews: any[]) {
   await saveBioJson((current) => {
     const updated = { ...current, reviews };
@@ -1832,15 +1681,17 @@ async function saveReviewsJson(reviews: any[]) {
 app.get('/api/reviews', async (req, res) => {
   try {
     let reviews;
-    if (isDraftRequest(req)) {
+    if (await isDraftRequest(req)) {
       reviews = await getReviewsJson();
     } else {
       reviews = await getPublishedResource('reviews', async () => {
         return await getReviewsJson();
       });
     }
-    // Only approved reviews should appear publicly
-    const approvedReviews = reviews.filter((r: any) => r.status === 'Approved');
+    // Only approved reviews should appear publicly, without reviewers' private details
+    const approvedReviews = (reviews || [])
+      .filter((r: any) => r.status === 'Approved')
+      .map(toPublicReview);
     
     // Sort
     const sort = req.query.sort || 'newest';
@@ -1860,8 +1711,8 @@ app.get('/api/reviews', async (req, res) => {
     });
 
     // Pagination
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 6;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 6));
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
     
@@ -1922,10 +1773,10 @@ app.post('/api/reviews', async (req, res) => {
     
     res.status(201).json({ 
       message: 'Thank you! Your review has been submitted and is awaiting approval.',
-      review: newReview 
+      review: toPublicReview(newReview)
     });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -1984,7 +1835,7 @@ app.put('/api/reviews/:id', requireAuth, async (req, res) => {
     await saveReviewsJson(reviews);
     res.json(reviews[idx]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -2070,12 +1921,12 @@ app.post('/api/contact', async (req, res) => {
     const validatedData = contactMessageSchema.parse(req.body);
     const { data, error } = await supabaseAdmin.from('contact_messages').insert([validatedData]).select();
     if (error) {
-      console.warn("Contact message DB insert error (RLS):", error.message);
-      return res.status(201).json({ message: 'Message sent successfully (buffer fallback)', fallback: true });
+      console.error("Contact message DB insert error:", error.message);
+      return res.status(500).json({ error: 'Your message could not be delivered right now. Please try again or reach out by email.' });
     }
     res.status(201).json({ message: 'Message sent successfully', data: data?.[0] });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 
@@ -2083,73 +1934,53 @@ app.post('/api/contact', async (req, res) => {
 app.post('/api/leads', async (req, res) => {
   try {
     const validatedData = leadSchema.parse(req.body);
+    const notes = typeof req.body?.notes === 'string' ? req.body.notes.slice(0, 5000) : '';
     const leadPayload = {
       ...validatedData,
       created_at: validatedData.created_at || new Date().toISOString()
     };
     
-    // Attempt to write to Supabase
     const { data, error } = await supabaseAdmin.from('leads').insert([leadPayload]).select();
-    
-    // Log to activity log
-    try {
-      await supabaseAdmin.from('activity_log').insert([{
-        action: 'Lead Inbound Ingested',
-        details: `New prospect registered: ${leadPayload.name} (${leadPayload.company || 'Private'}) via ${leadPayload.source}`,
+    if (error) {
+      console.error("Supabase lead insertion error:", error.message);
+      return res.status(500).json({ error: 'Your request could not be saved right now. Please try again shortly.' });
+    }
+
+    const lead = data?.[0];
+
+    // Attach the submitted details (e.g. solar sizing snapshot) as a lead note, where the CRM reads them
+    if (notes && lead?.id) {
+      const { error: noteError } = await supabaseAdmin.from('lead_notes').insert([{
+        lead_id: lead.id,
+        note: notes,
         created_at: new Date().toISOString()
       }]);
-    } catch (e) {
-      console.warn("Failed to insert lead activity log:", e);
+      if (noteError) console.warn("Failed to store lead note:", noteError.message);
     }
 
-    if (error) {
-      console.log("Supabase lead insertion error:", error.message);
-      // Fallback: If table is not setup yet, return success so frontend can store locally or show success
-      return res.status(201).json({ 
-        message: 'Lead registered (local queue buffer)', 
-        fallback: true,
-        data: leadPayload
-      });
-    }
+    // Log to activity log
+    const { error: logError } = await supabaseAdmin.from('activity_log').insert([{
+      action: 'Lead Inbound Ingested',
+      details: `New prospect registered: ${leadPayload.name} (${leadPayload.company || 'Private'}) via ${leadPayload.source}`,
+      created_at: new Date().toISOString()
+    }]);
+    if (logError) console.warn("Failed to insert lead activity log:", logError.message);
 
     res.status(201).json({ 
-      message: 'Lead synchronized and registered successfully in enterprise CRM', 
-      data: data[0] 
+      message: 'Lead registered successfully', 
+      data: lead 
     });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 app.get('/api/admin/messages', requireAuth, async (req, res) => {
-  const { data, error } = await supabaseAdmin.from('contact_messages').select('*').order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-});
-
-// Admin password reset helper
-app.post('/api/admin/reset-password', async (req, res) => {
   try {
-    const targetEmail = (req.body?.email || 'abdulwahababdullah3619@gmail.com').trim().toLowerCase();
-    if (targetEmail !== 'abdulwahababdullah3619@gmail.com') {
-      return res.status(403).json({ error: 'Unauthorized target email' });
-    }
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) throw listError;
-    const adminUser = (users as any[])?.find((u: any) => u.email?.toLowerCase() === targetEmail);
-    if (adminUser) {
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(adminUser.id, { password: 'AdminSecure2026!' });
-      if (updateError) throw updateError;
-    } else {
-      const { error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: targetEmail,
-        password: 'AdminSecure2026!',
-        email_confirm: true
-      });
-      if (createError) throw createError;
-    }
-    res.json({ success: true, message: 'Admin password reset successfully to AdminSecure2026!' });
+    const { data, error } = await supabaseAdmin.from('contact_messages').select('*').order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -2163,7 +1994,7 @@ app.post('/api/admin/activity_log', requireAuth, async (req, res) => {
     if (error) throw new Error(error.message);
     res.status(201).json(data[0]);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: formatZodError(err) });
   }
 });
 app.post('/api/analytics/event', async (req, res) => {
@@ -2188,9 +2019,13 @@ app.post('/api/analytics/event', async (req, res) => {
   }
 });
 app.get('/api/admin/analytics', requireAuth, async (req, res) => {
-  const { count: visitorsCount } = await supabaseAdmin.from('visitors').select('*', { count: 'exact', head: true });
-  const { count: eventsCount } = await supabaseAdmin.from('analytics_events').select('*', { count: 'exact', head: true });
-  res.json({ total_visitors: visitorsCount || 0, total_events: eventsCount || 0 });
+  try {
+    const { count: visitorsCount } = await supabaseAdmin.from('visitors').select('*', { count: 'exact', head: true });
+    const { count: eventsCount } = await supabaseAdmin.from('analytics_events').select('*', { count: 'exact', head: true });
+    res.json({ total_visitors: visitorsCount || 0, total_events: eventsCount || 0 });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
@@ -2256,6 +2091,120 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
   }
 });
 
+// --- PUBLIC CONTENT LOADERS ---
+// Shared by the JSON API routes above and by the server-side renderer below.
+
+async function loadBioResource(ctx: LoadContext, draft: boolean, publishedKey: string, bioKey: string, empty: any) {
+  if (draft) {
+    const bio = await getBioJson(ctx);
+    return bio[bioKey] || empty;
+  }
+  return getPublishedResource(publishedKey, async () => {
+    const bio = await getBioJson(ctx);
+    return bio[bioKey] || empty;
+  }, ctx);
+}
+
+const loadServices = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'services', 'services', []);
+const loadAbout = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'about', 'about_sections', []);
+const loadSeo = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'seo', 'seo_settings', {});
+const loadContactInfo = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'contact_info', 'contact_information', {});
+
+async function loadResumeExperience(ctx: LoadContext, draft: boolean) {
+  try {
+    const exp = await loadBioResource(ctx, draft, 'resume_experience', 'resume_experience', []);
+    return Array.isArray(exp) && exp.length > 0 ? exp : staticExperience;
+  } catch {
+    return staticExperience;
+  }
+}
+
+async function loadResumeEducation(ctx: LoadContext, draft: boolean) {
+  try {
+    const edu = await loadBioResource(ctx, draft, 'resume_education', 'resume_education', []);
+    return Array.isArray(edu) && edu.length > 0 ? edu : staticEducation;
+  } catch {
+    return staticEducation;
+  }
+}
+
+async function querySkills() {
+  const { data, error } = await supabaseAdmin.from('skills').select('*').order('order_index', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function loadSkills(ctx: LoadContext, draft: boolean) {
+  const skills = draft ? await querySkills() : await getPublishedResource('skills', querySkills, ctx);
+  return Array.isArray(skills) && skills.length > 0 ? skills : staticSkills;
+}
+
+const defaultProfile = { name: "Abdul Wahab", title: "Web Developer", bio: "I build web apps" };
+
+function mapProfileRow(data: any) {
+  if (!data) return defaultProfile;
+  const parsed = safeParseJson(data.bio);
+  if (!parsed) return data;
+  return {
+    id: data.id,
+    name: parsed.name || data.name,
+    title: parsed.title || data.title,
+    bio: parsed.bio || (parsed.bio_text || data.bio),
+    profile_image_url: parsed.profile_image_url || data.profile_image_url,
+    resume_url: parsed.resume_url || data.resume_url,
+    long_bio: parsed.long_bio || null,
+    tagline: parsed.tagline || null,
+    cover_image_url: parsed.cover_image_url || null,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    journey_events: parsed.journey_events || null
+  };
+}
+
+async function loadProfile(ctx: LoadContext, draft: boolean) {
+  if (draft) return mapProfileRow(await ctx.profileRow());
+  return getPublishedResource('profile', async () => mapProfileRow(await ctx.profileRow()), ctx);
+}
+
+async function loadProjects(draft: boolean) {
+  const { data, error } = await supabaseAdmin.from('projects').select('*').order('order_index', { ascending: true });
+  if (error) {
+    throw new Error(`Supabase Error: ${error.message} (${error.code})`);
+  }
+  const projects = (data || []).map(deserializeProject).filter(Boolean) as any[];
+  return draft ? projects : projects.filter((p: any) => p.status === 'Published');
+}
+
+async function loadProject(slug: string, draft: boolean) {
+  const { data, error } = await supabaseAdmin.from('projects').select('*').eq('slug', slug).maybeSingle();
+  if (error) throw new Error(error.message);
+  const project = deserializeProject(data);
+  if (!project) return null;
+  if (!draft && project.status !== 'Published') return null;
+  return project;
+}
+
+async function queryCertificates() {
+  const { data, error } = await supabaseAdmin.from('certificates').select('*').order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function loadCertificates(ctx: LoadContext, draft: boolean) {
+  return (draft ? await queryCertificates() : await getPublishedResource('certificates', queryCertificates, ctx)) || [];
+}
+
+async function queryApprovedTestimonials() {
+  const { data, error } = await supabaseAdmin.from('testimonials').select('*').eq('is_approved', true).order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function loadTestimonials(ctx: LoadContext, draft: boolean) {
+  const testimonials = draft ? await queryApprovedTestimonials() : await getPublishedResource('testimonials', queryApprovedTestimonials, ctx);
+  return (testimonials || []).filter((t: any) => t.is_approved === true);
+}
+
 // Global API 404 handler
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found' });
@@ -2270,31 +2219,158 @@ app.use('/api', (err: any, req: express.Request, res: express.Response, next: ex
 
   if (err.code === 'LIMIT_FILE_SIZE') {
     status = 413;
-    message = 'File is too large to upload. Please try a smaller image (max 10MB).';
+    message = 'File is too large to upload. Please try a smaller file (max 100MB).';
   }
 
   res.status(status).json({ error: message });
 });
 
-// --- VITE MIDDLEWARE ---
-async function startServer() {
-  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({ server: { middlewareMode: true, hmr: false, watch: null }, appType: 'spa' });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+// --- SERVER-SIDE RENDERING ---
+// Public pages are rendered to HTML on the server (with their content prefetched from Supabase) so that
+// crawlers, link previews and no-JS clients get real content. The client then hydrates that markup.
+
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+const SSR_DATA_TIMEOUT_MS = 4000;
+let viteDevServer: any = null;
+let prodRendererPromise: Promise<any> | null = null;
+let prodTemplate: string | null = null;
+
+async function loadRenderer() {
+  if (viteDevServer) return viteDevServer.ssrLoadModule('/src/entry-server.tsx');
+  if (!prodRendererPromise) {
+    prodRendererPromise = import(pathToFileURL(path.join(process.cwd(), 'dist/server/entry-server.js')).href);
+    prodRendererPromise.catch(() => { prodRendererPromise = null; });
   }
+  return prodRendererPromise;
+}
+
+async function loadTemplate(url: string): Promise<string> {
+  if (viteDevServer) {
+    const raw = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+    return viteDevServer.transformIndexHtml(url, raw);
+  }
+  if (!prodTemplate) {
+    prodTemplate = fs.readFileSync(path.join(process.cwd(), 'dist/server/template.html'), 'utf-8');
+  }
+  return prodTemplate;
+}
+
+function loadResource(resource: any, ctx: LoadContext): Promise<any> {
+  switch (resource.type) {
+    case 'profile': return loadProfile(ctx, false);
+    case 'seo': return loadSeo(ctx, false);
+    case 'contact_info': return loadContactInfo(ctx, false);
+    case 'services': return loadServices(ctx, false);
+    case 'skills': return loadSkills(ctx, false);
+    case 'projects': return loadProjects(false);
+    case 'certificates': return loadCertificates(ctx, false);
+    case 'testimonials': return loadTestimonials(ctx, false);
+    case 'about': return loadAbout(ctx, false);
+    case 'resume_experience': return loadResumeExperience(ctx, false);
+    case 'resume_education': return loadResumeEducation(ctx, false);
+    case 'project': return loadProject(resource.slug, false);
+    default: return Promise.reject(new Error(`Unknown resource ${resource.type}`));
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+// Loads everything a page needs. Anything that fails or is slow is skipped; the page renders its fallbacks
+// for it and the client fetches it after hydration.
+async function loadPageData(plan: any): Promise<Map<string, any>> {
+  const ctx = createLoadContext();
+  const data = new Map<string, any>();
+  await Promise.all(plan.queries.map(async (entry: any) => {
+    const id = entry.resource.type === 'project' ? `project:${entry.resource.slug}` : entry.resource.type;
+    try {
+      data.set(id, await withTimeout(loadResource(entry.resource, ctx), SSR_DATA_TIMEOUT_MS));
+    } catch (err: any) {
+      console.warn(`[SSR] Could not load "${id}": ${err.message}`);
+    }
+  }));
+  return data;
+}
+
+function serializeState(state: unknown): string {
+  return JSON.stringify(state)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+function fillTemplate(template: string, result: { html: string; head: string; state: unknown } | null): string {
+  let html = template.replace('<!--app-html-->', () => result?.html ?? '');
+  if (result) {
+    html = html
+      .replace(/<title>[\s\S]*?<\/title>/, () => result.head)
+      .replace('<!--app-state-->', () => `<script>window.__REACT_QUERY_STATE__=${serializeState(result.state)}</script>`);
+  } else {
+    html = html.replace('<!--app-state-->', '');
+  }
+  return html;
+}
+
+async function renderPage(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  // Missing static files (robots.txt, stale asset hashes, ...) get a plain 404 instead of a full page render
+  if (path.extname(req.path)) {
+    res.status(404).type('text/plain').send('Not found');
+    return;
+  }
+  const url = req.originalUrl;
+  try {
+    const [renderer, template] = await Promise.all([loadRenderer(), loadTemplate(url)]);
+    const plan = renderer.getRoutePlan(req.path);
+
+    if (plan.kind === 'client') {
+      res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).send(fillTemplate(template, null));
+      return;
+    }
+
+    const data = await loadPageData(plan);
+    const result = renderer.render(url, plan, data);
+    res.status(result.status).set({
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': result.status === 200 ? 'public, max-age=0, s-maxage=30, stale-while-revalidate=300' : 'no-store',
+    }).send(fillTemplate(template, result));
+  } catch (err: any) {
+    viteDevServer?.ssrFixStacktrace?.(err);
+    console.error('[SSR] Render failed, falling back to client-side rendering:', err);
+    try {
+      const template = await loadTemplate(url);
+      res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).send(fillTemplate(template, null));
+    } catch {
+      next(err);
+    }
+  }
+}
+
+async function startServer() {
+  if (!isProduction) {
+    const { createServer: createViteServer } = await import('vite');
+    viteDevServer = await createViteServer({ server: { middlewareMode: true, hmr: false, watch: null }, appType: 'custom' });
+    app.use(viteDevServer.middlewares);
+  } else {
+    // index.html is moved out of dist/client at build time, so every page goes through the renderer
+    app.use(express.static(path.join(process.cwd(), 'dist/client'), { index: false, maxAge: '1y', immutable: true }));
+  }
+  app.use(renderPage);
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-if (!process.env.VERCEL) {
+if (process.env.VERCEL) {
+  // On Vercel, static assets are served by the CDN and every other page request is routed to this function
+  app.use(renderPage);
+} else {
   startServer();
 }
 

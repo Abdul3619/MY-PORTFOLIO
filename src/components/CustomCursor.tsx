@@ -3,8 +3,18 @@ import { motion, useSpring } from "motion/react";
 
 export default function CustomCursor() {
   const [isHovering, setIsHovering] = useState(false);
+  // Decided after mount so the server-rendered markup and the first client render match
+  const [isEnabled, setIsEnabled] = useState(false);
   const cursorX = useSpring(-100, { stiffness: 500, damping: 28, mass: 0.5 });
   const cursorY = useSpring(-100, { stiffness: 500, damping: 28, mass: 0.5 });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsEnabled(!mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -14,6 +24,7 @@ export default function CustomCursor() {
 
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+      if (!target || typeof target.closest !== "function") return;
       if (
         target.tagName.toLowerCase() === "a" ||
         target.tagName.toLowerCase() === "button" ||
@@ -37,7 +48,7 @@ export default function CustomCursor() {
   }, [cursorX, cursorY]);
 
   // Don't render cursor on mobile devices
-  if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
+  if (!isEnabled) {
     return null;
   }
 

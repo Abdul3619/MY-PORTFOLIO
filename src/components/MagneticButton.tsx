@@ -8,10 +8,9 @@ interface MagneticButtonProps {
   variant?: "primary" | "secondary" | "outline";
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   disabled?: boolean;
-  type?: "button" | "submit" | "reset";
 }
 
-export function MagneticButton({ children, className, variant = "primary", onClick, disabled, type = "button" }: MagneticButtonProps) {
+export function MagneticButton({ children, className, variant = "primary", onClick, disabled }: MagneticButtonProps) {
   const buttonRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const controls = useAnimation();
@@ -46,8 +45,21 @@ export function MagneticButton({ children, className, variant = "primary", onCli
       animate={{ x: position.x, y: position.y }}
       transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
       onClick={disabled ? undefined : onClick}
-      role="button"
-      tabIndex={disabled ? -1 : 0}
+      // Only act as a standalone button when it has its own click handler; when it is the visual inside a
+      // link, the link is the single focusable, accessible control.
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? (disabled ? -1 : 0) : undefined}
+      aria-disabled={disabled || undefined}
+      onKeyDown={
+        onClick && !disabled
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick(e as unknown as React.MouseEvent<HTMLElement>);
+              }
+            }
+          : undefined
+      }
       className={cn(
         "px-6 py-3 rounded-full flex items-center justify-center gap-2 transition-colors duration-300",
         variantClasses[variant],

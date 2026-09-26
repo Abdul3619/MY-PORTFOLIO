@@ -3,15 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route, useLocation, Outlet } from "react-router-dom";
-import { useEffect } from "react";
-import { AnimatePresence } from "motion/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Routes, Route, useLocation, Outlet } from "react-router-dom";
+import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { useSeo, fetchApi } from "./hooks/useApi";
 import { AppDataProvider, useAppData } from "./contexts/AppDataContext";
 import { BackgroundProvider } from "./contexts/BackgroundContext";
 import { Layout } from "./Layout";
+import { applyUserLanguage } from "./lib/i18n";
+import { getSiteTitle } from "./lib/seo";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Skills from "./pages/Skills";
@@ -22,29 +21,48 @@ import Testimonials from "./pages/Testimonials";
 import Resume from "./pages/Resume";
 import Contact from "./pages/Contact";
 import SolarEstimator from "./pages/SolarEstimator";
+import NotFound from "./pages/NotFound";
 import { AdminLayout, ProtectedRoute, AdminLogin } from "./components/admin/AdminLayout";
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminProjects from "./pages/admin/AdminProjects";
-import AdminLeads from "./pages/admin/AdminLeads";
-import AdminMessages from "./pages/admin/AdminMessages";
-import AdminAnalytics from "./pages/admin/AdminAnalytics";
-import AdminResume from "./pages/admin/AdminResume";
-import AdminTestimonials from "./pages/admin/AdminTestimonials";
-import AdminReviews from "./pages/admin/AdminReviews";
-import AdminMedia from "./pages/admin/AdminMedia";
-import AdminSettings from "./pages/admin/AdminSettings";
-import AdminSiteSettings from "./pages/admin/AdminSiteSettings";
-import AdminSkills from "./pages/admin/AdminSkills";
 import Maintenance from "./pages/Maintenance";
 
+// Admin pages are code-split so public visitors never download the CMS (and its charting libraries)
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminProjects = lazy(() => import("./pages/admin/AdminProjects"));
+const AdminLeads = lazy(() => import("./pages/admin/AdminLeads"));
+const AdminMessages = lazy(() => import("./pages/admin/AdminMessages"));
+const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
+const AdminResume = lazy(() => import("./pages/admin/AdminResume"));
+const AdminTestimonials = lazy(() => import("./pages/admin/AdminTestimonials"));
+const AdminReviews = lazy(() => import("./pages/admin/AdminReviews"));
+const AdminMedia = lazy(() => import("./pages/admin/AdminMedia"));
+const AdminSiteSettings = lazy(() => import("./pages/admin/AdminSiteSettings"));
+const AdminSkills = lazy(() => import("./pages/admin/AdminSkills"));
+
+function adminPage(Page: ComponentType) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="w-10 h-10 border-2 border-[#00F0FF]/20 border-t-[#00F0FF] rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <Page />
+    </Suspense>
+  );
+}
+
 function AnimatedRoutes() {
-  const { seo } = useAppData();
-  const { i18n } = useTranslation();
-  const lang = i18n.language || 'en';
+  const { seo, profile } = useAppData();
+
+  // The server always renders in English; switch to the visitor's language once hydrated
+  useEffect(() => {
+    applyUserLanguage();
+  }, []);
 
   useEffect(() => {
-    if (seo?.site_title) {
-      document.title = seo.site_title;
+    if (seo || profile) {
+      document.title = getSiteTitle(seo, profile);
     }
     
     if (seo?.google_analytics_id && !document.getElementById('ga-script')) {
@@ -72,7 +90,8 @@ function AnimatedRoutes() {
       document.head.appendChild(script);
     }
 
-    if (seo?.plausible_domain && !document.getElementById('plausible-script')) {
+    // index.html already loads Plausible; don't inject a second tracker (it would double count page views)
+    if (seo?.plausible_domain && !document.getElementById('plausible-script') && !document.querySelector('script[src*="plausible.io"]')) {
       const script = document.createElement('script');
       script.id = 'plausible-script';
       script.defer = true;
@@ -80,7 +99,7 @@ function AnimatedRoutes() {
       script.src = 'https://plausible.io/js/script.js';
       document.head.appendChild(script);
     }
-  }, [seo]);
+  }, [seo, profile]);
 
   const location = useLocation();
 
@@ -108,6 +127,7 @@ function AnimatedRoutes() {
           <Route path="/testimonials" element={<Testimonials />} />
           <Route path="/resume" element={<Resume />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       )}
 
@@ -117,32 +137,31 @@ function AnimatedRoutes() {
       {/* Protected Admin Routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/profile" element={<AdminSiteSettings />} />
-          <Route path="/admin/settings" element={<AdminSiteSettings />} />
-          <Route path="/admin/projects" element={<AdminProjects />} />
-          <Route path="/admin/skills" element={<AdminSkills />} />
-          <Route path="/admin/leads" element={<AdminLeads />} />
-          <Route path="/admin/testimonials" element={<AdminTestimonials />} />
-          <Route path="/admin/reviews" element={<AdminReviews />} />
-          <Route path="/admin/messages" element={<AdminMessages />} />
-          <Route path="/admin/analytics" element={<AdminAnalytics />} />
-          <Route path="/admin/resume" element={<AdminResume />} />
-          <Route path="/admin/media" element={<AdminMedia />} />
+          <Route path="/admin" element={adminPage(AdminDashboard)} />
+          <Route path="/admin/profile" element={adminPage(AdminSiteSettings)} />
+          <Route path="/admin/settings" element={adminPage(AdminSiteSettings)} />
+          <Route path="/admin/projects" element={adminPage(AdminProjects)} />
+          <Route path="/admin/skills" element={adminPage(AdminSkills)} />
+          <Route path="/admin/leads" element={adminPage(AdminLeads)} />
+          <Route path="/admin/testimonials" element={adminPage(AdminTestimonials)} />
+          <Route path="/admin/reviews" element={adminPage(AdminReviews)} />
+          <Route path="/admin/messages" element={adminPage(AdminMessages)} />
+          <Route path="/admin/analytics" element={adminPage(AdminAnalytics)} />
+          <Route path="/admin/resume" element={adminPage(AdminResume)} />
+          <Route path="/admin/media" element={adminPage(AdminMedia)} />
         </Route>
       </Route>
     </Routes>
   );
 }
 
+// The router is provided by the entry point: BrowserRouter on the client, StaticRouter on the server
 export default function App() {
   return (
-    <BrowserRouter>
-      <BackgroundProvider>
-        <AppDataProvider>
-          <AnimatedRoutes />
-        </AppDataProvider>
-      </BackgroundProvider>
-    </BrowserRouter>
+    <BackgroundProvider>
+      <AppDataProvider>
+        <AnimatedRoutes />
+      </AppDataProvider>
+    </BackgroundProvider>
   );
 }
