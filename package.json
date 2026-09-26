@@ -8,7 +8,8 @@
     "build": "vite build --outDir dist/client && vite build --ssr src/entry-server.tsx --outDir dist/server && node scripts/move-template.mjs && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --define:process.env.NODE_ENV=\\\"production\\\" --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "check:ssr": "node scripts/check-ssr.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

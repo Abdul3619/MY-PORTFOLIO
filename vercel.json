@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build && npm run check:ssr",
   "outputDirectory": "dist/client",
   "functions": {
     "api/index.ts": {

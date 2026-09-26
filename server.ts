@@ -17,7 +17,7 @@ dotenv.config();
 
 const app = express();
 app.set('trust proxy', 1);
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(helmet({ contentSecurityPolicy: false })); // allow dev scripts
 app.use(cors());

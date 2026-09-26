@@ -1,0 +1,24 @@
+name: SSR check
+
+# Builds the app, starts the production server and fails if / or /about come back as an empty
+# client-side shell instead of server-rendered pages. The same check also runs in the Vercel build
+# (see vercel.json), so a broken render blocks the deploy.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ssr-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run check:ssr
