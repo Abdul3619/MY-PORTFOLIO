@@ -31,7 +31,7 @@ export default function Contact() {
     }
   };
 
-  const email = contactInfo?.email || "abdulwahababdullah3619@gmail.com";
+  const email = contactInfo?.email || "abdulwahababdullahi3619@gmail.com";
   const whatsappNumber = contactInfo?.whatsapp || "+228 71 60 66 97";
   const whatsappLink = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}`;
 
