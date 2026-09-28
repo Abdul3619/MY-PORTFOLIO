@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useLocation, useOutlet } from "react-router-dom";
+import { Link, useLocation, useOutlet } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence } from "motion/react";
 import Lenis from "lenis";
 import { trackEvent } from "./hooks/useApi";
@@ -10,6 +11,7 @@ import CustomCursor from "./components/CustomCursor";
 export function Layout() {
   const location = useLocation();
   const outlet = useOutlet();
+  const { t } = useTranslation();
 
   useEffect(() => {
     trackEvent('page_view', location.pathname);
@@ -50,6 +52,15 @@ export function Layout() {
           </div>
         </AnimatePresence>
       </main>
+
+      {/* The homepage has its own full footer; every other page gets this credit line. */}
+      {location.pathname !== "/" && (
+        <footer className="relative z-10 border-t border-white/5 py-8 px-4 text-center text-[11px] font-mono text-gray-500">
+          <span>© {new Date().getFullYear()} · {t("common.built_by", "Built by Abdulwahab Abdullahi")}</span>
+          <span className="mx-3">•</span>
+          <Link to="/contact" className="text-gold hover:text-white transition-colors">{t("common.get_in_touch", "Get in touch")}</Link>
+        </footer>
+      )}
     </>
   );
 }

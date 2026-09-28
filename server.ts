@@ -317,11 +317,6 @@ function formatZodError(error: any): string {
 // Initialize Google GenAI
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || 'placeholder_key',
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
-  }
 });
 
 const translationCache = new Map<string, any>();

@@ -99,7 +99,7 @@ export default function Home() {
     linkedin: contact?.linkedin_url || "#",
     twitter: contact?.twitter_url || "#",
     instagram: contact?.instagram_url || "#",
-    email: contact?.email || "abdulwahababdullah3619@gmail.com",
+    email: contact?.email || "abdulwahababdullahi3619@gmail.com",
     whatsapp: contact?.whatsapp ? `https://wa.me/${contact.whatsapp.replace(/\D/g, '')}` : "#"
   };
 
@@ -808,9 +808,9 @@ export default function Home() {
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between text-[11px] text-gray-500 font-mono gap-4">
             <span>© {new Date().getFullYear()} {profile?.name || "Abdul Wahab"}. {t("common.all_rights_reserved", "All Rights Reserved.")}</span>
             <div className="flex gap-4">
-              <span>{t("common.designed_with_intent", "Designed with Intent")}</span>
+              <span>{t("common.built_by", "Built by Abdulwahab Abdullahi")}</span>
               <span>•</span>
-              <span>{t("common.clean_energy_software", "Clean Energy & Software")}</span>
+              <Link to="/contact" className="text-gold hover:text-white transition-colors">{t("common.get_in_touch", "Get in touch")}</Link>
             </div>
           </div>
 

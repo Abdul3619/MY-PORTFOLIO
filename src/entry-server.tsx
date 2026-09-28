@@ -141,7 +141,7 @@ function buildHead(url: string, data: Map<string, any>, plan: RoutePlan, siteUrl
   const description = project
     ? project.seo_description || project.description || getSiteDescription(seo, profile)
     : routeMeta?.description ?? getSiteDescription(seo, profile);
-  const image = project?.hero_image_url || project?.thumbnail_url || seo.og_image_url || seo.twitter_card_image || profile.profile_image_url || '';
+  const image = project?.hero_image_url || project?.thumbnail_url || seo.og_image_url || seo.twitter_card_image || profile.profile_image_url || `${siteUrl}/og-image.png`;
   const canonical = siteUrl + (pagePath === '/' ? '/' : pagePath);
   const siteName = seo.site_name || profile.name || getSiteTitle(seo, profile);
 
@@ -169,7 +169,8 @@ function buildHead(url: string, data: Map<string, any>, plan: RoutePlan, siteUrl
   if (seo.meta_keywords) {
     tags.push(`<meta name="keywords" content="${escapeHtml(seo.meta_keywords)}" />`);
   }
-  tags.push(`<link rel="icon" href="${escapeHtml(seo.favicon_url || 'data:,')}" />`);
+  tags.push(`<link rel="icon" href="${escapeHtml(seo.favicon_url || '/favicon.svg')}" />`);
+  tags.push('<link rel="apple-touch-icon" href="/apple-touch-icon.png" />');
   if (pagePath === '/') {
     tags.push(`<script type="application/ld+json">${jsonForScript(buildPersonJsonLd(siteUrl, profile, contact, seo, description))}</script>`);
   }
