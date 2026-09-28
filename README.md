@@ -1,6 +1,6 @@
 # Abdul Wahab — Portfolio
 
-Personal portfolio and CMS for Abdul Wahab, web developer and solar technician. Public pages cover projects, skills, certificates, testimonials, a resume and an interactive solar sizing calculator. A private admin dashboard manages all of that content.
+This is my personal portfolio and the CMS behind it. I am a web developer and solar technician, and the site shows my projects, skills, certificates, client testimonials, my resume and an interactive solar sizing calculator. I manage all of that content from a private admin dashboard.
 
 ## Stack
 
@@ -11,11 +11,13 @@ Personal portfolio and CMS for Abdul Wahab, web developer and solar technician. 
 
 ## How rendering works
 
-Public pages are **server-side rendered**. For each request, `server.ts` loads the page's content from Supabase, renders the React app with `src/entry-server.tsx`, and returns complete HTML (content, `<title>`, meta description, Open Graph tags). The prefetched data is embedded in the page, so the client (`src/main.tsx`) hydrates without refetching. If Supabase is slow or unreachable, the page still renders with its built-in fallback content and the client fetches the rest once it loads.
+I render the public pages on the server. For each request, `server.ts` loads the page's content from Supabase, renders the React app with `src/entry-server.tsx`, and returns complete HTML (content, `<title>`, meta description, Open Graph tags). The prefetched data is embedded in the page, so the client (`src/main.tsx`) hydrates without refetching. If Supabase is slow or unreachable, the page still renders with its built-in fallback content and the client fetches the rest once it loads.
 
-The admin area (`/admin/*`) renders on the client only.
+The admin area (`/admin/*`) only renders in the browser.
 
-## Getting started
+## Running it locally
+
+You need Node.js and a Supabase project.
 
 ```bash
 cp .env.example .env   # fill in the Supabase credentials
@@ -39,4 +41,4 @@ npm run dev            # http://localhost:3000
 | `npm start` | Runs the production build |
 | `npm run lint` | Type-checks the project |
 
-Database migrations live in `supabase/migrations`.
+The database migrations are in `supabase/migrations`.
