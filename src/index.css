@@ -65,6 +65,17 @@
     background-size: 200% 100%;
     animation: silverShimmer 2s infinite linear;
   }
+  /* Reduced motion: no sweep, just a slow, gentle fade */
+  @media (prefers-reduced-motion: reduce) {
+    .silver-shimmer {
+      animation: silverFade 2.4s ease-in-out infinite;
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+}
+
+@keyframes silverFade {
+  50% { opacity: 0.55; }
 }
 
 @keyframes silverShimmer {

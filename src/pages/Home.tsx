@@ -220,7 +220,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-tr from-gold/20 via-transparent to-blue-500/10 mix-blend-overlay z-10 pointer-events-none" />
               {profile?.profile_image_url || profile?.avatar_url ? (
                 <div className="w-full h-full relative">
-                  <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-black to-zinc-900 animate-pulse flex items-center justify-center text-gold/50 font-display font-bold text-3xl">
+                  <div className="absolute inset-0 silver-shimmer flex items-center justify-center text-gold/50 font-display font-bold text-3xl">
                     AW
                   </div>
                   <img 
@@ -544,21 +544,21 @@ export default function Home() {
             {isProjectsLoading ? (
               <>
                 {[1, 2].map((i) => (
-                  <div key={i} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col h-full animate-pulse">
-                    <div className="relative h-60 bg-white/10 w-full">
+                  <div key={i} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col h-full" aria-hidden="true">
+                    <div className="relative h-60 silver-shimmer w-full">
                       <div className="absolute top-4 right-4 flex gap-2">
-                        <div className="w-16 h-6 bg-white/20 rounded-md" />
-                        <div className="w-12 h-6 bg-white/20 rounded-md" />
+                        <div className="w-16 h-6 silver-shimmer rounded-md" />
+                        <div className="w-12 h-6 silver-shimmer rounded-md" />
                       </div>
                     </div>
                     <div className="p-6 md:p-8 flex flex-col flex-grow space-y-4">
-                      <div className="h-7 bg-white/15 rounded-lg w-3/4" />
+                      <div className="h-7 silver-shimmer rounded-lg w-3/4" />
                       <div className="space-y-2 flex-grow">
-                        <div className="h-4 bg-white/10 rounded w-full" />
-                        <div className="h-4 bg-white/10 rounded w-5/6" />
+                        <div className="h-4 silver-shimmer rounded w-full" />
+                        <div className="h-4 silver-shimmer rounded w-5/6" />
                       </div>
                       <div className="pt-4 mt-auto">
-                        <div className="h-5 bg-white/10 rounded w-48" />
+                        <div className="h-5 silver-shimmer rounded w-48" />
                       </div>
                     </div>
                   </div>
