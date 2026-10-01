@@ -226,7 +226,8 @@ function extractActions(text: string): ChatAction[] {
     } else {
       try {
         const host = new URL(href).hostname.replace(/^www\./, "");
-        actions.push({ href, label: `Open live demo (${host})`, internal: false });
+        const label = host === "wa.me" ? "Message on WhatsApp" : `Open live demo (${host})`;
+        actions.push({ href, label, internal: false });
       } catch {
         // malformed URL, skip rather than show a dead button
       }

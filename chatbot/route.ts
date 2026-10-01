@@ -7,7 +7,9 @@
 // * ANTHROPIC_API_KEY, CHAT_DATABASE_URL and CHAT_VISITOR_SALT are read from the server environment only.
 // * This router never touches the Supabase service-role client; its only database access is ./knowledge.ts,
 //   which connects as the restricted chatbot_reader login.
-// * The model gets no tools. Whatever a visitor types, the server only ever runs the two fixed queries.
+// * The model has exactly one tool, submit_lead, which can only insert a validated, rate-limited row through
+//   knowledge.ts -- never raw SQL. The second (tool-result) call always omits `tools`, so at most one tool
+//   round-trip can happen per visitor turn, however the model is prompted.
 // * Visitor IPs are never stored: the quota uses a salted hash of the IP.
 
 import crypto from 'crypto';
@@ -16,7 +18,7 @@ import rateLimit from 'express-rate-limit';
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { SYSTEM_PROMPT } from './systemPrompt.js';
-import { isKnowledgeConfigured, retrieveKnowledge, takeQuota, type KnowledgeEntry } from './knowledge.js';
+import { isKnowledgeConfigured, retrieveKnowledge, takeQuota, submitLead, type KnowledgeEntry, type LeadResult } from './knowledge.js';
 
 const MAX_MESSAGE_CHARS = 1000;
 const MAX_HISTORY_TURNS = 10;
@@ -100,6 +102,31 @@ function getClient() {
   return anthropic;
 }
 
+// The only tool the model has. It can save a lead the visitor gave in conversation -- the server still validates
+// and rate-limits everything in submitLead()/chat_submit_lead(), so a model mistake can at worst insert one row.
+const SUBMIT_LEAD_TOOL: Anthropic.Tool = {
+  name: 'submit_lead',
+  description:
+    "Passes a visitor's contact details to Abdulwahab so he can follow up, instead of only pointing them at the contact form. Only call this after the visitor has clearly given their own name and a way to reach them and wants to be contacted -- never guess, never invent a value, and never call this more than once per conversation.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: "The visitor's name, exactly as they gave it." },
+      email: { type: 'string', description: "The visitor's email address, exactly as they gave it." },
+      phone: { type: 'string', description: 'Optional phone number, only if the visitor gave one.' },
+      message: { type: 'string', description: 'A short note on what they want, in your own words, for Abdulwahab to read.' },
+    },
+    required: ['name', 'email', 'message'],
+  },
+};
+
+const LEAD_RESULT_TEXT: Record<LeadResult, string> = {
+  ok: 'Saved. Abdulwahab will follow up soon.',
+  invalid_input: "That didn't go through -- the name or email looked invalid.",
+  visitor_day: "That didn't go through -- too many submissions from this visitor today. Point them to the contact form at /contact or WhatsApp instead.",
+  global_day: "That didn't go through -- the daily limit for this was reached. Point them to the contact form at /contact or WhatsApp instead.",
+};
+
 export function chatConfigured() {
   return Boolean(env('ANTHROPIC_API_KEY') && env('CHAT_VISITOR_SALT').length >= 32 && isKnowledgeConfigured());
 }
@@ -150,39 +177,80 @@ export function createChatRouter() {
     res.flushHeaders();
     const send = (data: Record<string, unknown>) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
-    const model = env('CHAT_MODEL') || 'claude-haiku-4-5-20251001';
+    const model = env('CHAT_MODEL') || 'claude-sonnet-5';
     // Claude Haiku 4.5 doesn't take the effort setting (newer Sonnet/Opus models do), so only send it to those
     const supportsEffort = !/^claude-(haiku-4|sonnet-4-5|sonnet-4-0|opus-4-[01])/.test(model);
-    const stream = getClient().messages.stream({
+    const system = [
+      // Stable instructions first so they can be cached; the per-question knowledge follows.
+      { type: 'text' as const, text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' as const } },
+      { type: 'text' as const, text: formatKnowledge(entries) },
+    ];
+    const baseParams = {
       model,
       max_tokens: MAX_OUTPUT_TOKENS,
       ...(supportsEffort ? { output_config: { effort: (env('CHAT_EFFORT') || 'low') as 'low' | 'medium' | 'high' } } : {}),
-      system: [
-        // Stable instructions first so they can be cached; the per-question knowledge follows.
-        { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: formatKnowledge(entries) },
-      ],
-      messages: [...history, { role: 'user', content: message }],
-    });
+      system,
+    };
 
     let closed = false;
     res.on('close', () => {
       closed = true;
-      stream.abort();
     });
 
-    let sentText = false;
-    stream.on('text', (text) => {
-      if (closed) return;
-      sentText = true;
-      send({ type: 'delta', text });
-    });
+    const visitorKeyValue = visitorKey(req.ip || req.socket.remoteAddress || 'unknown');
+    let leadCalled = false;
 
     try {
-      const final = await stream.finalMessage();
-      if (final.stop_reason === 'refusal' && !sentText) {
+      const conversation: Anthropic.MessageParam[] = [...history, { role: 'user', content: message }];
+
+      // First call: the model may answer directly, or ask to call submit_lead. Either way its text streams live.
+      const first = getClient().messages.stream({ ...baseParams, tools: [SUBMIT_LEAD_TOOL], messages: conversation });
+      res.once('close', () => { closed = true; first.abort(); });
+      let sentText = false;
+      first.on('text', (text) => {
+        if (closed) return;
+        sentText = true;
+        send({ type: 'delta', text });
+      });
+      const firstFinal = await first.finalMessage();
+
+      if (firstFinal.stop_reason === 'refusal' && !sentText) {
         send({ type: 'delta', text: "I can't help with that one. If you have a question about Abdulwahab's work, I'm happy to help, or you can reach him through the contact form at /contact." });
       }
+
+      const toolUse = firstFinal.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'submit_lead');
+      if (toolUse && !leadCalled && !closed) {
+        leadCalled = true;
+        const input = (toolUse.input ?? {}) as { name?: unknown; email?: unknown; phone?: unknown; message?: unknown };
+        let result: LeadResult;
+        try {
+          const name = typeof input.name === 'string' ? input.name : '';
+          const email = typeof input.email === 'string' ? input.email : '';
+          const phone = typeof input.phone === 'string' ? input.phone : undefined;
+          const note = typeof input.message === 'string' ? input.message : '';
+          result = await submitLead(visitorKeyValue, name, email, note, phone);
+        } catch (err: any) {
+          console.error('Lead submit error:', err?.message);
+          result = 'global_day';
+        }
+
+        // Second call continues the same conversation with the tool result, but with no tools, so the model can
+        // only reply in text -- this guarantees at most one tool round-trip per visitor turn.
+        conversation.push({ role: 'assistant', content: firstFinal.content });
+        conversation.push({
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: LEAD_RESULT_TEXT[result] }],
+        });
+        const second = getClient().messages.stream({ ...baseParams, messages: conversation });
+        res.once('close', () => { closed = true; second.abort(); });
+        second.on('text', (text) => {
+          if (closed) return;
+          sentText = true;
+          send({ type: 'delta', text });
+        });
+        await second.finalMessage();
+      }
+
       send({ type: 'done' });
     } catch (err: any) {
       if (closed) return;

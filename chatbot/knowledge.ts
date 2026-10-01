@@ -2,9 +2,10 @@
 //
 // This module connects as the restricted `chatbot_reader` login (CHAT_DATABASE_URL), never with the Supabase
 // service-role key. That login can SELECT published rows of public.public_knowledge_base and EXECUTE
-// private.chat_take_quota, and nothing else, so no visitor message can reach private tables through it.
-// The model never writes SQL: the two queries below are fixed, and visitor text only reaches them as bound
-// parameters after being reduced to plain [a-z0-9] search words.
+// private.chat_take_quota and private.chat_submit_lead, and nothing else, so no visitor message can reach
+// private tables through it. The model never writes SQL: the queries below are fixed, and visitor text only
+// reaches them as bound parameters (reduced to plain [a-z0-9] search words for the knowledge-base lookup, or
+// validated and length-capped server-side for a lead).
 
 import pg from 'pg';
 import { SUPABASE_ROOT_CA } from './supabaseCa.js';
@@ -83,5 +84,20 @@ export async function retrieveKnowledge(question: string): Promise<KnowledgeEntr
 // Counts one message against the per-visitor and site-wide limits. `visitorKey` is a salted SHA-256 hex digest.
 export async function takeQuota(visitorKey: string): Promise<QuotaResult> {
   const { rows } = await getPool().query<{ result: QuotaResult }>('select private.chat_take_quota($1) as result', [visitorKey]);
+  return rows[0]?.result ?? 'global_day';
+}
+
+export type LeadResult = 'ok' | 'invalid_input' | 'visitor_day' | 'global_day';
+
+// Saves a lead the model collected in conversation. The server never decides to call this -- the model only
+// reaches it through the submit_lead tool, after the visitor has clearly given their details and agreed to be
+// contacted (see the tool's description and the system prompt). The function itself still validates and rate
+// limits everything server-side, so a model mistake or a prompt injection can at worst insert one junk row,
+// never anything more.
+export async function submitLead(visitorKey: string, name: string, email: string, message: string, phone?: string): Promise<LeadResult> {
+  const { rows } = await getPool().query<{ result: LeadResult }>(
+    'select private.chat_submit_lead($1, $2, $3, $4, $5) as result',
+    [visitorKey, name, email, message, phone || null],
+  );
   return rows[0]?.result ?? 'global_day';
 }

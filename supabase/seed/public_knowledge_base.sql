@@ -22,8 +22,8 @@ insert into public.public_knowledge_base (category, title, content, keywords, al
  'about developer freelancer full-stack web developer solar engineer who are you', true, true, 1),
 
 ('contact', 'How to get in touch',
- $kb$The best way to start a project or ask a detailed question is the contact form on the Contact page (/contact). Abdulwahab reads every message himself and replies personally. Email: abdulwahababdullah3619@gmail.com. Code: github.com/abdul3619. LinkedIn is linked from the site.$kb$,
- 'contact email hire reach message talk call book a call get in touch github linkedin', true, true, 2),
+ $kb$The best way to start a project or ask a detailed question is the contact form on the Contact page (/contact). Abdulwahab reads every message himself and replies personally. He can also be messaged directly on WhatsApp at https://wa.me/22871606697. Email: abdulwahababdullah3619@gmail.com. Code: github.com/abdul3619. LinkedIn is linked from the site.$kb$,
+ 'contact email hire reach message talk call book a call get in touch github linkedin whatsapp', true, true, 2),
 
 -- ---------- Background and approach ----------
 ('bio', 'From solar engineering to software',
