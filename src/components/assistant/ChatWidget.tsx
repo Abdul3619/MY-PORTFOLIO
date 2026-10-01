@@ -206,6 +206,10 @@ interface ChatAction {
   href: string;
   label: string;
   internal: boolean;
+  // External project demos open in an in-page panel instead of a new tab, so asking to "see" or "open" something
+  // feels like it happens right there rather than leaving the site. Other external links (WhatsApp, GitHub) still
+  // open normally -- a panel makes no sense for those.
+  openInPanel: boolean;
 }
 
 // Pulls the links out of a finished assistant reply and turns them into one-tap "open this" buttons, so the
@@ -219,15 +223,16 @@ function extractActions(text: string): ChatAction[] {
     seen.add(href);
     if (href.startsWith("/")) {
       if (/^\/projects\/[^/]+/.test(href)) {
-        actions.push({ href, label: "Open this project", internal: true });
+        actions.push({ href, label: "Open this project", internal: true, openInPanel: false });
       } else if (INTERNAL_LABELS[href]) {
-        actions.push({ href, label: INTERNAL_LABELS[href], internal: true });
+        actions.push({ href, label: INTERNAL_LABELS[href], internal: true, openInPanel: false });
       }
     } else {
       try {
         const host = new URL(href).hostname.replace(/^www\./, "");
-        const label = host === "wa.me" ? "Message on WhatsApp" : `Open live demo (${host})`;
-        actions.push({ href, label, internal: false });
+        const isWhatsApp = host === "wa.me";
+        const label = isWhatsApp ? "Message on WhatsApp" : `Open live demo (${host})`;
+        actions.push({ href, label, internal: false, openInPanel: !isWhatsApp });
       } catch {
         // malformed URL, skip rather than show a dead button
       }
@@ -236,32 +241,34 @@ function extractActions(text: string): ChatAction[] {
   return actions.slice(0, 3);
 }
 
-function ChatActions({ content }: { content: string }) {
+function ChatActions({ content, onOpenDemo }: { content: string; onOpenDemo: (url: string, label: string) => void }) {
   const actions = extractActions(content);
   if (actions.length === 0) return null;
+  const buttonClass =
+    "interactive inline-flex items-center gap-1 text-xs font-medium text-black bg-gold hover:bg-gold/90 rounded-full px-3 py-1.5 transition-colors";
   return (
     <span className="mt-3 flex flex-wrap gap-2 not-italic">
-      {actions.map((a) =>
-        a.internal ? (
-          <Link
-            key={a.href}
-            to={a.href}
-            className="interactive inline-flex items-center gap-1 text-xs font-medium text-black bg-gold hover:bg-gold/90 rounded-full px-3 py-1.5 transition-colors"
-          >
-            {a.label} →
-          </Link>
-        ) : (
-          <a
-            key={a.href}
-            href={a.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="interactive inline-flex items-center gap-1 text-xs font-medium text-black bg-gold hover:bg-gold/90 rounded-full px-3 py-1.5 transition-colors"
-          >
+      {actions.map((a) => {
+        if (a.internal) {
+          return (
+            <Link key={a.href} to={a.href} className={buttonClass}>
+              {a.label} →
+            </Link>
+          );
+        }
+        if (a.openInPanel) {
+          return (
+            <button key={a.href} type="button" onClick={() => onOpenDemo(a.href, a.label)} className={buttonClass}>
+              {a.label} →
+            </button>
+          );
+        }
+        return (
+          <a key={a.href} href={a.href} target="_blank" rel="noopener noreferrer" className={buttonClass}>
             {a.label} →
           </a>
-        ),
-      )}
+        );
+      })}
     </span>
   );
 }
@@ -310,6 +317,9 @@ export default function ChatWidget() {
   // thinks to open the chat still gets offered something relevant.
   const [bubble, setBubble] = useState<Suggestion | null>(null);
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A demo opened right here, in a panel over the current page, instead of a new tab -- so asking to see a
+  // booking system (or any other demo) feels like it opens in place, with its own way back, not like leaving.
+  const [demoPanel, setDemoPanel] = useState<{ url: string; label: string } | null>(null);
   const energy = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -342,14 +352,30 @@ export default function ChatWidget() {
       wasOpen.current = true;
       inputRef.current?.focus();
       const onKey = (e: globalThis.KeyboardEvent) => {
-        if (e.key === "Escape") close();
+        // The demo panel sits above the chat, so its own handler (below) takes the first Escape press.
+        if (e.key === "Escape" && !demoPanel) close();
       };
       document.addEventListener("keydown", onKey);
       return () => document.removeEventListener("keydown", onKey);
     }
     // Back to the launcher when the panel closes
     if (wasOpen.current) requestAnimationFrame(() => launcherRef.current?.focus());
-  }, [open, close]);
+  }, [open, close, demoPanel]);
+
+  // The demo panel's own Escape handling and body-scroll lock, independent of whether the chat is open.
+  useEffect(() => {
+    if (!demoPanel) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setDemoPanel(null);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [demoPanel]);
 
   const scrollToEnd = useCallback(() => {
     const list = listRef.current;
@@ -532,7 +558,56 @@ export default function ChatWidget() {
   const transition = reduceMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 320, damping: 32 };
 
   return (
-    <div data-state={state} className="ai-assistant fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end">
+    <>
+      <AnimatePresence>
+        {demoPanel && (
+          <motion.div
+            key="demo-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label={demoPanel.label}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={transition}
+            className="fixed inset-0 z-50 flex flex-col bg-black/85 backdrop-blur-sm"
+          >
+            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-bg-darker/95 border-b border-white/10">
+              <span className="text-sm font-display text-white truncate">{demoPanel.label}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={demoPanel.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="interactive text-xs font-mono text-gray-400 hover:text-gold underline underline-offset-2 transition-colors"
+                >
+                  {t("assistant.open_new_tab", "Open in new tab")}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setDemoPanel(null)}
+                  aria-label={t("assistant.back_to_site", "Close this demo and go back")}
+                  className="interactive inline-flex items-center gap-1.5 text-xs font-medium text-black bg-gold hover:bg-gold/90 rounded-full px-3 py-1.5 transition-colors"
+                >
+                  <X size={12} aria-hidden="true" />
+                  {t("assistant.back", "Back")}
+                </button>
+              </div>
+            </div>
+            <iframe
+              key={demoPanel.url}
+              src={demoPanel.url}
+              title={demoPanel.label}
+              className="flex-1 w-full bg-white"
+              sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-new-window"
+            />
+            <p className="px-4 py-2 font-mono text-[10px] text-gray-500 bg-bg-darker/95 border-t border-white/10 text-center">
+              {t("assistant.demo_panel_note", 'This is a live demo, open right here. If it doesn\'t load, use "Open in new tab" above.')}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div data-state={state} className="ai-assistant fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end">
       <AnimatePresence mode="popLayout">
         {open ? (
           <motion.section
@@ -638,7 +713,7 @@ export default function ChatWidget() {
                     ) : (
                       <>
                         {renderWithLinks(m.content)}
-                        <ChatActions content={m.content} />
+                        <ChatActions content={m.content} onOpenDemo={(url, label) => setDemoPanel({ url, label })} />
                       </>
                     )}
                   </p>
@@ -750,6 +825,7 @@ export default function ChatWidget() {
           </>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </>
   );
 }

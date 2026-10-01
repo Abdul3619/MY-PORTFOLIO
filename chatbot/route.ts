@@ -18,7 +18,16 @@ import rateLimit from 'express-rate-limit';
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { SYSTEM_PROMPT } from './systemPrompt.js';
-import { isKnowledgeConfigured, retrieveKnowledge, takeQuota, submitLead, type KnowledgeEntry, type LeadResult } from './knowledge.js';
+import {
+  isKnowledgeConfigured,
+  retrieveKnowledge,
+  retrieveProjects,
+  takeQuota,
+  submitLead,
+  type KnowledgeEntry,
+  type ProjectEntry,
+  type LeadResult,
+} from './knowledge.js';
 
 const MAX_MESSAGE_CHARS = 1000;
 const MAX_HISTORY_TURNS = 10;
@@ -69,6 +78,28 @@ function formatKnowledge(entries: KnowledgeEntry[]) {
     .map((e) => `<entry category="${escape(e.category)}" title="${escape(e.title).replace(/"/g, "'")}">\n${escape(e.content)}\n</entry>`)
     .join('\n');
   return `<knowledge>\n${body || 'No entries.'}\n</knowledge>`;
+}
+
+// The live, always-current project list (see knowledge.ts/retrieveProjects). This is the one place the model
+// should trust for "is this actually live" and "what's its link" -- the hand-written <knowledge> entries add
+// narrative detail, but a project only here, with no entry here, isn't something to present as a working demo.
+function formatProjects(projects: ProjectEntry[]) {
+  const escape = (s: string) => s.replace(/[<>]/g, '');
+  const body = projects
+    .map((p) => {
+      const stack = [...p.techStack, ...p.tags].filter(Boolean).join(', ');
+      const lines = [
+        `<project slug="${escape(p.slug)}" title="${escape(p.title).replace(/"/g, "'")}">`,
+        escape(p.description),
+        stack ? `Tech/tags: ${escape(stack)}` : '',
+        p.liveUrl ? `Live demo: ${escape(p.liveUrl)}` : 'No live demo link.',
+        `Project page: /projects/${escape(p.slug)}`,
+        '</project>',
+      ].filter(Boolean);
+      return lines.join('\n');
+    })
+    .join('\n');
+  return `<projects>\n${body || 'No published projects.'}\n</projects>`;
 }
 
 function visitorKey(ip: string) {
@@ -161,10 +192,11 @@ export function createChatRouter() {
     const previousQuestion = [...history].reverse().find((t) => t.role === 'user')?.content ?? '';
 
     let entries: KnowledgeEntry[];
+    let projects: ProjectEntry[];
     try {
       const quota = await takeQuota(visitorKey(req.ip || req.socket.remoteAddress || 'unknown'));
       if (quota !== 'ok') return res.status(429).json({ error: LIMIT_MESSAGES[quota] ?? LIMIT_MESSAGES.global_day });
-      entries = await retrieveKnowledge(`${message} ${previousQuestion}`);
+      [entries, projects] = await Promise.all([retrieveKnowledge(`${message} ${previousQuestion}`), retrieveProjects()]);
     } catch (err: any) {
       console.error('Chat knowledge error:', err?.message);
       return res.status(503).json({ error: 'The assistant is not available right now. Please use the contact form at /contact.' });
@@ -184,6 +216,7 @@ export function createChatRouter() {
       // Stable instructions first so they can be cached; the per-question knowledge follows.
       { type: 'text' as const, text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' as const } },
       { type: 'text' as const, text: formatKnowledge(entries) },
+      { type: 'text' as const, text: formatProjects(projects) },
     ];
     const baseParams = {
       model,

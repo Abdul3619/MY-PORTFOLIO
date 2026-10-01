@@ -1,7 +1,8 @@
 // Database access for the portfolio assistant.
 //
 // This module connects as the restricted `chatbot_reader` login (CHAT_DATABASE_URL), never with the Supabase
-// service-role key. That login can SELECT published rows of public.public_knowledge_base and EXECUTE
+// service-role key. That login can SELECT published rows of public.public_knowledge_base, SELECT
+// public.chat_live_projects (a view over already-public, published projects), and EXECUTE
 // private.chat_take_quota and private.chat_submit_lead, and nothing else, so no visitor message can reach
 // private tables through it. The model never writes SQL: the queries below are fixed, and visitor text only
 // reaches them as bound parameters (reduced to plain [a-z0-9] search words for the knowledge-base lookup, or
@@ -14,6 +15,16 @@ export interface KnowledgeEntry {
   category: string;
   title: string;
   content: string;
+}
+
+export interface ProjectEntry {
+  slug: string;
+  title: string;
+  description: string;
+  longDescription: string | null;
+  techStack: string[];
+  tags: string[];
+  liveUrl: string | null;
 }
 
 export type QuotaResult = 'ok' | 'visitor_minute' | 'visitor_day' | 'global_day';
@@ -79,6 +90,36 @@ export async function retrieveKnowledge(question: string): Promise<KnowledgeEntr
     [query, MAX_ENTRIES],
   );
   return rows;
+}
+
+const MAX_PROJECTS = 30;
+
+// The full, always-current list of published projects -- the same ones visible on /projects -- so a project
+// added through the admin dashboard is known to the assistant the moment it's published, with no separate
+// knowledge-base entry to write by hand. Small table, no per-question filtering needed: every request gets the
+// whole list, and the model picks out what's relevant.
+export async function retrieveProjects(): Promise<ProjectEntry[]> {
+  const { rows } = await getPool().query<{
+    slug: string;
+    title: string;
+    description: string;
+    long_description: string | null;
+    tech_stack: unknown;
+    tags: unknown;
+    live_url: string | null;
+  }>(`select slug, title, description, long_description, tech_stack, tags, live_url from public.chat_live_projects limit $1`, [
+    MAX_PROJECTS,
+  ]);
+  const toStringArray = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
+  return rows.map((r) => ({
+    slug: r.slug,
+    title: r.title,
+    description: r.description,
+    longDescription: r.long_description,
+    techStack: toStringArray(r.tech_stack),
+    tags: toStringArray(r.tags),
+    liveUrl: r.live_url,
+  }));
 }
 
 // Counts one message against the per-visitor and site-wide limits. `visitorKey` is a salted SHA-256 hex digest.
