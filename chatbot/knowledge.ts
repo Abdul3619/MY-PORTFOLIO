@@ -93,11 +93,13 @@ export type LeadResult = 'ok' | 'invalid_input' | 'visitor_day' | 'global_day';
 // reaches it through the submit_lead tool, after the visitor has clearly given their details and agreed to be
 // contacted (see the tool's description and the system prompt). The function itself still validates and rate
 // limits everything server-side, so a model mistake or a prompt injection can at worst insert one junk row,
-// never anything more.
-export async function submitLead(visitorKey: string, name: string, email: string, message: string, phone?: string): Promise<LeadResult> {
+// never anything more. Email and phone are each optional, but at least one must resolve to something valid --
+// a visitor may prefer to leave a phone/WhatsApp number instead of an email, especially outside regions where
+// WhatsApp is less common.
+export async function submitLead(visitorKey: string, name: string, email: string | undefined, message: string, phone?: string): Promise<LeadResult> {
   const { rows } = await getPool().query<{ result: LeadResult }>(
     'select private.chat_submit_lead($1, $2, $3, $4, $5) as result',
-    [visitorKey, name, email, message, phone || null],
+    [visitorKey, name, email || null, message, phone || null],
   );
   return rows[0]?.result ?? 'global_day';
 }

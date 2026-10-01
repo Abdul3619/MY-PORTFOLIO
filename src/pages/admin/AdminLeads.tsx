@@ -23,7 +23,7 @@ import {
 interface Lead {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   company: string;
   status: 'New' | 'Contacted' | 'Qualified' | 'Proposal Sent' | 'Won' | 'Lost';
   value: number;
@@ -285,7 +285,7 @@ export default function AdminLeads() {
                   {/* Name and Email */}
                   <td className="p-4">
                     <p className="font-semibold text-white text-sm group-hover:text-[#00F0FF] transition-colors">{lead.name}</p>
-                    <p className="text-[10px] font-mono text-gray-500">{lead.email}</p>
+                    <p className="text-[10px] font-mono text-gray-500">{lead.email || lead.phone || 'No contact given'}</p>
                   </td>
                   {/* Company */}
                   <td className="p-4 text-gray-300 font-mono font-medium">
@@ -376,7 +376,11 @@ export default function AdminLeads() {
                     </div>
                     <div>
                       <span className="text-gray-500 font-mono block">Primary Email</span>
-                      <a href={`mailto:${selectedLead.email}`} className="text-[#00F0FF] hover:underline block font-mono truncate">{selectedLead.email}</a>
+                      {selectedLead.email ? (
+                        <a href={`mailto:${selectedLead.email}`} className="text-[#00F0FF] hover:underline block font-mono truncate">{selectedLead.email}</a>
+                      ) : (
+                        <span className="text-gray-400 font-mono block">Unavailable</span>
+                      )}
                     </div>
                     <div>
                       <span className="text-gray-500 font-mono block">Phone Protocol</span>

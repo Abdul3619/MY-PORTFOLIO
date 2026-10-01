@@ -107,22 +107,22 @@ function getClient() {
 const SUBMIT_LEAD_TOOL: Anthropic.Tool = {
   name: 'submit_lead',
   description:
-    "Passes a visitor's contact details to Abdulwahab so he can follow up, instead of only pointing them at the contact form. Only call this after the visitor has clearly given their own name and a way to reach them and wants to be contacted -- never guess, never invent a value, and never call this more than once per conversation.",
+    "Passes a visitor's contact details to Abdulwahab so he can follow up, instead of only pointing them at the contact form. Only call this after the visitor has clearly given their own name, at least one way to reach them (email, or a phone/WhatsApp number), and wants to be contacted -- never guess, never invent a value, and never call this more than once per conversation. A visitor can give either contact method, whichever they actually use; don't insist on email specifically.",
   input_schema: {
     type: 'object',
     properties: {
       name: { type: 'string', description: "The visitor's name, exactly as they gave it." },
-      email: { type: 'string', description: "The visitor's email address, exactly as they gave it." },
-      phone: { type: 'string', description: 'Optional phone number, only if the visitor gave one.' },
+      email: { type: 'string', description: "The visitor's email address, if they gave one." },
+      phone: { type: 'string', description: 'A phone or WhatsApp number, if they gave one, in whatever format they typed it.' },
       message: { type: 'string', description: 'A short note on what they want, in your own words, for Abdulwahab to read.' },
     },
-    required: ['name', 'email', 'message'],
+    required: ['name', 'message'],
   },
 };
 
 const LEAD_RESULT_TEXT: Record<LeadResult, string> = {
   ok: 'Saved. Abdulwahab will follow up soon.',
-  invalid_input: "That didn't go through -- the name or email looked invalid.",
+  invalid_input: "That didn't go through -- the name looked empty, or the email/phone didn't look valid. Ask the visitor to double-check it.",
   visitor_day: "That didn't go through -- too many submissions from this visitor today. Point them to the contact form at /contact or WhatsApp instead.",
   global_day: "That didn't go through -- the daily limit for this was reached. Point them to the contact form at /contact or WhatsApp instead.",
 };
@@ -225,7 +225,7 @@ export function createChatRouter() {
         let result: LeadResult;
         try {
           const name = typeof input.name === 'string' ? input.name : '';
-          const email = typeof input.email === 'string' ? input.email : '';
+          const email = typeof input.email === 'string' ? input.email : undefined;
           const phone = typeof input.phone === 'string' ? input.phone : undefined;
           const note = typeof input.message === 'string' ? input.message : '';
           result = await submitLead(visitorKeyValue, name, email, note, phone);

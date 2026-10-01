@@ -131,8 +131,8 @@ const PAGE_SUGGESTIONS: { match: (path: string) => boolean; build: () => Omit<Su
   {
     match: (p) => p.startsWith("/contact"),
     build: () => ({
-      label: "Not sure what to include in your message?",
-      prompt: "What should I include when I reach out about a project?",
+      label: "You can also just tell me what you need right here.",
+      prompt: "I'd like to leave my details here instead of the form -- what do you need from me?",
     }),
   },
   {
@@ -156,7 +156,7 @@ const HOME_SECTION_SUGGESTIONS: Record<string, Omit<Suggestion, "key">> = {
   certificates: { label: "Curious about his background and qualifications?", prompt: "What's Abdulwahab's background and qualifications?" },
   testimonials: { label: "Want to know more about one of these projects?", prompt: "Can you tell me more about one of these client projects?" },
   "resume-cta": { label: "Want a quick summary of his experience?", prompt: "Can you summarize Abdulwahab's work experience?" },
-  "contact-cta": { label: "Not sure what to include in your message?", prompt: "What should I include when I reach out about a project?" },
+  "contact-cta": { label: "You can also just tell me what you need right here.", prompt: "I'd like to leave my details here instead of the form -- what do you need from me?" },
 };
 
 // Resolves the one suggestion to offer right now, given the route and (on the homepage) the section in view.
@@ -305,6 +305,11 @@ export default function ChatWidget() {
   const [pageSuggestion, setPageSuggestion] = useState<Suggestion | null>(null);
   const [activeSection, setActiveSectionState] = useState<string | null>(() => getActiveSection());
   const [hasUnseenCue, setHasUnseenCue] = useState(false);
+  // A small speech bubble that steps up next to the collapsed launcher on its own, like a showroom guide
+  // noticing you've wandered into a new area -- not just a silent dot, so a first-time visitor who never
+  // thinks to open the chat still gets offered something relevant.
+  const [bubble, setBubble] = useState<Suggestion | null>(null);
+  const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const energy = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -364,11 +369,15 @@ export default function ChatWidget() {
     if (messages.length > 0) {
       setPageSuggestion(null);
       setHasUnseenCue(false);
+      setBubble(null);
+      if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
       return;
     }
     const suggestion = resolveSuggestion(location.pathname, activeSection);
     if (!suggestion || suggestionSeenSet().has(suggestion.key)) {
       if (!open) setHasUnseenCue(false);
+      setBubble(null);
+      if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
       return;
     }
     if (open) {
@@ -376,10 +385,31 @@ export default function ChatWidget() {
       markSuggestionSeen(suggestion.key);
       setHasUnseenCue(false);
     } else {
-      // Widget is closed: just a quiet cue on the launcher (it "turns" toward the visitor) — never a popup.
+      // Widget is closed: the launcher gets a quiet pulse right away, and after a short beat (so a visitor just
+      // passing through the section isn't interrupted mid-scroll) a small dismissable bubble steps up next to it
+      // with the actual suggestion -- visible on its own, never blocking anything else on the page.
       setHasUnseenCue(true);
+      if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+      bubbleTimerRef.current = setTimeout(() => {
+        setBubble(suggestion);
+        markSuggestionSeen(suggestion.key);
+      }, 900);
     }
+    return () => {
+      if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+    };
   }, [open, location.pathname, activeSection, messages.length]);
+
+  // The bubble doesn't linger forever, and it steps aside the moment the visitor opens the chat themselves.
+  useEffect(() => {
+    if (!bubble) return;
+    const timer = setTimeout(() => setBubble(null), 14_000);
+    return () => clearTimeout(timer);
+  }, [bubble]);
+
+  useEffect(() => {
+    if (open) setBubble(null);
+  }, [open]);
 
   const send = async (text: string) => {
     const message = text.trim();
@@ -656,34 +686,68 @@ export default function ChatWidget() {
             </form>
           </motion.section>
         ) : (
-          <motion.button
-            key="launcher"
-            ref={launcherRef}
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label={
-              hasUnseenCue
-                ? t("assistant.open_with_tip", "Ask the AI assistant — it has a suggestion for this part of the site")
-                : t("assistant.open", "Ask the AI assistant about Abdulwahab's work")
-            }
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
-            transition={transition}
-            className="interactive group relative flex items-center gap-3 rounded-full bg-bg-darker/70 backdrop-blur-xl border border-white/10 hover:border-gold/40 p-1.5 pr-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)] transition-colors"
-          >
-            {hasUnseenCue && (
-              <span
-                aria-hidden="true"
-                className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-gold border border-bg-darker ${reduceMotion ? "" : "animate-pulse"}`}
-              />
+          <>
+            {bubble && (
+              <motion.div
+                key="bubble"
+                role="status"
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.95 }}
+                transition={transition}
+                className="interactive relative mb-3 max-w-[230px] rounded-2xl rounded-br-sm bg-bg-darker/90 backdrop-blur-xl border border-gold/30 shadow-[0_10px_40px_rgba(0,0,0,0.45)] pl-4 pr-6 py-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => setBubble(null)}
+                  aria-label={t("assistant.dismiss_tip", "Dismiss suggestion")}
+                  className="interactive absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-gray-500 hover:text-white transition-colors"
+                >
+                  <X size={11} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prompt = bubble.prompt;
+                    setBubble(null);
+                    setOpen(true);
+                    send(prompt);
+                  }}
+                  className="interactive block w-full text-left text-xs text-gray-200 leading-snug"
+                >
+                  {bubble.label}
+                </button>
+              </motion.div>
             )}
-            <Orb state={state} size={48} />
-            <span className="text-left leading-tight">
-              <span className="block font-display text-sm text-white">{t("assistant.launcher", "Ask AI")}</span>
-              <span className="block font-mono text-[10px] text-gray-400">{t("assistant.launcher_hint", "About my work")}</span>
-            </span>
-          </motion.button>
+            <motion.button
+              key="launcher"
+              ref={launcherRef}
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label={
+                hasUnseenCue
+                  ? t("assistant.open_with_tip", "Ask the AI assistant — it has a suggestion for this part of the site")
+                  : t("assistant.open", "Ask the AI assistant about Abdulwahab's work")
+              }
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
+              transition={transition}
+              className="interactive group relative flex items-center gap-3 rounded-full bg-bg-darker/70 backdrop-blur-xl border border-white/10 hover:border-gold/40 p-1.5 pr-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)] transition-colors"
+            >
+              {hasUnseenCue && (
+                <span
+                  aria-hidden="true"
+                  className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-gold border border-bg-darker ${reduceMotion ? "" : "animate-pulse"}`}
+                />
+              )}
+              <Orb state={state} size={48} />
+              <span className="text-left leading-tight">
+                <span className="block font-display text-sm text-white">{t("assistant.launcher", "Ask AI")}</span>
+                <span className="block font-mono text-[10px] text-gray-400">{t("assistant.launcher_hint", "About my work")}</span>
+              </span>
+            </motion.button>
+          </>
         )}
       </AnimatePresence>
     </div>
