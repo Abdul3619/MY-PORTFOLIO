@@ -7,6 +7,8 @@ import { trackEvent } from "./hooks/useApi";
 import Background from "./components/Background";
 import { Navbar } from "./components/Navbar";
 import CustomCursor from "./components/CustomCursor";
+import ChatWidget from "./components/assistant/ChatWidget";
+import SectionObserver from "./components/SectionObserver";
 
 export function Layout() {
   const location = useLocation();
@@ -61,6 +63,9 @@ export function Layout() {
           <Link to="/contact" className="text-gold hover:text-white transition-colors">{t("common.get_in_touch", "Get in touch")}</Link>
         </footer>
       )}
+
+      <SectionObserver />
+      <ChatWidget />
     </>
   );
 }

@@ -31,6 +31,11 @@ npm run dev            # http://localhost:3000
 | `VITE_SUPABASE_ANON_KEY` | client | Public anon key (auth, realtime) |
 | `SUPABASE_SERVICE_ROLE_KEY` | server only | Server-side database access |
 | `GEMINI_API_KEY` | server only | Optional: translates CMS content for FR / AR visitors |
+| `ANTHROPIC_API_KEY` | server only | AI assistant: Claude API key |
+| `CHAT_DATABASE_URL` | server only | AI assistant: Postgres URL for the restricted `chatbot_reader` login (Supabase transaction pooler) |
+| `CHAT_VISITOR_SALT` | server only | AI assistant: random string (32+ characters) used to hash visitor IPs for rate limiting |
+| `CHAT_MODEL`, `CHAT_EFFORT` | server only | Optional: Claude model (default `claude-haiku-4-5-20251001`) and effort (default `low`; ignored by Haiku 4.5) |
+| `CHAT_ALLOWED_ORIGINS` | server only | Optional: extra comma-separated origins allowed to call `/api/chat` from a browser |
 
 ## Scripts
 
@@ -42,3 +47,22 @@ npm run dev            # http://localhost:3000
 | `npm run lint` | Type-checks the project |
 
 The database migrations are in `supabase/migrations`.
+
+## AI assistant
+
+The chat widget (`src/components/assistant`) posts to `/api/chat` (`chatbot/route.ts`). The server looks up
+relevant entries in `public.public_knowledge_base`, sends them to Claude with the instructions in
+`chatbot/systemPrompt.ts`, and streams the answer back. Without the three assistant variables above the endpoint
+answers 503 and the widget shows a short message pointing to the contact form.
+
+- **What it knows:** only published rows of `public_knowledge_base`. Edit or publish entries in Supabase; drafts
+  (`is_published = false`) are invisible to it. Initial content is in `supabase/seed/public_knowledge_base.sql`.
+- **What it can reach:** it connects as `chatbot_reader`, a login that can read published knowledge base rows and
+  call one rate-limit function, and nothing else. It never uses the service-role key, and the model has no tools,
+  so a visitor can't talk it into reading private tables.
+- **Cost limits:** per visitor 8 messages a minute and 60 a day, 1000 a day site-wide (in
+  `private.chat_take_quota`), plus a per-instance burst limit. Visitor IPs are hashed, never stored.
+- **Setting the login's password:** generate a strong password and run
+  `alter role chatbot_reader password '...';` in the Supabase SQL editor (or set a SCRAM verifier), then put it in
+  `CHAT_DATABASE_URL` as
+  `postgresql://chatbot_reader.<project-ref>:<password>@<pooler-host>:6543/postgres`.

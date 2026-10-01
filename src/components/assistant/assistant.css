@@ -1,0 +1,195 @@
+/*
+ * AI assistant widget.
+ *
+ * Palette: built from the site's existing tokens, pushed a little brighter so the orb reads as "alive".
+ *   gold    #F8C622  <- --color-gold   #D4AF37, saturation raised (65% -> 94%)
+ *   amber   #DE9B33  <- --color-bronze #B08D57, saturation raised (36% -> 72%)
+ *   bronze  #B08D57     --color-bronze, as is
+ *   cyan    #00F0FF     --color-cyan-accent, as is (already fully saturated)
+ *   light   #FFF1B8  <- gold, lightened, for the brightest highlight while speaking
+ *   core    #111111     --color-bg-darkest
+ *
+ * The state colours are registered custom properties, so changing state cross-fades the orb, waveform, label dot
+ * and panel tint instead of swapping them.
+ */
+
+@property --ai-c1 { syntax: '<color>'; inherits: true; initial-value: #DE9B33; }
+@property --ai-c2 { syntax: '<color>'; inherits: true; initial-value: #F8C622; }
+@property --ai-c3 { syntax: '<color>'; inherits: true; initial-value: #B08D57; }
+@property --ai-glow { syntax: '<color>'; inherits: true; initial-value: rgba(222, 155, 51, 0.32); }
+@property --ai-swirl { syntax: '<number>'; inherits: true; initial-value: 0.45; }
+
+.ai-assistant {
+  --ai-c1: #DE9B33;
+  --ai-c2: #F8C622;
+  --ai-c3: #B08D57;
+  --ai-glow: rgba(222, 155, 51, 0.32);
+  --ai-swirl: 0.45;
+  transition: --ai-c1 0.5s ease, --ai-c2 0.5s ease, --ai-c3 0.5s ease, --ai-glow 0.5s ease, --ai-swirl 0.5s ease;
+}
+/* Listening (visitor typing): warm amber */
+.ai-assistant[data-state='listening'] {
+  --ai-c1: #DE9B33;
+  --ai-c2: #F8C622;
+  --ai-c3: #DE9B33;
+  --ai-glow: rgba(222, 155, 51, 0.5);
+  --ai-swirl: 0.7;
+}
+/* Thinking: the site's cyan accent swirling through gold */
+.ai-assistant[data-state='thinking'] {
+  --ai-c1: #00F0FF;
+  --ai-c2: #F8C622;
+  --ai-c3: #DE9B33;
+  --ai-glow: rgba(0, 240, 255, 0.34);
+  --ai-swirl: 1;
+}
+/* Speaking: bright gold */
+.ai-assistant[data-state='speaking'] {
+  --ai-c1: #F8C622;
+  --ai-c2: #FFF1B8;
+  --ai-c3: #DE9B33;
+  --ai-glow: rgba(248, 198, 34, 0.5);
+  --ai-swirl: 0.85;
+}
+
+/* ---------- Orb ---------- */
+
+.ai-orb {
+  position: relative;
+  width: var(--ai-orb-size);
+  height: var(--ai-orb-size);
+  border-radius: 9999px;
+  flex-shrink: 0;
+  isolation: isolate;
+  box-shadow: 0 0 calc(var(--ai-orb-size) * 0.45) calc(var(--ai-orb-size) * 0.04) var(--ai-glow);
+  animation: ai-orb-breathe 4.8s ease-in-out infinite;
+}
+.ai-orb__core {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 65%, #1a1a1a 0%, #111111 70%);
+}
+.ai-orb__blob {
+  position: absolute;
+  inset: -30%;
+  border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%;
+  filter: blur(calc(var(--ai-orb-size) * 0.07));
+}
+.ai-orb__blob--a {
+  background:
+    radial-gradient(circle at 34% 40%, var(--ai-c2) 0%, transparent 30%),
+    radial-gradient(circle at 68% 62%, var(--ai-c1) 0%, transparent 32%),
+    radial-gradient(circle at 56% 26%, var(--ai-c3) 0%, transparent 26%);
+  animation: ai-orb-spin 18s linear infinite, ai-orb-morph 9s ease-in-out infinite alternate;
+}
+.ai-orb__blob--b {
+  background:
+    radial-gradient(circle at 66% 36%, var(--ai-c1) 0%, transparent 24%),
+    radial-gradient(circle at 36% 68%, var(--ai-c2) 0%, transparent 26%);
+  opacity: var(--ai-swirl);
+  mix-blend-mode: screen;
+  animation: ai-orb-spin 7s linear infinite reverse, ai-orb-morph 6s ease-in-out infinite alternate-reverse;
+}
+/* Frosted glass surface over the moving colour */
+.ai-orb__glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 16%, transparent 40%),
+    radial-gradient(circle at 50% 115%, rgba(255, 255, 255, 0.16) 0%, transparent 55%),
+    rgba(255, 255, 255, 0.04);
+  box-shadow:
+    inset 0 0 calc(var(--ai-orb-size) * 0.14) rgba(255, 255, 255, 0.14),
+    inset 0 calc(var(--ai-orb-size) * -0.08) calc(var(--ai-orb-size) * 0.18) rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(calc(var(--ai-orb-size) * 0.03)) saturate(1.35);
+  -webkit-backdrop-filter: blur(calc(var(--ai-orb-size) * 0.03)) saturate(1.35);
+}
+
+@keyframes ai-orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); box-shadow: 0 0 calc(var(--ai-orb-size) * 0.6) calc(var(--ai-orb-size) * 0.07) var(--ai-glow); }
+}
+@keyframes ai-orb-spin {
+  to { rotate: 360deg; }
+}
+@keyframes ai-orb-morph {
+  0% { border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%; scale: 1; }
+  50% { border-radius: 58% 42% 46% 54% / 40% 56% 44% 60%; scale: 1.06; }
+  100% { border-radius: 48% 52% 60% 40% / 56% 48% 52% 44%; scale: 0.96; }
+}
+
+/* ---------- Waveform ---------- */
+
+.ai-wave__bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  max-width: 5px;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(to top, var(--ai-c3), var(--ai-c2) 55%, var(--ai-c1));
+  transform-origin: center;
+  transform: scaleY(0.1);
+  opacity: 0.9;
+}
+
+/* ---------- Panel ---------- */
+
+.ai-panel {
+  position: relative;
+  isolation: isolate;
+}
+/* Faint glass tint that follows the assistant's state */
+.ai-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 55% at 0% 0%, color-mix(in srgb, var(--ai-c2) 11%, transparent), transparent 65%),
+    radial-gradient(90% 45% at 100% 100%, color-mix(in srgb, var(--ai-c1) 7%, transparent), transparent 70%);
+}
+.ai-dot {
+  background: var(--ai-c1);
+  box-shadow: 0 0 8px var(--ai-glow);
+}
+
+/* ---------- Streaming text ---------- */
+
+/* Each newly typed character settles in quickly */
+.ai-char {
+  animation: ai-char-in 0.12s ease-out both;
+}
+@keyframes ai-char-in {
+  from { opacity: 0.25; }
+  to { opacity: 1; }
+}
+.ai-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: -0.15em;
+  border-radius: 1px;
+  background: var(--ai-c2);
+  box-shadow: 0 0 6px var(--ai-glow);
+  animation: ai-caret-blink 1s steps(1) infinite;
+}
+@keyframes ai-caret-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb,
+  .ai-orb__blob--a,
+  .ai-orb__blob--b,
+  .ai-char,
+  .ai-caret {
+    animation: none;
+  }
+}

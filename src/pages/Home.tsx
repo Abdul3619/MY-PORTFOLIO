@@ -198,7 +198,7 @@ export default function Home() {
     <PageTransition className="space-y-32 md:space-y-48">
       
       {/* 1. HERO SECTION */}
-      <section className="min-h-[80vh] flex flex-col justify-center items-center py-12 relative">
+      <section data-assistant-section="hero" className="min-h-[80vh] flex flex-col justify-center items-center py-12 relative">
         <div className="w-full max-w-5xl mx-auto">
           <GlassCard className="p-8 md:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12 border-gold/15" glowOnHover>
             
@@ -349,7 +349,7 @@ export default function Home() {
       </section>
 
       {/* 2. ABOUT PREVIEW SECTION */}
-      <section ref={aboutSectionRef} className="relative py-12">
+      <section ref={aboutSectionRef} data-assistant-section="about" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
@@ -415,7 +415,7 @@ export default function Home() {
       </section>
 
       {/* 3. SKILLS PREVIEW SECTION */}
-      <section ref={skillsSectionRef} className="relative py-12">
+      <section ref={skillsSectionRef} data-assistant-section="skills" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16 gsap-skills-animate opacity-0">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
@@ -485,7 +485,7 @@ export default function Home() {
       </section>
 
       {/* 4. WHAT MAKES ME DIFFERENT SECTION */}
-      <section className="relative py-12">
+      <section data-assistant-section="differentiators" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
@@ -521,7 +521,7 @@ export default function Home() {
       </section>
 
       {/* 5. FEATURED PROJECTS PREVIEW SECTION */}
-      <section ref={projectsSectionRef} className="relative py-12">
+      <section ref={projectsSectionRef} data-assistant-section="projects" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 gsap-projects-animate opacity-0">
             <div className="space-y-4 text-center md:text-left">
@@ -608,7 +608,7 @@ export default function Home() {
 
       {/* 6. CERTIFICATES PREVIEW SECTION (hidden until real certificates exist) */}
       {displayCertificates.length > 0 && (
-      <section className="relative py-12">
+      <section data-assistant-section="certificates" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
@@ -651,7 +651,7 @@ export default function Home() {
 
       {/* 7. TESTIMONIALS SECTION (hidden until real testimonials exist) */}
       {displayTestimonials.length > 0 && (
-      <section className="relative py-12">
+      <section data-assistant-section="testimonials" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
@@ -705,7 +705,7 @@ export default function Home() {
       )}
 
       {/* 8. RESUME CTA SECTION */}
-      <section className="relative py-12">
+      <section data-assistant-section="resume-cta" className="relative py-12">
         <div className="w-full max-w-4xl mx-auto px-4">
           <GlassCard className="p-8 md:p-12 text-center space-y-6 border-gold/10 bg-gradient-to-br from-white/5 to-gold/5" glowOnHover>
             <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-gold mx-auto">
@@ -729,7 +729,7 @@ export default function Home() {
       </section>
 
       {/* 9. CONTACT CTA SECTION */}
-      <section className="relative py-12">
+      <section data-assistant-section="contact-cta" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <GlassCard className="p-8 md:p-16 border-white/10" glowOnHover>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
