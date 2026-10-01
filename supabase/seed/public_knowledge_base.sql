@@ -88,13 +88,18 @@ insert into public.public_knowledge_base (category, title, content, keywords, al
  $kb$A bilingual English/French hotel booking site with suite listings, amenities checklists and photo galleries per room, stay packages, and a booking flow that remembers the planned stay. Live demo: https://horizon-br6n.vercel.app$kb$,
  'hotel suites booking packages french bilingual hospitality', false, true, 36),
 
+-- Not published: no matching row in public.projects, so there's nothing live for a visitor to open. Re-publish
+-- once this is actually built and live, so it also appears in the automatic <projects> list (see
+-- 20261001150000_chat_live_projects.sql) and the two stay consistent.
 ('project', 'Sovereign Grand Hotel (demo)',
  $kb$A hotel platform with a full backend: guests browse rooms and book, then manage bookings, invoices and notifications in a guest portal; staff use a role-based dashboard (super admin, manager, receptionist, accountant) for rooms, bookings, customers and payments. React frontend, Express and PostgreSQL API, Firebase sign-in.$kb$,
- 'hotel management platform guest portal staff dashboard roles bookings invoices express postgres', false, true, 37),
+ 'hotel management platform guest portal staff dashboard roles bookings invoices express postgres', false, false, 37),
 
+-- Not published: this is real, in-progress client work, not a published demo yet -- there's no live project
+-- row for it, so it would otherwise show up with no working link.
 ('project', 'Agbada Luxe (demo)',
  $kb$A bespoke tailoring house website with a product collection managed from a secure admin dashboard (image uploads, bookings, newsletter), consultation booking with optional body measurements, a size guide and a seasonal lookbook. Built on Supabase with row level security.$kb$,
- 'fashion tailoring clothing bespoke measurements consultation admin cms supabase', false, true, 38),
+ 'fashion tailoring clothing bespoke measurements consultation admin cms supabase', false, false, 38),
 
 ('project', 'Shin Orne jewellery store (demo)',
  $kb$An online jewellery store with collections, ring sizing and engraving options, a cart that persists between visits, and a demo checkout with card, Google Pay, Apple Pay and PayPal screens (payments are mocked). Admin dashboard for products and orders. Live demo: https://shin-orne.vercel.app$kb$,
