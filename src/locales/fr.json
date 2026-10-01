@@ -258,9 +258,6 @@
   },
   "assistant": {
     "title": "Assistant du portfolio",
-    "subtitle": "IA · infos publiques uniquement",
-    "thinking": "Réflexion...",
-    "answering": "Réponse en cours...",
     "clear": "Effacer",
     "intro": "Bonjour. Je peux répondre à vos questions sur les projets d'Abdulwahab, ses compétences et sa façon de travailler. Que souhaitez-vous créer ?",
     "suggest_build": "Quels types de sites crée-t-il ?",
@@ -273,6 +270,13 @@
     "open": "Poser une question à l'assistant IA",
     "close": "Fermer l'assistant",
     "launcher": "Demander à l'IA",
-    "error": "Une erreur s'est produite. Réessayez, ou utilisez le formulaire de contact sur /contact."
+    "error": "Une erreur s'est produite. Réessayez, ou utilisez le formulaire de contact sur /contact.",
+    "state_ready": "Prêt",
+    "state_listening": "À l'écoute",
+    "state_thinking": "Réflexion",
+    "state_speaking": "Répond",
+    "expand": "Agrandir",
+    "shrink": "Réduire",
+    "launcher_hint": "Sur mon travail"
   }
 }

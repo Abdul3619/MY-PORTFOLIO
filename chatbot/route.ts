@@ -150,10 +150,13 @@ export function createChatRouter() {
     res.flushHeaders();
     const send = (data: Record<string, unknown>) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
+    const model = env('CHAT_MODEL') || 'claude-haiku-4-5-20251001';
+    // Claude Haiku 4.5 doesn't take the effort setting (newer Sonnet/Opus models do), so only send it to those
+    const supportsEffort = !/^claude-(haiku-4|sonnet-4-5|sonnet-4-0|opus-4-[01])/.test(model);
     const stream = getClient().messages.stream({
-      model: env('CHAT_MODEL') || 'claude-haiku-4-5-20251001',
+      model,
       max_tokens: MAX_OUTPUT_TOKENS,
-      output_config: { effort: (env('CHAT_EFFORT') || 'low') as 'low' | 'medium' | 'high' },
+      ...(supportsEffort ? { output_config: { effort: (env('CHAT_EFFORT') || 'low') as 'low' | 'medium' | 'high' } } : {}),
       system: [
         // Stable instructions first so they can be cached; the per-question knowledge follows.
         { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },

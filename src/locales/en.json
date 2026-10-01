@@ -258,9 +258,6 @@
   },
   "assistant": {
     "title": "Portfolio assistant",
-    "subtitle": "AI · answers from public info only",
-    "thinking": "Thinking...",
-    "answering": "Answering...",
     "clear": "Clear",
     "intro": "Hi. I can answer questions about Abdulwahab's projects, skills and how he works. What are you looking to build?",
     "suggest_build": "What kind of websites does he build?",
@@ -273,6 +270,13 @@
     "open": "Ask the AI assistant about Abdulwahab's work",
     "close": "Close the assistant",
     "launcher": "Ask AI",
-    "error": "Something went wrong. Please try again, or use the contact form at /contact."
+    "error": "Something went wrong. Please try again, or use the contact form at /contact.",
+    "state_ready": "Ready",
+    "state_listening": "Listening",
+    "state_thinking": "Thinking",
+    "state_speaking": "Speaking",
+    "expand": "Larger view",
+    "shrink": "Smaller view",
+    "launcher_hint": "About my work"
   }
 }

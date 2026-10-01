@@ -34,7 +34,7 @@ npm run dev            # http://localhost:3000
 | `ANTHROPIC_API_KEY` | server only | AI assistant: Claude API key |
 | `CHAT_DATABASE_URL` | server only | AI assistant: Postgres URL for the restricted `chatbot_reader` login (Supabase transaction pooler) |
 | `CHAT_VISITOR_SALT` | server only | AI assistant: random string (32+ characters) used to hash visitor IPs for rate limiting |
-| `CHAT_MODEL`, `CHAT_EFFORT` | server only | Optional: Claude model (default `claude-opus-5-5`) and effort (default `low`) |
+| `CHAT_MODEL`, `CHAT_EFFORT` | server only | Optional: Claude model (default `claude-haiku-4-5-20251001`) and effort (default `low`; ignored by Haiku 4.5) |
 | `CHAT_ALLOWED_ORIGINS` | server only | Optional: extra comma-separated origins allowed to call `/api/chat` from a browser |
 
 ## Scripts
