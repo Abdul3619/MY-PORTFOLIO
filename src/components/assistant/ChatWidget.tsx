@@ -7,6 +7,7 @@ import OrbVisual, { type AssistantState } from "./OrbVisual";
 import TypedText from "./TypedText";
 import Waveform from "./Waveform";
 import "./assistant.css";
+import { getActiveSection, subscribeActiveSection } from "../../lib/activeSection";
 
 // orb-ui touches window/matchMedia, so it loads in the browser only; until then the same CSS orb renders directly.
 const AssistantOrb = lazy(() => import("./AssistantOrb"));
@@ -66,66 +67,109 @@ function renderWithLinks(text: string): ReactNode[] {
   return parts;
 }
 
+interface Suggestion {
+  key: string;
+  label: string;
+  prompt: string;
+}
+
 // One relevant, tappable suggestion per page, never pushed automatically. Keyed by the start of the path, most
 // specific first. `prompt` is what actually gets sent; `label` is the short pitch shown on the chip.
-const PAGE_SUGGESTIONS: { match: (path: string) => boolean; label: () => string; prompt: () => string }[] = [
+const PAGE_SUGGESTIONS: { match: (path: string) => boolean; build: () => Omit<Suggestion, "key"> }[] = [
   {
     match: (p) => p.startsWith("/testimonials"),
-    label: () => "Want to know more about one of these projects?",
-    prompt: () => "Can you tell me more about one of these client projects?",
+    build: () => ({
+      label: "Want to know more about one of these projects?",
+      prompt: "Can you tell me more about one of these client projects?",
+    }),
   },
   {
     match: (p) => /^\/projects\/[^/]+/.test(p),
-    label: () => {
+    build: () => {
       const title = document.querySelector("h1")?.textContent?.trim();
-      return title ? `Want to know more about ${title}?` : "Want to know more about this project?";
-    },
-    prompt: () => {
-      const title = document.querySelector("h1")?.textContent?.trim();
-      return title ? `Tell me more about the ${title} project.` : "Tell me more about this project.";
+      return {
+        label: title ? `Want to know more about ${title}?` : "Want to know more about this project?",
+        prompt: title ? `Tell me more about the ${title} project.` : "Tell me more about this project.",
+      };
     },
   },
   {
     match: (p) => p.startsWith("/projects"),
-    label: () => "Looking for something specific? I can point you to the closest demo.",
-    prompt: () => "Which of these projects is closest to what I need?",
+    build: () => ({
+      label: "Looking for something specific? I can point you to the closest demo.",
+      prompt: "Which of these projects is closest to what I need?",
+    }),
   },
   {
     match: (p) => p.startsWith("/solar-estimator"),
-    label: () => "Have a solar or off-grid power question?",
-    prompt: () => "Can you help with a question about a solar or off-grid power system?",
+    build: () => ({
+      label: "Have a solar or off-grid power question?",
+      prompt: "Can you help with a question about a solar or off-grid power system?",
+    }),
   },
   {
     match: (p) => p.startsWith("/skills"),
-    label: () => "Want to know if his stack fits your project?",
-    prompt: () => "Does his tech stack fit the kind of project I have in mind?",
+    build: () => ({
+      label: "Want to know if his stack fits your project?",
+      prompt: "Does his tech stack fit the kind of project I have in mind?",
+    }),
   },
   {
     match: (p) => p.startsWith("/certificates"),
-    label: () => "Curious about his background and qualifications?",
-    prompt: () => "What's Abdulwahab's background and qualifications?",
+    build: () => ({
+      label: "Curious about his background and qualifications?",
+      prompt: "What's Abdulwahab's background and qualifications?",
+    }),
   },
   {
     match: (p) => p.startsWith("/resume"),
-    label: () => "Want a quick summary of his experience?",
-    prompt: () => "Can you summarize Abdulwahab's work experience?",
+    build: () => ({
+      label: "Want a quick summary of his experience?",
+      prompt: "Can you summarize Abdulwahab's work experience?",
+    }),
   },
   {
     match: (p) => p.startsWith("/contact"),
-    label: () => "Not sure what to include in your message?",
-    prompt: () => "What should I include when I reach out about a project?",
+    build: () => ({
+      label: "Not sure what to include in your message?",
+      prompt: "What should I include when I reach out about a project?",
+    }),
   },
   {
     match: (p) => p.startsWith("/about"),
-    label: () => "Curious how he got into software?",
-    prompt: () => "How did Abdulwahab get into software development?",
-  },
-  {
-    match: () => true, // home and anything else
-    label: () => "Want a quick tour of what he builds?",
-    prompt: () => "What kind of websites and apps does he build?",
+    build: () => ({
+      label: "Curious how he got into software?",
+      prompt: "How did Abdulwahab get into software development?",
+    }),
   },
 ];
+
+// On the homepage, the route never changes as the visitor scrolls, so suggestions are keyed by which
+// data-assistant-section is currently on screen (see src/components/SectionObserver.tsx) instead of the path.
+// This is the "showroom guide" behaviour: the offer changes as the visitor moves from room to room.
+const HOME_SECTION_SUGGESTIONS: Record<string, Omit<Suggestion, "key">> = {
+  hero: { label: "Want a quick tour of what he builds?", prompt: "What kind of websites and apps does he build?" },
+  about: { label: "Curious how he got into software?", prompt: "How did Abdulwahab get into software development?" },
+  skills: { label: "Want to know if his stack fits your project?", prompt: "Does his tech stack fit the kind of project I have in mind?" },
+  differentiators: { label: "Want to know what sets his work apart?", prompt: "What makes working with Abdulwahab different from other developers?" },
+  projects: { label: "Looking for something specific? I can point you to the closest demo.", prompt: "Which of these projects is closest to what I need?" },
+  certificates: { label: "Curious about his background and qualifications?", prompt: "What's Abdulwahab's background and qualifications?" },
+  testimonials: { label: "Want to know more about one of these projects?", prompt: "Can you tell me more about one of these client projects?" },
+  "resume-cta": { label: "Want a quick summary of his experience?", prompt: "Can you summarize Abdulwahab's work experience?" },
+  "contact-cta": { label: "Not sure what to include in your message?", prompt: "What should I include when I reach out about a project?" },
+};
+
+// Resolves the one suggestion to offer right now, given the route and (on the homepage) the section in view.
+function resolveSuggestion(path: string, section: string | null): Suggestion | null {
+  if (path === "/") {
+    if (section && HOME_SECTION_SUGGESTIONS[section]) {
+      return { key: `/#${section}`, ...HOME_SECTION_SUGGESTIONS[section] };
+    }
+    return { key: "/#hero", ...HOME_SECTION_SUGGESTIONS.hero };
+  }
+  const match = PAGE_SUGGESTIONS.find((s) => s.match(path));
+  return match ? { key: path, ...match.build() } : null;
+}
 
 const SUGGESTION_SEEN_KEY = "portfolio-assistant-suggestion-seen";
 
@@ -137,14 +181,88 @@ function suggestionSeenSet(): Set<string> {
   }
 }
 
-function markSuggestionSeen(path: string) {
+function markSuggestionSeen(key: string) {
   try {
     const seen = suggestionSeenSet();
-    seen.add(path);
+    seen.add(key);
     sessionStorage.setItem(SUGGESTION_SEEN_KEY, JSON.stringify([...seen]));
   } catch {
     // ignore
   }
+}
+
+const INTERNAL_LABELS: Record<string, string> = {
+  "/contact": "Open the contact form",
+  "/projects": "Browse all projects",
+  "/about": "Open About",
+  "/skills": "Open Skills",
+  "/resume": "Open the resume",
+  "/certificates": "Open Certificates",
+  "/testimonials": "Open Testimonials",
+  "/solar-estimator": "Open the solar estimator",
+};
+
+interface ChatAction {
+  href: string;
+  label: string;
+  internal: boolean;
+}
+
+// Pulls the links out of a finished assistant reply and turns them into one-tap "open this" buttons, so the
+// guide can actually take the visitor there instead of just mentioning it in a sentence. Dedupes by target.
+function extractActions(text: string): ChatAction[] {
+  const seen = new Set<string>();
+  const actions: ChatAction[] = [];
+  for (const match of text.matchAll(LINK_PATTERN)) {
+    const href = match[0].replace(/[.,;:!?)]+$/, "");
+    if (seen.has(href)) continue;
+    seen.add(href);
+    if (href.startsWith("/")) {
+      if (/^\/projects\/[^/]+/.test(href)) {
+        actions.push({ href, label: "Open this project", internal: true });
+      } else if (INTERNAL_LABELS[href]) {
+        actions.push({ href, label: INTERNAL_LABELS[href], internal: true });
+      }
+    } else {
+      try {
+        const host = new URL(href).hostname.replace(/^www\./, "");
+        actions.push({ href, label: `Open live demo (${host})`, internal: false });
+      } catch {
+        // malformed URL, skip rather than show a dead button
+      }
+    }
+  }
+  return actions.slice(0, 3);
+}
+
+function ChatActions({ content }: { content: string }) {
+  const actions = extractActions(content);
+  if (actions.length === 0) return null;
+  return (
+    <span className="mt-3 flex flex-wrap gap-2 not-italic">
+      {actions.map((a) =>
+        a.internal ? (
+          <Link
+            key={a.href}
+            to={a.href}
+            className="interactive inline-flex items-center gap-1 text-xs font-medium text-black bg-gold hover:bg-gold/90 rounded-full px-3 py-1.5 transition-colors"
+          >
+            {a.label} →
+          </Link>
+        ) : (
+          <a
+            key={a.href}
+            href={a.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="interactive inline-flex items-center gap-1 text-xs font-medium text-black bg-gold hover:bg-gold/90 rounded-full px-3 py-1.5 transition-colors"
+          >
+            {a.label} →
+          </a>
+        ),
+      )}
+    </span>
+  );
 }
 
 function Orb({ state, size }: { state: AssistantState; size: number }) {
@@ -183,7 +301,9 @@ export default function ChatWidget() {
   const [inputFocused, setInputFocused] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState("");
-  const [pageSuggestion, setPageSuggestion] = useState<{ label: string; prompt: string } | null>(null);
+  const [pageSuggestion, setPageSuggestion] = useState<Suggestion | null>(null);
+  const [activeSection, setActiveSectionState] = useState<string | null>(() => getActiveSection());
+  const [hasUnseenCue, setHasUnseenCue] = useState(false);
   const energy = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -232,23 +352,33 @@ export default function ChatWidget() {
 
   useEffect(scrollToEnd, [messages, error, open, expanded, scrollToEnd]);
 
-  // One contextual suggestion per page, shown only the first time the widget is opened there in this tab, and
-  // only if the visitor hasn't started typing to it already. Never shown again once it's been offered once,
-  // tapped or not — this is an offer, not a nag.
+  // Track which part of the page the visitor is currently looking at (homepage only; other pages just use the
+  // route). See src/lib/activeSection.ts and SectionObserver.tsx.
+  useEffect(() => subscribeActiveSection(setActiveSectionState), []);
+
+  // One contextual suggestion at a time, like a showroom guide noticing which part of the shop you're in. It
+  // changes as the visitor scrolls the homepage or moves between pages, but each one is only ever offered once
+  // per tab — tapped or not, it never repeats, and it never appears while a conversation is already underway.
   useEffect(() => {
-    if (!open || messages.length > 0) return;
-    const path = location.pathname;
-    if (suggestionSeenSet().has(path)) {
+    if (messages.length > 0) {
       setPageSuggestion(null);
+      setHasUnseenCue(false);
       return;
     }
-    const match = PAGE_SUGGESTIONS.find((s) => s.match(path));
-    if (match) {
-      setPageSuggestion({ label: match.label(), prompt: match.prompt() });
-      markSuggestionSeen(path);
+    const suggestion = resolveSuggestion(location.pathname, activeSection);
+    if (!suggestion || suggestionSeenSet().has(suggestion.key)) {
+      if (!open) setHasUnseenCue(false);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (open) {
+      setPageSuggestion(suggestion);
+      markSuggestionSeen(suggestion.key);
+      setHasUnseenCue(false);
+    } else {
+      // Widget is closed: just a quiet cue on the launcher (it "turns" toward the visitor) — never a popup.
+      setHasUnseenCue(true);
+    }
+  }, [open, location.pathname, activeSection, messages.length]);
 
   const send = async (text: string) => {
     const message = text.trim();
@@ -475,7 +605,10 @@ export default function ChatWidget() {
                     {live?.index === i ? (
                       <TypedText text={m.content} streaming={live.streaming} render={renderWithLinks} onType={onTyped} onDone={onTypedDone} />
                     ) : (
-                      renderWithLinks(m.content)
+                      <>
+                        {renderWithLinks(m.content)}
+                        <ChatActions content={m.content} />
+                      </>
                     )}
                   </p>
                 ),
@@ -527,13 +660,23 @@ export default function ChatWidget() {
             ref={launcherRef}
             type="button"
             onClick={() => setOpen(true)}
-            aria-label={t("assistant.open", "Ask the AI assistant about Abdulwahab's work")}
+            aria-label={
+              hasUnseenCue
+                ? t("assistant.open_with_tip", "Ask the AI assistant — it has a suggestion for this part of the site")
+                : t("assistant.open", "Ask the AI assistant about Abdulwahab's work")
+            }
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
             transition={transition}
-            className="interactive group flex items-center gap-3 rounded-full bg-bg-darker/70 backdrop-blur-xl border border-white/10 hover:border-gold/40 p-1.5 pr-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)] transition-colors"
+            className="interactive group relative flex items-center gap-3 rounded-full bg-bg-darker/70 backdrop-blur-xl border border-white/10 hover:border-gold/40 p-1.5 pr-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)] transition-colors"
           >
+            {hasUnseenCue && (
+              <span
+                aria-hidden="true"
+                className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-gold border border-bg-darker ${reduceMotion ? "" : "animate-pulse"}`}
+              />
+            )}
             <Orb state={state} size={48} />
             <span className="text-left leading-tight">
               <span className="block font-display text-sm text-white">{t("assistant.launcher", "Ask AI")}</span>

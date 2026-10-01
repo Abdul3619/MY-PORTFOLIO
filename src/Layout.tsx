@@ -8,6 +8,7 @@ import Background from "./components/Background";
 import { Navbar } from "./components/Navbar";
 import CustomCursor from "./components/CustomCursor";
 import ChatWidget from "./components/assistant/ChatWidget";
+import SectionObserver from "./components/SectionObserver";
 
 export function Layout() {
   const location = useLocation();
@@ -63,6 +64,7 @@ export function Layout() {
         </footer>
       )}
 
+      <SectionObserver />
       <ChatWidget />
     </>
   );
