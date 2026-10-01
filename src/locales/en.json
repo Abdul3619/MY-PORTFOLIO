@@ -255,5 +255,24 @@
     "lets_build_part2": "SOMETHING",
     "lets_build_part3": "GREAT.",
     "initiate_conv": "Initiate Conversation"
+  },
+  "assistant": {
+    "title": "Portfolio assistant",
+    "subtitle": "AI · answers from public info only",
+    "thinking": "Thinking...",
+    "answering": "Answering...",
+    "clear": "Clear",
+    "intro": "Hi. I can answer questions about Abdulwahab's projects, skills and how he works. What are you looking to build?",
+    "suggest_build": "What kind of websites does he build?",
+    "suggest_booking": "Show me a booking system demo",
+    "suggest_pricing": "How does pricing work?",
+    "label": "Your question",
+    "placeholder": "Ask a question...",
+    "send": "Send",
+    "disclaimer": "AI answers can be wrong. For anything important, use the contact form.",
+    "open": "Ask the AI assistant about Abdulwahab's work",
+    "close": "Close the assistant",
+    "launcher": "Ask AI",
+    "error": "Something went wrong. Please try again, or use the contact form at /contact."
   }
 }

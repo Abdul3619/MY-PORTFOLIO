@@ -14,6 +14,7 @@ import { pathToFileURL } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 import { STATIC_ROUTES } from './src/lib/seo.js';
 import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl.js';
+import { createChatRouter } from './chatbot/route.js';
 
 dotenv.config();
 
@@ -23,6 +24,9 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(helmet({ contentSecurityPolicy: false })); // allow dev scripts
 app.use(cors());
+// AI assistant: mounted before the global body parser so it applies its own small size limit and rate limits.
+// It uses the restricted chatbot_reader database login, never the service-role client below.
+app.use('/api/chat', createChatRouter());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 

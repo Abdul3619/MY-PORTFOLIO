@@ -1,0 +1,87 @@
+// Database access for the portfolio assistant.
+//
+// This module connects as the restricted `chatbot_reader` login (CHAT_DATABASE_URL), never with the Supabase
+// service-role key. That login can SELECT published rows of public.public_knowledge_base and EXECUTE
+// private.chat_take_quota, and nothing else, so no visitor message can reach private tables through it.
+// The model never writes SQL: the two queries below are fixed, and visitor text only reaches them as bound
+// parameters after being reduced to plain [a-z0-9] search words.
+
+import pg from 'pg';
+import { SUPABASE_ROOT_CA } from './supabaseCa.js';
+
+export interface KnowledgeEntry {
+  category: string;
+  title: string;
+  content: string;
+}
+
+export type QuotaResult = 'ok' | 'visitor_minute' | 'visitor_day' | 'global_day';
+
+const MAX_TERMS = 12;
+const MAX_ENTRIES = 8;
+
+let pool: pg.Pool | null = null;
+
+function getPool(): pg.Pool {
+  if (pool) return pool;
+  const connectionString = (process.env.CHAT_DATABASE_URL || '').trim();
+  if (!connectionString) throw new Error('CHAT_DATABASE_URL is not set');
+  const url = new URL(connectionString);
+  // Refuse to start if the URL was accidentally given a privileged login
+  const user = decodeURIComponent(url.username).split('.')[0];
+  if (user !== 'chatbot_reader') throw new Error('CHAT_DATABASE_URL must use the chatbot_reader login');
+  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  pool = new pg.Pool({
+    host: url.hostname,
+    port: Number(url.port) || 5432,
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.replace(/^\//, '') || 'postgres',
+    // Supabase's pooler presents a certificate signed by Supabase's own root CA, so verify against it
+    ssl: local ? undefined : { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
+    max: 3,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 5_000,
+  });
+  pool.on('error', (err) => console.error('Chat DB pool error:', err.message));
+  return pool;
+}
+
+export function isKnowledgeConfigured() {
+  return Boolean((process.env.CHAT_DATABASE_URL || '').trim());
+}
+
+// Turns visitor text into a safe full-text query: lowercase words of letters and digits only, each matched as a
+// prefix and joined with OR. Nothing else (quotes, operators, punctuation) can get through.
+export function toSearchQuery(text: string): string {
+  const words = text
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 2 && w.length <= 30);
+  const unique = [...new Set(words)].slice(0, MAX_TERMS);
+  return unique.map((w) => `${w}:*`).join(' | ');
+}
+
+// Core entries (always_include) plus the best full-text matches for the question.
+export async function retrieveKnowledge(question: string): Promise<KnowledgeEntry[]> {
+  const query = toSearchQuery(question);
+  const { rows } = await getPool().query<KnowledgeEntry>(
+    `with q as (select case when $1::text = '' then null else to_tsquery('english', $1::text) end as tsq)
+     select k.category, k.title, k.content
+       from public.public_knowledge_base k, q
+      where k.is_published
+        and (k.always_include or (q.tsq is not null and k.search @@ q.tsq))
+      order by k.always_include desc, ts_rank_cd(k.search, q.tsq) desc nulls last, k.sort_order
+      limit $2`,
+    [query, MAX_ENTRIES],
+  );
+  return rows;
+}
+
+// Counts one message against the per-visitor and site-wide limits. `visitorKey` is a salted SHA-256 hex digest.
+export async function takeQuota(visitorKey: string): Promise<QuotaResult> {
+  const { rows } = await getPool().query<{ result: QuotaResult }>('select private.chat_take_quota($1) as result', [visitorKey]);
+  return rows[0]?.result ?? 'global_day';
+}

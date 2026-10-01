@@ -255,5 +255,24 @@
     "lets_build_part2": "QUELQUE CHOSE",
     "lets_build_part3": "DE GRAND.",
     "initiate_conv": "Initier la conversation"
+  },
+  "assistant": {
+    "title": "Assistant du portfolio",
+    "subtitle": "IA · infos publiques uniquement",
+    "thinking": "Réflexion...",
+    "answering": "Réponse en cours...",
+    "clear": "Effacer",
+    "intro": "Bonjour. Je peux répondre à vos questions sur les projets d'Abdulwahab, ses compétences et sa façon de travailler. Que souhaitez-vous créer ?",
+    "suggest_build": "Quels types de sites crée-t-il ?",
+    "suggest_booking": "Montrez-moi une démo de réservation",
+    "suggest_pricing": "Comment fonctionnent les tarifs ?",
+    "label": "Votre question",
+    "placeholder": "Posez une question...",
+    "send": "Envoyer",
+    "disclaimer": "Les réponses de l'IA peuvent être inexactes. Pour tout point important, utilisez le formulaire de contact.",
+    "open": "Poser une question à l'assistant IA",
+    "close": "Fermer l'assistant",
+    "launcher": "Demander à l'IA",
+    "error": "Une erreur s'est produite. Réessayez, ou utilisez le formulaire de contact sur /contact."
   }
 }
