@@ -1,5 +1,5 @@
 import { Fragment, Suspense, lazy, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUp, X } from "lucide-react";
@@ -63,6 +63,125 @@ function renderWithLinks(text: string): ReactNode[] {
   return parts;
 }
 
+// One relevant, tappable suggestion per page, never pushed automatically. Keyed by the start of the path, most
+// specific first. `prompt` is what actually gets sent; `label` is the short pitch shown on the chip.
+const PAGE_SUGGESTIONS: { match: (path: string) => boolean; label: () => string; prompt: () => string }[] = [
+  {
+    match: (p) => p.startsWith("/testimonials"),
+    label: () => "Want to know more about one of these projects?",
+    prompt: () => "Can you tell me more about one of these client projects?",
+  },
+  {
+    match: (p) => /^\/projects\/[^/]+/.test(p),
+    label: () => {
+      const title = document.querySelector("h1")?.textContent?.trim();
+      return title ? `Want to know more about ${title}?` : "Want to know more about this project?";
+    },
+    prompt: () => {
+      const title = document.querySelector("h1")?.textContent?.trim();
+      return title ? `Tell me more about the ${title} project.` : "Tell me more about this project.";
+    },
+  },
+  {
+    match: (p) => p.startsWith("/projects"),
+    label: () => "Looking for something specific? I can point you to the closest demo.",
+    prompt: () => "Which of these projects is closest to what I need?",
+  },
+  {
+    match: (p) => p.startsWith("/solar-estimator"),
+    label: () => "Have a solar or off-grid power question?",
+    prompt: () => "Can you help with a question about a solar or off-grid power system?",
+  },
+  {
+    match: (p) => p.startsWith("/skills"),
+    label: () => "Want to know if his stack fits your project?",
+    prompt: () => "Does his tech stack fit the kind of project I have in mind?",
+  },
+  {
+    match: (p) => p.startsWith("/certificates"),
+    label: () => "Curious about his background and qualifications?",
+    prompt: () => "What's Abdulwahab's background and qualifications?",
+  },
+  {
+    match: (p) => p.startsWith("/resume"),
+    label: () => "Want a quick summary of his experience?",
+    prompt: () => "Can you summarize Abdulwahab's work experience?",
+  },
+  {
+    match: (p) => p.startsWith("/contact"),
+    label: () => "Not sure what to include in your message?",
+    prompt: () => "What should I include when I reach out about a project?",
+  },
+  {
+    match: (p) => p.startsWith("/about"),
+    label: () => "Curious how he got into software?",
+    prompt: () => "How did Abdulwahab get into software development?",
+  },
+  {
+    match: () => true, // home and anything else
+    label: () => "Want a quick tour of what he builds?",
+    prompt: () => "What kind of websites and apps does he build?",
+  },
+];
+
+const SUGGESTION_SEEN_KEY = "portfolio-assistant-suggestion-seen";
+
+function suggestionSeenSet(): Set<string> {
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(SUGGESTION_SEEN_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function markSuggestionSeen(path: string) {
+  try {
+    const seen = suggestionSeenSet();
+    seen.add(path);
+    sessionStorage.setItem(SUGGESTION_SEEN_KEY, JSON.stringify([...seen]));
+  } catch {
+    // ignore
+  }
+}
+
+// Reveals `target` a little at a time rather than all at once, so answers read as spoken rather than dumped.
+// Speeds up automatically if the real stream gets far enough ahead, so it never trails long after the
+// network has already finished.
+function useTypewriter(target: string, active: boolean): string {
+  const [shown, setShown] = useState("");
+  const shownRef = useRef("");
+  const frameRef = useRef<number>();
+
+  useEffect(() => {
+    if (!active) {
+      shownRef.current = target;
+      setShown(target);
+      return;
+    }
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = now - last;
+      last = now;
+      const behind = target.length - shownRef.current.length;
+      if (behind > 0) {
+        // ~55 chars/sec normally, up to ~6x that if the buffer has built up a lot
+        const rate = 55 * (1 + Math.min(5, behind / 80));
+        const take = Math.max(1, Math.round((rate * dt) / 1000));
+        shownRef.current = target.slice(0, Math.min(target.length, shownRef.current.length + take));
+        setShown(shownRef.current);
+      }
+      frameRef.current = requestAnimationFrame(tick);
+    };
+    frameRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, active]);
+
+  return active ? shown : target;
+}
+
 function OrbSlot({ state, size }: { state: AssistantState; size: number }) {
   return (
     <span className="inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
@@ -73,8 +192,17 @@ function OrbSlot({ state, size }: { state: AssistantState; size: number }) {
   );
 }
 
+// Its own component (not inline in the list) so each bubble gets its own typewriter state, and finished
+// messages never re-run the reveal animation on re-render.
+function AssistantBubble({ content, streaming }: { content: string; streaming: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const shown = useTypewriter(content, streaming && !reduceMotion);
+  return <Fragment>{renderWithLinks(shown)}</Fragment>;
+}
+
 export default function ChatWidget() {
   const { t } = useTranslation();
+  const location = useLocation();
   const reduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -82,6 +210,7 @@ export default function ChatWidget() {
   const [input, setInput] = useState("");
   const [state, setState] = useState<AssistantState>("idle");
   const [error, setError] = useState("");
+  const [pageSuggestion, setPageSuggestion] = useState<{ label: string; prompt: string } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -114,6 +243,24 @@ export default function ChatWidget() {
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
   }, [messages, state, open]);
+
+  // One contextual suggestion per page, shown only the first time the widget is opened there in this tab, and
+  // only if the visitor hasn't started typing to it already. Never shown again once it's been offered once,
+  // tapped or not — this is an offer, not a nag.
+  useEffect(() => {
+    if (!open || messages.length > 0) return;
+    const path = location.pathname;
+    if (suggestionSeenSet().has(path)) {
+      setPageSuggestion(null);
+      return;
+    }
+    const match = PAGE_SUGGESTIONS.find((s) => s.match(path));
+    if (match) {
+      setPageSuggestion({ label: match.label(), prompt: match.prompt() });
+      markSuggestionSeen(path);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const send = async (text: string) => {
     const message = text.trim();
@@ -209,12 +356,6 @@ export default function ChatWidget() {
 
   if (!mounted) return null;
 
-  const suggestions = [
-    t("assistant.suggest_build", "What kind of websites does he build?"),
-    t("assistant.suggest_booking", "Show me a booking system demo"),
-    t("assistant.suggest_pricing", "How does pricing work?"),
-  ];
-
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end gap-3">
       <AnimatePresence>
@@ -264,18 +405,15 @@ export default function ChatWidget() {
                   <p className="text-sm text-gray-300 leading-relaxed">
                     {t("assistant.intro", "Hi. I can answer questions about Abdulwahab's projects, skills and how he works. What are you looking to build?")}
                   </p>
-                  <div className="flex flex-col items-start gap-2">
-                    {suggestions.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => send(s)}
-                        className="interactive text-left text-xs text-gray-300 border border-white/10 hover:border-gold/50 hover:text-white rounded-full px-3 py-1.5 transition-colors"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
+                  {pageSuggestion && (
+                    <button
+                      type="button"
+                      onClick={() => send(pageSuggestion.prompt)}
+                      className="interactive text-left text-xs text-gray-300 border border-gold/30 bg-gold/5 hover:border-gold/60 hover:text-white rounded-xl px-3 py-2 transition-colors w-full"
+                    >
+                      {pageSuggestion.label}
+                    </button>
+                  )}
                 </div>
               )}
               {messages.map((m, i) => (
@@ -287,7 +425,11 @@ export default function ChatWidget() {
                         : "max-w-[90%] rounded-xl px-4 py-2.5 text-sm bg-white/5 border border-white/10 text-gray-200 leading-relaxed whitespace-pre-wrap break-words"
                     }
                   >
-                    {m.role === "assistant" ? <Fragment>{renderWithLinks(m.content)}</Fragment> : m.content}
+                    {m.role === "assistant" ? (
+                      <AssistantBubble content={m.content} streaming={i === messages.length - 1 && state === "speaking"} />
+                    ) : (
+                      m.content
+                    )}
                   </div>
                 </div>
               ))}

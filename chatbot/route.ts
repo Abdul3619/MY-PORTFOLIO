@@ -151,7 +151,7 @@ export function createChatRouter() {
     const send = (data: Record<string, unknown>) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
     const stream = getClient().messages.stream({
-      model: env('CHAT_MODEL') || 'claude-opus-5-5',
+      model: env('CHAT_MODEL') || 'claude-haiku-4-5-20251001',
       max_tokens: MAX_OUTPUT_TOKENS,
       output_config: { effort: (env('CHAT_EFFORT') || 'low') as 'low' | 'medium' | 'high' },
       system: [

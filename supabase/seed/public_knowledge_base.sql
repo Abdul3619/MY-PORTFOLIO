@@ -104,30 +104,30 @@ insert into public.public_knowledge_base (category, title, content, keywords, al
  $kb$A private, password-protected tool Abdulwahab built for his own client outreach. It finds local businesses, audits their websites (respecting robots.txt), and drafts a personalised email per lead with Gemini, which he reviews and sends himself. Nothing is sent automatically. Code: https://github.com/Abdul3619/AI-OUTREACH$kb$,
  'ai automation outreach tool gemini internal private crawler', false, true, 40),
 
--- ---------- Drafts: need Abdulwahab's real details before publishing ----------
+-- ---------- Published: real details ----------
 ('pricing', 'Pricing approach',
- $kb$DRAFT: Every project is quoted individually after a short conversation about scope, features and timeline. Small business websites cost less than full web applications with accounts, bookings or payments. The quickest way to get a number is to describe the project in the contact form.$kb$,
- 'price cost how much budget quote rate charge fee', false, false, 50),
+ $kb$Every project is quoted individually after a short conversation about scope, features and timeline. As a starting point: a Starter website is $80, a Business website is $180, and a Full Booking Website (with online booking/reservations) is $350. Custom features, integrations or larger scope are quoted on top of these. The quickest way to get an exact number is to describe the project in the contact form.$kb$,
+ 'price cost how much budget quote rate charge fee', false, true, 50),
 
 ('pricing', 'Price ranges',
- $kb$DRAFT - fill in real figures: Business website from [amount]. Booking or e-commerce site from [amount]. Custom web application from [amount]. Ongoing maintenance from [amount] per month.$kb$,
- 'price cost how much budget range starting from', false, false, 51),
+ $kb$Starter website: $80. Business website: $180. Full Booking Website (with online booking/reservations): $350. Ongoing monthly maintenance is available and quoted separately based on what the site needs. Custom web applications beyond these tiers (e.g. full SaaS dashboards) are quoted individually.$kb$,
+ 'price cost how much budget range starting from', false, true, 51),
 
 ('process', 'How a project runs',
- $kb$DRAFT - confirm: 1) Short call or message exchange to understand the business and goals. 2) Written scope and quote with milestones. 3) Design and build with regular previews. 4) Launch, handover and a support period.$kb$,
- 'process steps timeline how long workflow milestones', false, false, 52),
+ $kb$1) Message or short call to understand the business and goals. 2) A written scope and quote based on the tier (Starter/Business/Full Booking) or custom needs. 3) Design and build, with previews shared along the way. 4) Launch, handover, and a short support window to fix anything that comes up.$kb$,
+ 'process steps timeline how long workflow milestones', false, true, 52),
 
 ('faq', 'Availability and response time',
- $kb$DRAFT - fill in: current availability for new projects, typical reply time, and typical timeline for a small site versus a larger app.$kb$,
- 'available availability start when timeline how long reply response', false, false, 53),
+ $kb$Abdulwahab is currently available for new projects and usually replies within 24 hours. Typical delivery is about 5 to 12 days depending on the package.$kb$,
+ 'available availability start when timeline how long reply response', false, true, 53),
 
 ('faq', 'Location and time zone',
- $kb$DRAFT - fill in: where Abdulwahab is based (country only) and which time zones and countries he works with.$kb$,
- 'location where based country time zone remote international', false, false, 54),
+ $kb$Abdulwahab is based in Nigeria, West Africa (GMT+1), and works remotely with clients internationally, adjusting hours for overlap with different time zones.$kb$,
+ 'location where based country time zone remote international', false, true, 54),
 
 ('faq', 'Maintenance after launch',
- $kb$DRAFT - fill in: whether support and maintenance are offered after launch, and on what terms.$kb$,
- 'maintenance support updates after launch hosting', false, false, 55),
+ $kb$Yes, ongoing maintenance and support are available after launch (updates, fixes, small changes), billed monthly. Exact terms are agreed per project based on what the site needs.$kb$,
+ 'maintenance support updates after launch hosting', false, true, 55),
 
 ('bio', 'Work history',
  $kb$DRAFT - confirm accuracy before publishing (taken from the resume page, which may hold placeholder data): Freelance full-stack developer since 2023. Previously a solar engineering technician (2020 to 2023).$kb$,
