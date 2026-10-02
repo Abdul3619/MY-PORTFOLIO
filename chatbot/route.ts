@@ -506,6 +506,17 @@ function isModelUnavailable(err: any): boolean {
   return status === 404 || /is no longer available|not found|not supported/i.test(message);
 }
 
+// Gemini's "thinking" models (2.5 and 3.x) spend part of the response budget reasoning silently before the first
+// visible token comes out -- fine for a hard question, but it's most of why the chat (and especially the voice
+// call, where every extra second of silence is felt directly) was slow to start replying to something as simple
+// as a greeting. Each family configures it differently (3.x: a thinkingLevel string; 2.5: a numeric token budget,
+// 0 disables it outright); 2.0 and earlier don't think at all, so there's nothing to configure.
+function thinkingConfigFor(modelName: string): Record<string, unknown> | undefined {
+  if (modelName.startsWith('gemini-3')) return { thinkingLevel: 'low' };
+  if (modelName.startsWith('gemini-2.5')) return { thinkingBudget: 0 };
+  return undefined;
+}
+
 async function runGeminiTurn({ entries, projects, history, message, visitorKeyValue, send, isClosed }: TurnArgs) {
   const configuredModel = env('CHAT_MODEL');
   const candidates = [
@@ -535,6 +546,7 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
             systemInstruction,
             maxOutputTokens: MAX_OUTPUT_TOKENS,
             tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
+            ...(thinkingConfigFor(candidate) ? { thinkingConfig: thinkingConfigFor(candidate) } : {}),
           },
         }),
       );
@@ -576,7 +588,11 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
     const second = await client.models.generateContentStream({
       model,
       contents: followup,
-      config: { systemInstruction, maxOutputTokens: MAX_OUTPUT_TOKENS },
+      config: {
+        systemInstruction,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        ...(thinkingConfigFor(model) ? { thinkingConfig: thinkingConfigFor(model) } : {}),
+      },
     });
     for await (const chunk of second) {
       if (isClosed()) break;
