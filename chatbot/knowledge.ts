@@ -131,6 +131,14 @@ export async function takeQuota(visitorKey: string): Promise<QuotaResult> {
   return rows[0]?.result ?? 'global_day';
 }
 
+export type BookingQuotaResult = 'ok' | 'visitor_day' | 'global_day';
+
+// Counts one Cal.com booking attempt against the per-visitor and site-wide limits, same pattern as takeQuota().
+export async function takeBookingQuota(visitorKey: string): Promise<BookingQuotaResult> {
+  const { rows } = await getPool().query<{ result: BookingQuotaResult }>('select private.chat_book_call_quota($1) as result', [visitorKey]);
+  return rows[0]?.result ?? 'global_day';
+}
+
 export type LeadResult = 'ok' | 'invalid_input' | 'visitor_day' | 'global_day';
 export type LeadPriority = 'hot' | 'warm' | 'cold';
 

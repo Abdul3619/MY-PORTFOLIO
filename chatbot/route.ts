@@ -7,8 +7,9 @@
 // * ANTHROPIC_API_KEY, CHAT_DATABASE_URL and CHAT_VISITOR_SALT are read from the server environment only.
 // * This router never touches the Supabase service-role client; its only database access is ./knowledge.ts,
 //   which connects as the restricted chatbot_reader login.
-// * The model has exactly one tool, submit_lead, which can only insert a validated, rate-limited row through
-//   knowledge.ts -- never raw SQL. The second (tool-result) call always omits `tools`, so at most one tool
+// * The model has submit_lead always, plus check_availability/book_call when Cal.com is configured. Each can only
+//   call its own narrow, validated, rate-limited function (knowledge.ts or calcom.ts) -- never raw SQL or an
+//   unvalidated external request. The second (tool-result) call always omits `tools`, so at most one tool
 //   round-trip can happen per visitor turn, however the model is prompted.
 // * Visitor IPs are never stored: the quota uses a salted hash of the IP.
 
@@ -25,11 +26,13 @@ import {
   retrieveProjects,
   takeQuota,
   submitLead,
+  takeBookingQuota,
   type KnowledgeEntry,
   type ProjectEntry,
   type LeadResult,
   type LeadPriority,
 } from './knowledge.js';
+import { calComConfigured, getAvailableSlots, createBooking } from './calcom.js';
 
 const MAX_MESSAGE_CHARS = 1000;
 const MAX_HISTORY_TURNS = 10;
@@ -226,6 +229,123 @@ async function runSubmitLead(
   }
 }
 
+// Lets the model look up Abdulwahab's real open slots for a 15-minute call, then book one directly once the
+// visitor has picked a time and given their name and email. Both tools only appear when Cal.com is configured
+// (see calComConfigured()), so a deployment without a Cal.com key behaves exactly as before.
+const CHECK_AVAILABILITY_DESCRIPTION =
+  "Looks up Abdulwahab's real open slots for a 15-minute call over the next week. Call this when a visitor wants to book a call or a quick chat with him, before offering any specific time -- never invent or guess a time yourself. Takes no input. The result is a short list of open slots in his own timezone (Africa/Lagos) for you to read out to the visitor exactly as given, so they can pick one.";
+
+const BOOK_CALL_DESCRIPTION =
+  "Books a real 15-minute call on Abdulwahab's calendar at one specific slot. Only call this after you've shown the visitor real slots from check_availability, they've clearly picked one of those exact times, and they've given their name and an email address for the calendar invite -- never invent a name, email or time, and never call this without having called check_availability first in this conversation. Use this for an ordinary, non-urgent booking request; if the visitor describes something urgent or time-sensitive that can't wait for the call, use submit_lead instead (or point to the WhatsApp link in <knowledge> for a true emergency), since this only books a slot, it doesn't notify Abdulwahab immediately.";
+
+const CHECK_AVAILABILITY_TOOL: Anthropic.Tool = {
+  name: 'check_availability',
+  description: CHECK_AVAILABILITY_DESCRIPTION,
+  input_schema: { type: 'object', properties: {} },
+};
+
+const BOOK_CALL_TOOL: Anthropic.Tool = {
+  name: 'book_call',
+  description: BOOK_CALL_DESCRIPTION,
+  input_schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: "The visitor's name, exactly as they gave it." },
+      email: { type: 'string', description: 'The email address for the calendar invite.' },
+      startIso: { type: 'string', description: 'The exact ISO timestamp of the slot they picked, copied exactly from a check_availability result.' },
+      note: { type: 'string', description: 'A short note on what they want to discuss, if they said anything about it.' },
+    },
+    required: ['name', 'email', 'startIso'],
+  },
+};
+
+const CHECK_AVAILABILITY_FUNCTION_DECLARATION: FunctionDeclaration = {
+  name: 'check_availability',
+  description: CHECK_AVAILABILITY_DESCRIPTION,
+  parameters: { type: Type.OBJECT, properties: {} },
+};
+
+const BOOK_CALL_FUNCTION_DECLARATION: FunctionDeclaration = {
+  name: 'book_call',
+  description: BOOK_CALL_DESCRIPTION,
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      name: { type: Type.STRING, description: "The visitor's name, exactly as they gave it." },
+      email: { type: Type.STRING, description: 'The email address for the calendar invite.' },
+      startIso: { type: Type.STRING, description: 'The exact ISO timestamp of the slot they picked, copied exactly from a check_availability result.' },
+      note: { type: Type.STRING, description: 'A short note on what they want to discuss, if they said anything about it.' },
+    },
+    required: ['name', 'email', 'startIso'],
+  },
+};
+
+const TOOL_NAMES = ['submit_lead', 'check_availability', 'book_call'] as const;
+type ToolName = (typeof TOOL_NAMES)[number];
+function isToolName(name: string): name is ToolName {
+  return (TOOL_NAMES as readonly string[]).includes(name);
+}
+
+function anthropicTools(): Anthropic.Tool[] {
+  return calComConfigured() ? [SUBMIT_LEAD_TOOL, CHECK_AVAILABILITY_TOOL, BOOK_CALL_TOOL] : [SUBMIT_LEAD_TOOL];
+}
+
+function geminiFunctionDeclarations(): FunctionDeclaration[] {
+  return calComConfigured()
+    ? [SUBMIT_LEAD_FUNCTION_DECLARATION, CHECK_AVAILABILITY_FUNCTION_DECLARATION, BOOK_CALL_FUNCTION_DECLARATION]
+    : [SUBMIT_LEAD_FUNCTION_DECLARATION];
+}
+
+async function runCheckAvailability(): Promise<string> {
+  try {
+    const slots = await getAvailableSlots();
+    if (slots.length === 0) return 'No open slots found in the next week. Suggest the contact form or WhatsApp instead.';
+    return `Open slots (Africa/Lagos time) -- read these out to the visitor exactly, including the ISO timestamp if you call book_call next:\n${slots
+      .map((s) => `- ${s.label} | startIso: ${s.startIso}`)
+      .join('\n')}`;
+  } catch (err: any) {
+    console.error('Cal.com availability error:', err?.message);
+    return "Couldn't reach the booking calendar right now. Use submit_lead or point them to the contact form/WhatsApp instead.";
+  }
+}
+
+const BOOK_CALL_RESULT_TEXT: Record<'ok' | 'slot_unavailable' | 'invalid_input' | 'error' | 'visitor_day' | 'global_day', string> = {
+  ok: 'Booked. Tell the visitor their call is confirmed and a calendar invite is on its way to their email.',
+  slot_unavailable: "That slot isn't available anymore -- call check_availability again for a fresh list and ask them to pick another.",
+  invalid_input: "That didn't go through -- the name, email or time looked invalid. Ask the visitor to double-check it.",
+  error: "Couldn't reach the booking calendar right now. Use submit_lead instead so Abdulwahab can follow up and confirm manually.",
+  visitor_day: "This visitor has already booked a call today. Point them to the contact form or WhatsApp for anything more urgent.",
+  global_day: "Today's booking limit has been reached. Use submit_lead instead so Abdulwahab can follow up and confirm manually.",
+};
+
+async function runBookCall(
+  visitorKeyValue: string,
+  input: { name?: unknown; email?: unknown; startIso?: unknown; note?: unknown },
+): Promise<string> {
+  try {
+    const quota = await takeBookingQuota(visitorKeyValue);
+    if (quota !== 'ok') return BOOK_CALL_RESULT_TEXT[quota];
+    const name = typeof input.name === 'string' ? input.name : '';
+    const email = typeof input.email === 'string' ? input.email : '';
+    const startIso = typeof input.startIso === 'string' ? input.startIso : '';
+    const note = typeof input.note === 'string' ? input.note : undefined;
+    const result = await createBooking({ name, email, startIso, note });
+    return BOOK_CALL_RESULT_TEXT[result];
+  } catch (err: any) {
+    console.error('Cal.com booking error:', err?.message);
+    return BOOK_CALL_RESULT_TEXT.error;
+  }
+}
+
+// Shared dispatch for whichever tool the model asked for, so both providers get identical behaviour. Returns the
+// text to feed back to the model as the tool result.
+async function runTool(name: ToolName, visitorKeyValue: string, input: Record<string, unknown>): Promise<string> {
+  if (name === 'check_availability') return runCheckAvailability();
+  if (name === 'book_call') return runBookCall(visitorKeyValue, input);
+  const result = await runSubmitLead(visitorKeyValue, input);
+  return LEAD_RESULT_TEXT[result];
+}
+
 export function chatConfigured() {
   return Boolean(activeProvider() && env('CHAT_VISITOR_SALT').length >= 32 && isKnowledgeConfigured());
 }
@@ -264,8 +384,8 @@ async function runAnthropicTurn({ entries, projects, history, message, visitorKe
 
   const conversation: Anthropic.MessageParam[] = [...history, { role: 'user', content: message }];
 
-  // First call: the model may answer directly, or ask to call submit_lead. Either way its text streams live.
-  const first = getClient().messages.stream({ ...baseParams, tools: [SUBMIT_LEAD_TOOL], messages: conversation });
+  // First call: the model may answer directly, or ask to call one of its tools. Either way its text streams live.
+  const first = getClient().messages.stream({ ...baseParams, tools: anthropicTools(), messages: conversation });
   res.once('close', () => first.abort());
   let sentText = false;
   first.on('text', (text) => {
@@ -279,16 +399,16 @@ async function runAnthropicTurn({ entries, projects, history, message, visitorKe
     send({ type: 'delta', text: REFUSAL_TEXT });
   }
 
-  const toolUse = firstFinal.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'submit_lead');
+  const toolUse = firstFinal.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && isToolName(b.name));
   if (toolUse && !isClosed()) {
-    const result = await runSubmitLead(visitorKeyValue, (toolUse.input ?? {}) as Record<string, unknown>);
+    const resultText = await runTool(toolUse.name as ToolName, visitorKeyValue, (toolUse.input ?? {}) as Record<string, unknown>);
 
     // Second call continues the same conversation with the tool result, but with no tools, so the model can
     // only reply in text -- this guarantees at most one tool round-trip per visitor turn.
     conversation.push({ role: 'assistant', content: firstFinal.content });
     conversation.push({
       role: 'user',
-      content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: LEAD_RESULT_TEXT[result] }],
+      content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: resultText }],
     });
     const second = getClient().messages.stream({ ...baseParams, messages: conversation });
     res.once('close', () => second.abort());
@@ -323,12 +443,12 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
     config: {
       systemInstruction,
       maxOutputTokens: MAX_OUTPUT_TOKENS,
-      tools: [{ functionDeclarations: [SUBMIT_LEAD_FUNCTION_DECLARATION] }],
+      tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
     },
   });
 
   let sentText = false;
-  let functionCall: { name: string; args: Record<string, unknown> } | undefined;
+  let functionCall: { name: ToolName; args: Record<string, unknown> } | undefined;
   for await (const chunk of stream) {
     if (isClosed()) break;
     if (chunk.text) {
@@ -336,8 +456,8 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
       send({ type: 'delta', text: chunk.text });
     }
     const calls = chunk.functionCalls;
-    if (calls && calls.length > 0 && calls[0].name === 'submit_lead' && !functionCall) {
-      functionCall = { name: calls[0].name, args: (calls[0].args ?? {}) as Record<string, unknown> };
+    if (calls && calls.length > 0 && isToolName(calls[0].name ?? '') && !functionCall) {
+      functionCall = { name: calls[0].name as ToolName, args: (calls[0].args ?? {}) as Record<string, unknown> };
     }
   }
 
@@ -346,11 +466,11 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
   }
 
   if (functionCall && !isClosed()) {
-    const result = await runSubmitLead(visitorKeyValue, functionCall.args);
+    const resultText = await runTool(functionCall.name, visitorKeyValue, functionCall.args);
     const followup = [
       ...contents,
       { role: 'model' as const, parts: [{ functionCall: { name: functionCall.name, args: functionCall.args } }] },
-      { role: 'user' as const, parts: [{ functionResponse: { name: functionCall.name, response: { result: LEAD_RESULT_TEXT[result] } } }] },
+      { role: 'user' as const, parts: [{ functionResponse: { name: functionCall.name, response: { result: resultText } } }] },
     ];
     const second = await client.models.generateContentStream({
       model,
