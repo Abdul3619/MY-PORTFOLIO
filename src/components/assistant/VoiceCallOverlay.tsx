@@ -75,11 +75,85 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
   const activeRef = useRef(false); // true while the overlay is mounted & live, false once closing -- guards async callbacks
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  const stateRef = useRef<AssistantState>("idle");
+  // Accumulates everything finalized across however many recognition instances a single "turn" spans -- the
+  // browser's own engine stops and restarts on its own well before the visitor is actually done talking, so a
+  // turn is only considered over when nothing NEW has come in for a while (see silenceTimerRef), never just
+  // because one instance happened to end.
+  const finalTranscriptRef = useRef("");
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set right before we deliberately stop a recognition instance ourselves (to finalize the turn), so its onend
+  // handler knows not to treat that as "the engine gave up, restart it" and start listening all over again.
+  const finalizingRef = useRef(false);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const micRafRef = useRef<number | null>(null);
+  // finalizeTurn is defined before handleTurn/startListening (it's used by beginRecognitionInstance, which has to
+  // exist before startListening can call it) but needs to invoke both -- routed through refs, always reassigned
+  // to this render's versions below, so it never calls a stale closure from an earlier render.
+  const handleTurnRef = useRef<(said: string) => void>(() => {});
+  const startListeningRef = useRef<() => void>(() => {});
+
+  stateRef.current = state;
 
   const synth = getSpeechSynthesis();
 
+  const stopMicMeter = useCallback(() => {
+    if (micRafRef.current !== null) cancelAnimationFrame(micRafRef.current);
+    micRafRef.current = null;
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+  }, []);
+
+  // Real mic loudness, not a guess -- so the orb's listening wobble actually tracks how loud the visitor is
+  // talking (quiet drifting, loud surging) instead of a fixed little bump per speech-recognition event. Falls
+  // back silently to the old event-based bump (still applied in onresult) if the mic permission is denied.
+  const startMicMeter = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!activeRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      micStreamRef.current = stream;
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new Ctx();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (!activeRef.current) return;
+        analyser.getByteTimeDomainData(data);
+        let sumSquares = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128;
+          sumSquares += v * v;
+        }
+        const rms = Math.sqrt(sumSquares / data.length);
+        // Only let it drive the orb while we're actually listening -- while speaking/thinking, this is picking
+        // up room noise (or echo of our own TTS) rather than the visitor, so it would be misleading there.
+        if (stateRef.current === "listening") {
+          energy.current = Math.max(energy.current * 0.7, Math.min(1.3, rms * 9));
+        }
+        micRafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {
+      // Permission denied or no mic -- the call still works via the onresult event bumps below, just less lively.
+    }
+  }, []);
+
   const stopAll = useCallback(() => {
     activeRef.current = false;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = null;
+    finalizingRef.current = false;
     recognitionRef.current?.abort?.();
     recognitionRef.current = null;
     abortRef.current?.abort();
@@ -88,7 +162,8 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     speechQueueRef.current = [];
     speakingRef.current = false;
     energy.current = 0;
-  }, [synth]);
+    stopMicMeter();
+  }, [synth, stopMicMeter]);
 
   const speakNext = useCallback(() => {
     if (!synth || speakingRef.current) return;
@@ -125,7 +200,29 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     [speakNext],
   );
 
-  const startListening = useCallback(() => {
+  // Called once nothing new has come in for a while (see SILENCE_MS below) -- this, not the recognition engine's
+  // own onend, is what decides the visitor is actually done talking. That's deliberate: Chrome/Safari's engine
+  // stops on its own after every short breath even with continuous=true, which is what was cutting people off
+  // mid-sentence. A beginRecognitionInstance() ending on its own just gets silently restarted (see onend below)
+  // and never finalizes anything by itself.
+  const finalizeTurn = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = null;
+    const said = finalTranscriptRef.current.trim();
+    finalizingRef.current = true;
+    recognitionRef.current?.stop?.();
+    recognitionRef.current = null;
+    finalTranscriptRef.current = "";
+    if (said) {
+      handleTurnRef.current(said);
+    } else {
+      startListeningRef.current();
+    }
+  }, []);
+
+  const SILENCE_MS = 2000;
+
+  const beginRecognitionInstance = useCallback(() => {
     if (!activeRef.current) return;
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
@@ -136,38 +233,54 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     recognition.lang = document.documentElement.lang || "en-US";
     recognition.interimResults = true;
     recognition.continuous = true;
-    let finalText = "";
     recognition.onresult = (e: any) => {
+      // Only walk the results that are NEW in this event (from e.resultIndex onward) -- re-summing from 0 every
+      // time, like an earlier version of this did, re-appends every already-finalized phrase on every single
+      // event and is why "hello" once came out repeated a dozen times with the vowel stretched further each time.
       let interim = "";
-      for (let i = 0; i < e.results.length; i++) {
+      for (let i = e.resultIndex ?? 0; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) finalText += r[0]?.transcript ?? "";
-        else interim += r[0]?.transcript ?? "";
+        const transcript = r[0]?.transcript ?? "";
+        if (r.isFinal) {
+          finalTranscriptRef.current = `${finalTranscriptRef.current} ${transcript}`.trim();
+        } else {
+          interim += transcript;
+        }
       }
-      setYouSaid((finalText + interim).trim());
-      energy.current = Math.min(1.2, energy.current + 0.3);
+      setYouSaid(`${finalTranscriptRef.current} ${interim}`.trim());
+      // Real mic loudness (startMicMeter) drives most of the listening wobble; this is just a small guaranteed
+      // bump on every recognized word so there's still some life even if the mic-meter permission was denied.
+      energy.current = Math.min(1.2, energy.current + 0.2);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(finalizeTurn, SILENCE_MS);
     };
     recognition.onerror = (e: any) => {
       if (e?.error === "no-speech" || e?.error === "aborted") return;
       setErrorMsg(t("assistant.call_mic_error", "I couldn't hear you there -- check the microphone permission and try again."));
     };
     recognition.onend = () => {
-      if (!activeRef.current) return;
-      const said = finalText.trim();
-      if (said) {
-        void handleTurn(said);
-      } else {
-        // Silence timed out -- just keep listening rather than ending the call.
-        startListening();
+      if (finalizingRef.current) {
+        finalizingRef.current = false;
+        return;
       }
+      if (!activeRef.current) return;
+      // The engine stopped on its own (a short pause, or just its own internal time limit) -- the visitor hasn't
+      // necessarily finished, so pick a fresh instance back up immediately rather than treating this as the end
+      // of the turn. Whatever's already in finalTranscriptRef carries over untouched.
+      beginRecognitionInstance();
     };
     recognitionRef.current = recognition;
+    recognition.start();
+  }, [finalizeTurn, t]);
+
+  const startListening = useCallback(() => {
+    if (!activeRef.current) return;
+    finalTranscriptRef.current = "";
     setState("listening");
     setYouSaid("");
     setCaption("");
-    recognition.start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]);
+    beginRecognitionInstance();
+  }, [beginRecognitionInstance]);
 
   const handleTurn = useCallback(
     async (said: string) => {
@@ -258,6 +371,9 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     [onExchange, queueSpeech, startListening, t],
   );
 
+  handleTurnRef.current = handleTurn;
+  startListeningRef.current = startListening;
+
   useEffect(() => {
     if (!open) return;
     activeRef.current = true;
@@ -270,7 +386,8 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
       return;
     }
     // A short beat for the grow-from-small-orb entrance to land before the mic opens.
-    const timer = setTimeout(() => startListening(), 500);
+    const timer = setTimeout(() => startListeningRef.current(), 500);
+    void startMicMeter();
     return () => {
       clearTimeout(timer);
       stopAll();
