@@ -59,6 +59,12 @@ export default function useOrbWobble(
         targetFreq = 1.1;
         targetAmp = 0.02;
         targetScaleAmp = 0.025;
+      } else if (s === "reconnecting") {
+        // Slower than idle and unmistakably not "listening" -- a steady, patient pulse rather than the sharper
+        // "working on it" read of thinking, since nothing is actually being computed while the socket's down.
+        targetFreq = 0.3;
+        targetAmp = 0.014;
+        targetScaleAmp = 0.02;
       }
       // The parameters that shape the motion also ease toward their target (slower still, ~0.4s) rather than
       // jumping the instant the state changes -- a switch from listening to speaking ramps up into its new pace

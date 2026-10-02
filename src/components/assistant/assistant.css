@@ -51,6 +51,15 @@
   --ai-glow: rgba(248, 198, 34, 0.5);
   --ai-swirl: 0.85;
 }
+/* Reconnecting (voice call only): muted bronze/grey, deliberately the least "alive" of the states -- nothing is
+   actually being heard, thought about or said while the Live connection is being handed over or re-established. */
+.ai-assistant[data-state='reconnecting'] {
+  --ai-c1: #8A8580;
+  --ai-c2: #B08D57;
+  --ai-c3: #6E6A66;
+  --ai-glow: rgba(176, 141, 87, 0.22);
+  --ai-swirl: 0.3;
+}
 
 /* ---------- Orb ---------- */
 

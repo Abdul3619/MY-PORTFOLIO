@@ -14,7 +14,7 @@ import { pathToFileURL } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 import { STATIC_ROUTES } from './src/lib/seo.js';
 import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl.js';
-import { createChatRouter } from './chatbot/route.js';
+import { createChatRouter, createVoiceLiveRouter } from './chatbot/route.js';
 import { buildDigest, sendDigestEmail, digestConfigured, STALE_LEAD_DAYS, type DigestLead } from './digest.js';
 import { createOutreachRouter } from './outreach/route.js';
 
@@ -29,6 +29,10 @@ app.use(cors());
 // AI assistant: mounted before the global body parser so it applies its own small size limit and rate limits.
 // It uses the restricted chatbot_reader database login, never the service-role client below.
 app.use('/api/chat', createChatRouter());
+// Voice call: the browser connects straight to Gemini's Live API over its own WebSocket once it has a token from
+// here -- this server is only ever in the loop for minting that short-lived token and bridging tool calls, never
+// for the audio itself (see chatbot/route.ts's createVoiceLiveRouter for why).
+app.use('/api/voice', createVoiceLiveRouter());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 

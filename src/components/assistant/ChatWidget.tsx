@@ -648,6 +648,7 @@ export default function ChatWidget() {
     listening: t("assistant.state_listening", "Listening"),
     thinking: t("assistant.state_thinking", "Thinking"),
     speaking: t("assistant.state_speaking", "Speaking"),
+    reconnecting: t("assistant.state_reconnecting", "Reconnecting..."),
   };
   const intro = t("assistant.intro", "Hi. I can answer questions about Abdulwahab's projects, skills and how he works. What are you looking to build?");
   const transition = reduceMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 320, damping: 32 };

@@ -1,6 +1,8 @@
 import type { HTMLAttributes, Ref } from "react";
 
-export type AssistantState = "idle" | "listening" | "thinking" | "speaking";
+// "reconnecting" only ever happens in the voice call (a dropped/handed-over Live connection, see
+// VoiceCallOverlay.tsx) -- the text chat widget's own Orb usage never produces it, but needs to handle the type.
+export type AssistantState = "idle" | "listening" | "thinking" | "speaking" | "reconnecting";
 
 interface OrbVisualProps extends HTMLAttributes<HTMLDivElement> {
   size: number;

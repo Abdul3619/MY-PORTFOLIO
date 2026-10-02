@@ -11,7 +11,7 @@ interface WaveformProps {
 }
 
 // Static heights used when motion is reduced, so the state still reads at a glance
-const STATIC_LEVEL: Record<AssistantState, number> = { idle: 0.12, listening: 0.45, thinking: 0.6, speaking: 0.75 };
+const STATIC_LEVEL: Record<AssistantState, number> = { idle: 0.12, listening: 0.45, thinking: 0.6, speaking: 0.75, reconnecting: 0.2 };
 
 // A row of bars that reacts to what the assistant is doing. Not audio-driven yet: listening reacts to typing,
 // thinking runs a travelling wave, speaking pulses with the characters as they appear.

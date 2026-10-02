@@ -375,6 +375,65 @@ function geminiFunctionDeclarations(): FunctionDeclaration[] {
   return calComConfigured() ? [...tools, CHECK_AVAILABILITY_FUNCTION_DECLARATION, BOOK_CALL_FUNCTION_DECLARATION] : tools;
 }
 
+// Plain-string-typed tool declarations for the browser to drop straight into the Live API's own setup message
+// (see createVoiceLiveRouter below). Deliberately NOT the @google/genai FunctionDeclaration objects above: those
+// use the SDK's own `Type` enum for the "type" field, and whether that enum's members serialize over plain JSON
+// (res.json -> fetch -> JSON.stringify in the setup message) as the proto's expected string names ("OBJECT",
+// "STRING") or as numbers isn't something to assume either way -- every other enum-like field the raw Live
+// protocol expects (e.g. "START_SENSITIVITY_HIGH") is the literal proto string, so these are written out as
+// plain strings by hand rather than trusting a value that only needs to round-trip correctly through the SDK's
+// own request-building code today, for a completely different call path (generateContentStream).
+const VOICE_TOOL_DECLARATIONS: Array<{ name: string; description: string; parameters: unknown }> = [
+  {
+    name: 'submit_lead',
+    description: SUBMIT_LEAD_DESCRIPTION,
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: { type: 'STRING', description: "The visitor's name, exactly as they gave it." },
+        email: { type: 'STRING', description: "The visitor's email address, if they gave one." },
+        phone: { type: 'STRING', description: 'A phone or WhatsApp number, if they gave one, in whatever format they said it.' },
+        message: { type: 'STRING', description: 'A short note on what they want, in your own words, for Abdulwahab to read.' },
+        priority: { type: 'STRING', enum: ['hot', 'warm', 'cold'], description: PRIORITY_DESCRIPTION },
+      },
+      required: ['name', 'message'],
+    },
+  },
+  {
+    name: 'get_dashboard_access',
+    description: GET_DASHBOARD_ACCESS_DESCRIPTION,
+    parameters: {
+      type: 'OBJECT',
+      properties: { slug: { type: 'STRING', description: 'The exact slug of the project, copied from its <project slug="..."> attribute.' } },
+      required: ['slug'],
+    },
+  },
+  {
+    name: 'check_availability',
+    description: CHECK_AVAILABILITY_DESCRIPTION,
+    parameters: { type: 'OBJECT', properties: {} },
+  },
+  {
+    name: 'book_call',
+    description: BOOK_CALL_DESCRIPTION,
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: { type: 'STRING', description: "The visitor's name, exactly as they gave it." },
+        email: { type: 'STRING', description: 'The email address for the calendar invite.' },
+        startIso: { type: 'STRING', description: 'The exact ISO timestamp of the slot they picked, copied exactly from a check_availability result.' },
+        note: { type: 'STRING', description: 'A short note on what they want to discuss, if they said anything about it.' },
+      },
+      required: ['name', 'email', 'startIso'],
+    },
+  },
+];
+
+function voiceToolDeclarations() {
+  const tools = [VOICE_TOOL_DECLARATIONS[0], VOICE_TOOL_DECLARATIONS[1]];
+  return calComConfigured() ? [...tools, VOICE_TOOL_DECLARATIONS[2], VOICE_TOOL_DECLARATIONS[3]] : tools;
+}
+
 async function runCheckAvailability(): Promise<string> {
   try {
     const slots = await getAvailableSlots();
@@ -612,6 +671,136 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
       if (chunk.text) send({ type: 'delta', text: chunk.text });
     }
   }
+}
+
+// --- Live voice call: ephemeral tokens + tool bridge -----------------------------------------------------------
+//
+// The old voice call ran the browser's own speech-to-text, sent the recognized text through the exact same
+// request/response endpoint as typed chat, then read the answer aloud with the browser's own text-to-speech --
+// voice only at the very edges, a normal turn-based Q&A underneath. That's the whole reason real interruption
+// was never possible: there was no live audio stream to interrupt.
+//
+// The Gemini Live API is a different shape entirely: the browser opens one persistent WebSocket straight to
+// Google and streams raw microphone audio into it continuously; Google's own servers do voice-activity
+// detection, decide when the visitor has paused vs. finished vs. is talking over the assistant, and stream
+// audio straight back -- the "turn" concept basically disappears into one continuous conversation. This file is
+// the two small, ordinary HTTP endpoints that real-time path still needs from a traditional backend:
+//
+// 1. POST /api/voice/session -- mints a short-lived "ephemeral token" the browser can use to open that WebSocket
+//    directly, so the real GEMINI_API_KEY never has to leave the server. The browser authenticates with the
+//    token, not the key; even if someone extracted it from the page, it's only valid for a few minutes.
+// 2. POST /api/voice/tool -- when the live model wants to call submit_lead/check_availability/book_call/
+//    get_dashboard_access mid-conversation, the browser can't run those itself (they touch the database and
+//    Cal.com), so it posts the call here and relays the result back into the Live session. Exactly the same
+//    runTool() dispatch typed chat uses, so both paths get identical validation and rate-limiting.
+//
+// Model names below are a short fallback list for the same reason GEMINI_FALLBACK_MODELS exists above: Google
+// renames/retires Live-capable preview models with no advance notice, so the client tries this list in order
+// and moves on past whichever name has gone stale, rather than this whole feature going dark at once. The
+// ephemeral token itself is intentionally NOT locked to one model (no liveConnectConstraints), so that retry can
+// happen without minting a fresh token each time.
+const GEMINI_LIVE_MODELS = [
+  'gemini-2.5-flash-native-audio-preview-12-2025',
+  'gemini-2.5-flash-live-preview',
+  'gemini-3.1-flash-live-preview',
+];
+
+const VOICE_SESSION_SYSTEM_SUFFIX =
+  '\n\nYou are speaking out loud on a live voice call, not typing a chat message. Keep replies short and ' +
+  "conversational -- a sentence or two at a time, like a real phone call, never a bulleted list or long " +
+  'paragraph. Spell out things that read oddly aloud (say "fifteen minutes" not "15 min", say a URL as ' +
+  'plain words like "the link in your booking email" rather than reading out slashes and dots).';
+
+export function createVoiceLiveRouter() {
+  const router = express.Router();
+
+  const sessionLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 6,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    validate: { xForwardedForHeader: false, trustProxy: false, default: false },
+    message: { error: LIMIT_MESSAGES.visitor_minute },
+  });
+
+  // Mints the ephemeral token the browser needs to open the Live WebSocket itself. Reuses the exact same
+  // knowledge/project retrieval and system prompt as typed chat so the voice assistant knows the same things and
+  // sounds like the same assistant, just briefed to talk instead of write (see VOICE_SESSION_SYSTEM_SUFFIX).
+  router.post('/session', sessionLimiter, express.json({ limit: '4kb' }), async (req, res) => {
+    if (!originAllowed(req)) return res.status(403).json({ error: 'Not allowed.' });
+    if (!env('GEMINI_API_KEY')) {
+      return res.status(503).json({ error: 'Voice calls need a Gemini API key configured on the server.' });
+    }
+    if (!isKnowledgeConfigured()) {
+      return res.status(503).json({ error: 'The assistant is not available right now. Please use the contact form at /contact.' });
+    }
+    try {
+      const visitorKeyValue = visitorKey(req.ip || req.socket.remoteAddress || 'unknown');
+      const quota = await takeQuota(visitorKeyValue);
+      if (quota !== 'ok') return res.status(429).json({ error: LIMIT_MESSAGES[quota] ?? LIMIT_MESSAGES.global_day });
+
+      const [entries, projects] = await Promise.all([retrieveKnowledge('voice call introduction'), retrieveProjects()]);
+      const systemInstruction = [SYSTEM_PROMPT + VOICE_SESSION_SYSTEM_SUFFIX, formatKnowledge(entries), formatProjects(projects)].join('\n\n');
+
+      const client = getGeminiClient();
+      const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      const newSessionExpireTime = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+      // `uses` is deliberately more than 1: the browser client tries a short list of model names and two URL
+      // forms (see liveVoiceClient.ts) until one connects, since Google renames/retires Live-preview models
+      // without notice -- each attempt that opens a socket at all likely counts as a use, even one that then
+      // fails before setupComplete, so a single fallback round (a handful of models x 2 URL shapes) needs more
+      // than one. Still a long way from a reusable credential: it's dead in 30 minutes and tied to this origin.
+      const token = await (client as any).authTokens.create({
+        config: { uses: 8, expireTime, newSessionExpireTime },
+      });
+      const tokenValue = token?.name ?? token?.token ?? token;
+
+      res.json({
+        token: tokenValue,
+        models: GEMINI_LIVE_MODELS,
+        systemInstruction,
+        tools: voiceToolDeclarations(),
+      });
+    } catch (err: any) {
+      console.error('Voice session mint error:', err?.message);
+      res.status(503).json({ error: 'Could not start a voice session right now. Please try again in a moment.' });
+    }
+  });
+
+  const toolLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 30,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    validate: { xForwardedForHeader: false, trustProxy: false, default: false },
+    message: { error: LIMIT_MESSAGES.visitor_minute },
+  });
+
+  const voiceToolSchema = z
+    .object({ name: z.string(), input: z.record(z.string(), z.unknown()).default({}) })
+    .strict();
+
+  // The Live session calls this once per function call it wants to make, mid-conversation, and keeps streaming
+  // audio the whole time it waits -- the voice side never blocks on this. Every tool still enforces its own
+  // quota/validation underneath (see runTool/runSubmitLead/runBookCall above), same as the typed-chat path.
+  router.post('/tool', toolLimiter, express.json({ limit: '4kb' }), async (req, res) => {
+    if (!originAllowed(req)) return res.status(403).json({ error: 'Not allowed.' });
+    const parsed = voiceToolSchema.safeParse(req.body);
+    if (!parsed.success || !isToolName(parsed.data.name)) {
+      return res.status(400).json({ error: 'Invalid tool call.' });
+    }
+    try {
+      const visitorKeyValue = visitorKey(req.ip || req.socket.remoteAddress || 'unknown');
+      const result = await runTool(parsed.data.name, visitorKeyValue, parsed.data.input);
+      res.json({ result });
+    } catch (err: any) {
+      console.error('Voice tool error:', parsed.data.name, err?.message);
+      res.json({ result: "Couldn't complete that right now. Let the visitor know and offer the contact form or WhatsApp instead." });
+    }
+  });
+
+  router.all('*', (_req, res) => res.status(405).json({ error: 'Method not allowed.' }));
+  return router;
 }
 
 export function createChatRouter() {
