@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type FormEven
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUp, Maximize2, Minimize2, RotateCcw, Sparkles, Square, X } from "lucide-react";
+import { ArrowUp, Maximize2, Mic, Minimize2, RotateCcw, Sparkles, Square, X } from "lucide-react";
 import OrbVisual, { type AssistantState } from "./OrbVisual";
 import TypedText from "./TypedText";
 import Waveform from "./Waveform";
@@ -189,26 +189,6 @@ function resolveSuggestion(path: string, section: string | null): Suggestion | n
   return match ? { key: path, ...match.build() } : null;
 }
 
-const SUGGESTION_SEEN_KEY = "portfolio-assistant-suggestion-seen";
-
-function suggestionSeenSet(): Set<string> {
-  try {
-    return new Set(JSON.parse(sessionStorage.getItem(SUGGESTION_SEEN_KEY) || "[]"));
-  } catch {
-    return new Set();
-  }
-}
-
-function markSuggestionSeen(key: string) {
-  try {
-    const seen = suggestionSeenSet();
-    seen.add(key);
-    sessionStorage.setItem(SUGGESTION_SEEN_KEY, JSON.stringify([...seen]));
-  } catch {
-    // ignore
-  }
-}
-
 const INTERNAL_LABELS: Record<string, string> = {
   "/contact": "Open the contact form",
   "/projects": "Browse all projects",
@@ -259,7 +239,15 @@ function extractActions(text: string): ChatAction[] {
   return actions.slice(0, 3);
 }
 
-function ChatActions({ content, onOpenDemo }: { content: string; onOpenDemo: (url: string, label: string) => void }) {
+function ChatActions({
+  content,
+  onOpenDemo,
+  onNavigate,
+}: {
+  content: string;
+  onOpenDemo: (url: string, label: string) => void;
+  onNavigate: () => void;
+}) {
   const actions = extractActions(content);
   if (actions.length === 0) return null;
   const buttonClass =
@@ -268,8 +256,11 @@ function ChatActions({ content, onOpenDemo }: { content: string; onOpenDemo: (ur
     <span className="mt-3 flex flex-wrap gap-2 not-italic">
       {actions.map((a) => {
         if (a.internal) {
+          // Taking the visitor to another page/section is the guide's job done -- the widget tucks itself back
+          // into its launcher so it doesn't sit over the very thing it just pointed them to. The conversation
+          // itself is untouched (see STORAGE_KEY/loadMessages), so reopening picks up right where it left off.
           return (
-            <Link key={a.href} to={a.href} className={buttonClass}>
+            <Link key={a.href} to={a.href} onClick={onNavigate} className={buttonClass}>
               {a.label} →
             </Link>
           );
@@ -317,6 +308,24 @@ function panelSize(expanded: boolean) {
 
 type Phase = "idle" | "thinking" | "speaking";
 
+// Speech-to-text for the input box, using whichever speech recognition the visitor's own browser ships with
+// (Chrome/Edge/Safari all have one under slightly different names) -- free, no server or API key involved. Where
+// no browser support exists (e.g. Firefox), the mic button simply isn't offered and typing works as before.
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((e: any) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+}
+
 export default function ChatWidget() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -336,6 +345,9 @@ export default function ChatWidget() {
   // right under it -- cleared the moment any new message (including the continue itself) starts sending.
   const [stoppedIndex, setStoppedIndex] = useState<number | null>(null);
   const [pageSuggestion, setPageSuggestion] = useState<Suggestion | null>(null);
+  const [speechSupported] = useState(() => Boolean(getSpeechRecognitionCtor()));
+  const [listeningSpeech, setListeningSpeech] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [activeSection, setActiveSectionState] = useState<string | null>(() => getActiveSection());
   const [hasUnseenCue, setHasUnseenCue] = useState(false);
   // A small speech bubble that steps up next to the collapsed launcher on its own, like a showroom guide
@@ -358,7 +370,8 @@ export default function ChatWidget() {
   const busy = phase !== "idle";
 
   // What the orb, waveform and label show
-  const state: AssistantState = phase !== "idle" ? phase : open && inputFocused && input.trim() ? "listening" : "idle";
+  const state: AssistantState =
+    phase !== "idle" ? phase : open && (listeningSpeech || (inputFocused && input.trim())) ? "listening" : "idle";
 
   useEffect(() => {
     setMounted(true);
@@ -424,8 +437,10 @@ export default function ChatWidget() {
   useEffect(() => subscribeActiveSection(setActiveSectionState), []);
 
   // One contextual suggestion at a time, like a showroom guide noticing which part of the shop you're in. It
-  // changes as the visitor scrolls the homepage or moves between pages, but each one is only ever offered once
-  // per tab — tapped or not, it never repeats, and it never appears while a conversation is already underway.
+  // changes as the visitor scrolls the homepage or moves between pages, and steps back up again every time they
+  // pass through a section -- including a section they've already seen -- so wandering back into "Projects"
+  // after looking at "Skills" offers the Projects suggestion again rather than staying silent. It only ever
+  // defers to an active conversation, never to history.
   useEffect(() => {
     if (messages.length > 0) {
       setPageSuggestion(null);
@@ -435,7 +450,7 @@ export default function ChatWidget() {
       return;
     }
     const suggestion = resolveSuggestion(location.pathname, activeSection);
-    if (!suggestion || suggestionSeenSet().has(suggestion.key)) {
+    if (!suggestion) {
       if (!open) setHasUnseenCue(false);
       setBubble(null);
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
@@ -443,18 +458,15 @@ export default function ChatWidget() {
     }
     if (open) {
       setPageSuggestion(suggestion);
-      markSuggestionSeen(suggestion.key);
       setHasUnseenCue(false);
     } else {
       // Widget is closed: the launcher gets a quiet pulse right away, and after a short beat (so a visitor just
       // passing through the section isn't interrupted mid-scroll) a small dismissable bubble steps up next to it
-      // with the actual suggestion -- visible on its own, never blocking anything else on the page.
+      // with the actual suggestion -- visible on its own, never blocking anything else on the page. This effect
+      // reruns on every section/path change, so leaving and coming back re-triggers the same beat and bubble.
       setHasUnseenCue(true);
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
-      bubbleTimerRef.current = setTimeout(() => {
-        setBubble(suggestion);
-        markSuggestionSeen(suggestion.key);
-      }, 900);
+      bubbleTimerRef.current = setTimeout(() => setBubble(suggestion), 900);
     }
     return () => {
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
@@ -567,6 +579,34 @@ export default function ChatWidget() {
   const stop = useCallback(() => {
     abortRef.current?.abort();
   }, []);
+
+  const toggleSpeech = useCallback(() => {
+    if (!speechSupported) return;
+    if (listeningSpeech) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) return;
+    const recognition = new Ctor();
+    recognition.lang = document.documentElement.lang || "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.onresult = (e: any) => {
+      let transcript = "";
+      for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0]?.transcript ?? "";
+      setInput(transcript);
+      energy.current = Math.min(1.2, energy.current + 0.4);
+    };
+    recognition.onerror = () => setListeningSpeech(false);
+    recognition.onend = () => setListeningSpeech(false);
+    recognitionRef.current = recognition;
+    inputRef.current?.focus();
+    recognition.start();
+    setListeningSpeech(true);
+  }, [speechSupported, listeningSpeech]);
+
+  useEffect(() => () => recognitionRef.current?.stop(), []);
 
   const onTyped = useCallback((count: number) => {
     energy.current = Math.min(1.4, energy.current + count * 0.12);
@@ -773,7 +813,7 @@ export default function ChatWidget() {
                     ) : (
                       <>
                         {renderForDisplay(m.content)}
-                        <ChatActions content={m.content} onOpenDemo={(url, label) => setDemoPanel({ url, label })} />
+                        <ChatActions content={m.content} onOpenDemo={(url, label) => setDemoPanel({ url, label })} onNavigate={close} />
                         {stoppedIndex === i && !busy && (
                           <span className="mt-3 flex flex-wrap not-italic">
                             <button
@@ -790,9 +830,14 @@ export default function ChatWidget() {
                   </p>
                 ),
               )}
-              {/* Before the first character arrives: just the caret, where the answer will appear */}
+              {/* Before the first character arrives: a shimmering placeholder sits exactly where the reply will
+                  land, so the space never looks frozen or broken while the model is still working. */}
               {phase === "thinking" && live === null && (
-                <p className="leading-relaxed"><span className="ai-caret" aria-hidden="true" /></p>
+                <div className="ai-skeleton-row" role="status" aria-label={t("assistant.state_thinking", "Thinking")}>
+                  <span className="ai-skeleton-bar" style={{ width: "46%" }} />
+                  <span className="ai-skeleton-bar" style={{ width: "22%" }} />
+                  <span className="ai-skeleton-bar" style={{ width: "14%" }} />
+                </div>
               )}
               {error && (
                 <p role="alert" className="text-xs text-red-300 border border-red-500/20 bg-red-500/5 rounded-xl px-4 py-2.5">
@@ -817,6 +862,21 @@ export default function ChatWidget() {
                   placeholder={t("assistant.placeholder", "Ask a question...")}
                   className="flex-1 resize-none max-h-28 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold/50 transition-colors"
                 />
+                {speechSupported && (
+                  <button
+                    type="button"
+                    onClick={toggleSpeech}
+                    disabled={busy}
+                    aria-pressed={listeningSpeech}
+                    aria-label={listeningSpeech ? t("assistant.stop_voice", "Stop voice input") : t("assistant.start_voice", "Speak your question instead of typing")}
+                    title={listeningSpeech ? t("assistant.stop_voice", "Stop voice input") : t("assistant.start_voice", "Speak your question instead of typing")}
+                    className={`interactive glass-button rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${
+                      listeningSpeech ? "bg-red-500 text-white" : "bg-white/10 text-gray-300 hover:text-white hover:bg-white/15"
+                    }`}
+                  >
+                    <Mic size={17} aria-hidden="true" className={listeningSpeech ? "animate-pulse" : undefined} />
+                  </button>
+                )}
                 <button
                   type={busy ? "button" : "submit"}
                   onClick={busy ? stop : undefined}

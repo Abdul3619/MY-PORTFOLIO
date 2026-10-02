@@ -492,9 +492,27 @@ async function runAnthropicTurn({ entries, projects, history, message, visitorKe
 // stream-abort handle the way Anthropic's does, so on a client disconnect this just stops forwarding further
 // chunks (isClosed() checks below) rather than cancelling the underlying request -- an acceptable gap for a
 // fallback path.
+// Google keeps changing which model names are actually live for a given account (a model can be retired for new
+// accounts, or an alias like "-latest" can jump onto a brand-new, capacity-constrained preview release) with no
+// warning the code can detect ahead of time. Rather than hardcode one model and go dark the next time Google
+// reshuffles, this tries an explicitly-configured model first (if CHAT_MODEL is set), then a short list of other
+// current, stable, non-preview models, moving to the next only when a model is rejected outright (retired/unknown)
+// or is itself overloaded -- never mid-stream, since by then text may already be on its way to the visitor.
+const GEMINI_FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+
+function isModelUnavailable(err: any): boolean {
+  const status = err?.status ?? err?.error?.code;
+  const message = String(err?.message ?? err?.error?.message ?? '');
+  return status === 404 || /is no longer available|not found|not supported/i.test(message);
+}
+
 async function runGeminiTurn({ entries, projects, history, message, visitorKeyValue, send, isClosed }: TurnArgs) {
   const configuredModel = env('CHAT_MODEL');
-  const model = configuredModel && configuredModel.startsWith('gemini') ? configuredModel : 'gemini-2.5-flash';
+  const candidates = [
+    ...(configuredModel && configuredModel.startsWith('gemini') ? [configuredModel] : []),
+    ...GEMINI_FALLBACK_MODELS,
+  ].filter((m, i, arr) => arr.indexOf(m) === i);
+
   const systemInstruction = [SYSTEM_PROMPT, formatKnowledge(entries), formatProjects(projects)].join('\n\n');
 
   const toGeminiRole = (role: 'user' | 'assistant') => (role === 'assistant' ? ('model' as const) : ('user' as const));
@@ -504,17 +522,31 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
   ];
 
   const client = getGeminiClient();
-  const stream = await withOverloadRetry(() =>
-    client.models.generateContentStream({
-      model,
-      contents,
-      config: {
-        systemInstruction,
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
-        tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
-      },
-    }),
-  );
+  let model = candidates[0];
+  let stream: Awaited<ReturnType<typeof client.models.generateContentStream>> | undefined;
+  let lastErr: any;
+  for (const candidate of candidates) {
+    try {
+      stream = await withOverloadRetry(() =>
+        client.models.generateContentStream({
+          model: candidate,
+          contents,
+          config: {
+            systemInstruction,
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+            tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
+          },
+        }),
+      );
+      model = candidate;
+      break;
+    } catch (err: any) {
+      lastErr = err;
+      if (isModelUnavailable(err) || isProviderOverloaded(err)) continue; // try the next candidate
+      throw err; // some other error (bad key, etc.) -- no point trying more models
+    }
+  }
+  if (!stream) throw lastErr;
 
   let sentText = false;
   let functionCall: { name: ToolName; args: Record<string, unknown> } | undefined;
