@@ -600,7 +600,10 @@ export function createChatRouter() {
       } else {
         console.error('Chat model error:', err?.status ?? '', err?.message);
       }
-      send({ type: 'error', message: 'Something went wrong on my side. Please try again in a moment, or use the contact form at /contact.' });
+      // TEMPORARY: surfacing the real error detail to the visitor while diagnosing a live 500 -- revert before
+      // merging for real, this would otherwise leak internal error text to visitors.
+      const debugDetail = `${err?.status ?? ''} ${err?.message ?? String(err)}`.trim().slice(0, 300);
+      send({ type: 'error', message: `Something went wrong on my side. Please try again in a moment, or use the contact form at /contact. [debug: ${debugDetail}]` });
     } finally {
       if (!closed) res.end();
     }
