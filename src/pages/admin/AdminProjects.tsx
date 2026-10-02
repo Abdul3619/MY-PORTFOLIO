@@ -4,22 +4,24 @@ import { fetchApi } from '../../hooks/useApi';
 import { useAdmin } from '../../components/admin/AdminLayout';
 import { motion, AnimatePresence } from 'motion/react';
 import { SingleImageUploader, GalleryImageUploader } from '../../components/admin/ImageUploader';
-import { 
-  FolderKanban, 
-  Search, 
-  Plus, 
-  Edit3, 
-  Trash2, 
-  X, 
-  Globe, 
-  Github, 
-  Eye, 
-  Check, 
-  Image as ImageIcon, 
-  Layers, 
-  ToggleLeft, 
-  ToggleRight, 
-  AlertCircle 
+import {
+  FolderKanban,
+  Search,
+  Plus,
+  Edit3,
+  Trash2,
+  X,
+  Globe,
+  Github,
+  Eye,
+  Check,
+  Image as ImageIcon,
+  Layers,
+  ToggleLeft,
+  ToggleRight,
+  AlertCircle,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 
 interface ProjectMetadata {
@@ -64,6 +66,49 @@ export default function AdminProjects() {
   // is instructed to offer it as a button in conversation (see chatbot/systemPrompt.ts). Only meant for projects
   // whose demo includes an admin/booking dashboard -- everything else should stay unchecked and unaffected.
   const [formHasDashboard, setFormHasDashboard] = useState(false);
+
+  // "Build from an image" -- the admin drops a screenshot, the AI proposes a draft entry (title, description,
+  // case study, category, tags) for review before saving. Nothing is persisted until the form is submitted.
+  const [isGeneratingFromImage, setIsGeneratingFromImage] = useState(false);
+  const imageInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleGenerateFromImage = async (file: File) => {
+    setIsGeneratingFromImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const result = await fetchApi('/api/admin/projects/generate-from-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      setFormTitle(result.title || formTitle);
+      setFormSlug(result.slug || formSlug);
+      setFormDesc(result.description || formDesc);
+      setFormCaseStudy(result.long_description || formCaseStudy);
+      setFormCategory(result.category || formCategory);
+      if (Array.isArray(result.tags) && result.tags.length > 0) setFormTags(result.tags);
+
+      // Use the same screenshot as the cover image, since the admin already has it open -- they can replace it.
+      try {
+        const mediaForm = new FormData();
+        mediaForm.append('file', file);
+        mediaForm.append('project_slug', result.slug || formSlug || 'untitled');
+        mediaForm.append('field_type', 'cover');
+        const uploaded = await fetchApi('/api/projects/upload-media', { method: 'POST', body: mediaForm });
+        if (uploaded?.url) setFormThumbnail(uploaded.url);
+      } catch (e) {
+        // Not fatal -- the admin can still upload a cover image manually below.
+      }
+
+      triggerToast('Draft Generated', `Filled in a draft from the image -- review it before saving.`, 'success');
+    } catch (err: any) {
+      console.error('Error generating project from image:', err);
+      triggerToast('Generation Failed', err.message || 'Could not analyze that image.', 'danger');
+    } finally {
+      setIsGeneratingFromImage(false);
+    }
+  };
 
   // Fetch all projects from Supabase via server API proxy
   const fetchProjects = async () => {
@@ -468,7 +513,41 @@ export default function AdminProjects() {
 
               {/* Scrollable Form Body */}
               <form onSubmit={handleSaveProject} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
-                
+
+                {/* 0. Build from an image -- lets the AI draft the fields below from a screenshot */}
+                {!selectedProject && (
+                  <div className="bg-[#00F0FF]/5 border border-[#00F0FF]/20 rounded-lg p-4 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-mono uppercase text-[#00F0FF] font-bold flex items-center gap-1.5">
+                        <Sparkles size={12} /> Build From An Image
+                      </p>
+                      <p className="text-[9px] text-gray-500 mt-0.5">
+                        Drop a screenshot of the project -- the AI drafts the title, description, case study, category and tech tags below for you to review.
+                      </p>
+                    </div>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleGenerateFromImage(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={isGeneratingFromImage}
+                      onClick={() => imageInputRef.current?.click()}
+                      className="shrink-0 px-3 py-2 bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 border border-[#00F0FF]/30 text-[#00F0FF] rounded font-mono text-[10px] font-bold uppercase flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-wait"
+                    >
+                      {isGeneratingFromImage ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                      {isGeneratingFromImage ? 'Analyzing...' : 'Upload Image'}
+                    </button>
+                  </div>
+                )}
+
                 {/* 1. Title & Slug path */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
