@@ -160,6 +160,7 @@ export type DashboardLinkResult = { ok: true; url: string } | { ok: false; error
 // here simply isn't supported yet, which createDashboardLink() reports as 'not_supported'.
 const DASHBOARD_LINK_HANDLERS: Record<string, () => Promise<DashboardLinkResult>> = {
   'agbada-luxe': () => createAgbadaDashboardLink(),
+  'shion-orne': () => createShionOrneDashboardLink(),
 };
 
 // Agbada Luxe is a separate frontend-only app that happens to share this same Supabase project, so its
@@ -174,6 +175,27 @@ async function createAgbadaDashboardLink(): Promise<DashboardLinkResult> {
   const row = rows[0];
   if (!row?.ok || !row.link_token) return { ok: false, error: row?.error || 'unknown' };
   return { ok: true, url: `https://agbada-luxe.vercel.app/admin/magic/${row.link_token}` };
+}
+
+// Shion Orne has its own, separate Supabase project -- unlike Agbada Luxe it doesn't share this server's database,
+// so there's no RPC connection to reuse. Instead this calls Shion Orne's own deployed API directly, authenticated
+// with a shared secret (SHION_ORNE_SERVICE_KEY here, PORTFOLIO_SERVICE_KEY on its side) that only these two servers
+// know -- a visitor's browser never sees it, only the one-time token the endpoint hands back.
+async function createShionOrneDashboardLink(): Promise<DashboardLinkResult> {
+  const serviceKey = process.env.SHION_ORNE_SERVICE_KEY;
+  if (!serviceKey) return { ok: false, error: 'not_configured' };
+
+  const res = await fetch('https://shin-orne.vercel.app/api/admin/magic-link', {
+    method: 'POST',
+    headers: { 'x-portfolio-key': serviceKey },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as any);
+    return { ok: false, error: body?.error || `http_${res.status}` };
+  }
+  const data = (await res.json()) as { token?: string };
+  if (!data.token) return { ok: false, error: 'unknown' };
+  return { ok: true, url: `https://shin-orne.vercel.app/admin/magic/${data.token}` };
 }
 
 export async function createDashboardLink(projectSlug: string): Promise<DashboardLinkResult> {
