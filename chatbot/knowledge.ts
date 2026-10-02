@@ -132,6 +132,7 @@ export async function takeQuota(visitorKey: string): Promise<QuotaResult> {
 }
 
 export type LeadResult = 'ok' | 'invalid_input' | 'visitor_day' | 'global_day';
+export type LeadPriority = 'hot' | 'warm' | 'cold';
 
 // Saves a lead the model collected in conversation. The server never decides to call this -- the model only
 // reaches it through the submit_lead tool, after the visitor has clearly given their details and agreed to be
@@ -139,11 +140,20 @@ export type LeadResult = 'ok' | 'invalid_input' | 'visitor_day' | 'global_day';
 // limits everything server-side, so a model mistake or a prompt injection can at worst insert one junk row,
 // never anything more. Email and phone are each optional, but at least one must resolve to something valid --
 // a visitor may prefer to leave a phone/WhatsApp number instead of an email, especially outside regions where
-// WhatsApp is less common.
-export async function submitLead(visitorKey: string, name: string, email: string | undefined, message: string, phone?: string): Promise<LeadResult> {
+// WhatsApp is less common. `priority` is the model's own read of how hot the lead is (see the tool description
+// in route.ts); the database function re-validates it to one of hot/warm/cold regardless, so a stray value here
+// can at worst fall back to 'warm', never anything invalid.
+export async function submitLead(
+  visitorKey: string,
+  name: string,
+  email: string | undefined,
+  message: string,
+  phone?: string,
+  priority?: LeadPriority,
+): Promise<LeadResult> {
   const { rows } = await getPool().query<{ result: LeadResult }>(
-    'select private.chat_submit_lead($1, $2, $3, $4, $5) as result',
-    [visitorKey, name, email || null, message, phone || null],
+    'select private.chat_submit_lead($1, $2, $3, $4, $5, $6) as result',
+    [visitorKey, name, email || null, message, phone || null, priority || 'warm'],
   );
   return rows[0]?.result ?? 'global_day';
 }

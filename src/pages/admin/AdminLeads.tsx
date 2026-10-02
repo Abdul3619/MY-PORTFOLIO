@@ -2,23 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAdmin } from '../../components/admin/AdminLayout';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Users, 
-  Search, 
-  Filter, 
-  Calendar, 
-  DollarSign, 
-  Briefcase, 
-  Plus, 
-  X, 
-  MessageSquare, 
-  ChevronRight, 
-  Mail, 
-  Clock, 
-  AlertCircle, 
-  CheckCircle2, 
-  Award 
+import {
+  Users,
+  Search,
+  Filter,
+  Calendar,
+  DollarSign,
+  Briefcase,
+  Plus,
+  X,
+  MessageSquare,
+  ChevronRight,
+  Mail,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  Award,
+  Flame,
+  Minus,
+  Snowflake,
 } from 'lucide-react';
+
+type Priority = 'hot' | 'warm' | 'cold';
 
 interface Lead {
   id: string;
@@ -30,14 +35,25 @@ interface Lead {
   source: string;
   created_at: string;
   phone?: string;
+  priority?: Priority;
   notes?: Array<{ id: string; note: string; created_at: string }>;
 }
+
+// AI-assessed urgency, set by the chat assistant's submit_lead tool when a visitor's own words signal it (a real
+// deadline, a budget, readiness to start = hot; clearly just browsing = cold; anything else, including leads
+// that didn't come through the AI at all, default to warm). Purely informational -- doesn't affect the pipeline.
+const PRIORITY_META: Record<Priority, { label: string; icon: typeof Flame; className: string }> = {
+  hot: { label: 'Hot', icon: Flame, className: 'bg-rose-500/10 text-[#EF4444] border-rose-500/20' },
+  warm: { label: 'Warm', icon: Minus, className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  cold: { label: 'Cold', icon: Snowflake, className: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+};
 
 export default function AdminLeads() {
   const { searchQuery, triggerToast } = useAdmin();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStage, setActiveStage] = useState<string>('All');
+  const [activePriority, setActivePriority] = useState<Priority | 'All'>('All');
   
   // Drawer/Details State
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -204,12 +220,13 @@ export default function AdminLeads() {
 
   const filteredLeads = leads.filter(l => {
     const stageMatches = activeStage === 'All' || l.status === activeStage;
-    const queryMatches = !searchQuery || 
+    const priorityMatches = activePriority === 'All' || (l.priority || 'warm') === activePriority;
+    const queryMatches = !searchQuery ||
       l.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.source?.toLowerCase().includes(searchQuery.toLowerCase());
-    return stageMatches && queryMatches;
+    return stageMatches && priorityMatches && queryMatches;
   });
 
   return (
@@ -246,10 +263,40 @@ export default function AdminLeads() {
         })}
       </div>
 
+      {/* AI urgency filter -- how hot the AI assistant judged each lead to be from what the visitor actually said */}
+      <div className="flex items-center gap-2 text-xs font-mono">
+        <span className="text-[10px] text-gray-500 uppercase tracking-widest">AI urgency</span>
+        <button
+          onClick={() => setActivePriority('All')}
+          className={`px-2.5 py-1 rounded border transition-colors ${
+            activePriority === 'All' ? 'bg-white/10 text-white border-white/20' : 'bg-white/2 text-gray-500 border-white/8 hover:text-white'
+          }`}
+        >
+          All ({leads.length})
+        </button>
+        {(Object.keys(PRIORITY_META) as Priority[]).map((p) => {
+          const meta = PRIORITY_META[p];
+          const Icon = meta.icon;
+          const count = leads.filter((l) => (l.priority || 'warm') === p).length;
+          return (
+            <button
+              key={p}
+              onClick={() => setActivePriority(p)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded border transition-colors ${
+                activePriority === p ? meta.className : 'bg-white/2 text-gray-500 border-white/8 hover:text-white'
+              }`}
+            >
+              <Icon size={11} />
+              {meta.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Main Filter reset */}
       <div className="flex justify-between items-center text-xs font-mono border-b border-white/8 pb-2">
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={() => setActiveStage('All')}
             className={`px-3 py-1 rounded transition-colors ${
               activeStage === 'All' ? 'bg-[#00F0FF] text-black font-black' : 'bg-white/4 text-gray-400 hover:text-white'
@@ -271,6 +318,7 @@ export default function AdminLeads() {
                 <th className="p-4">Enterprise / Company</th>
                 <th className="p-4">Source Channel</th>
                 <th className="p-4">Pipeline Status</th>
+                <th className="p-4">AI Urgency</th>
                 <th className="p-4 text-center">Value Estimate</th>
                 <th className="p-4 text-right">Registered</th>
               </tr>
@@ -301,6 +349,19 @@ export default function AdminLeads() {
                       {lead.status}
                     </span>
                   </td>
+                  {/* AI urgency badge */}
+                  <td className="p-4">
+                    {(() => {
+                      const meta = PRIORITY_META[lead.priority || 'warm'];
+                      const Icon = meta.icon;
+                      return (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-mono font-bold border ${meta.className}`}>
+                          <Icon size={11} />
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   {/* Estimate value */}
                   <td className="p-4 text-center font-mono font-bold text-white text-sm">
                     ${(lead.value || 0).toLocaleString()}
@@ -313,7 +374,7 @@ export default function AdminLeads() {
               ))}
               {filteredLeads.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500 font-mono text-xs">
+                  <td colSpan={7} className="p-8 text-center text-gray-500 font-mono text-xs">
                     No active leads matching the current segment were found.
                   </td>
                 </tr>
@@ -385,6 +446,19 @@ export default function AdminLeads() {
                     <div>
                       <span className="text-gray-500 font-mono block">Phone Protocol</span>
                       <span className="text-white font-mono block">{selectedLead.phone || 'Unavailable'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 font-mono block">AI Urgency</span>
+                      {(() => {
+                        const meta = PRIORITY_META[selectedLead.priority || 'warm'];
+                        const Icon = meta.icon;
+                        return (
+                          <span className={`inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${meta.className}`}>
+                            <Icon size={11} />
+                            {meta.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

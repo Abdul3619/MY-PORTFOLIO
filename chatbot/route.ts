@@ -28,6 +28,7 @@ import {
   type KnowledgeEntry,
   type ProjectEntry,
   type LeadResult,
+  type LeadPriority,
 } from './knowledge.js';
 
 const MAX_MESSAGE_CHARS = 1000;
@@ -160,6 +161,9 @@ function activeProvider(): ChatProvider | null {
 const SUBMIT_LEAD_DESCRIPTION =
   "Passes a visitor's contact details to Abdulwahab so he can follow up, instead of only pointing them at the contact form. Only call this after the visitor has clearly given their own name, at least one way to reach them (email, or a phone/WhatsApp number), and wants to be contacted -- never guess, never invent a value, and never call this more than once per conversation. A visitor can give either contact method, whichever they actually use; don't insist on email specifically.";
 
+const PRIORITY_DESCRIPTION =
+  "Your own read of how urgent this lead is, based only on what they actually said in this conversation -- never guess beyond it. 'hot': they mentioned a real deadline or urgency (\"need this live next week\", \"asap\"), a concrete budget or willingness to pay, or said they're ready to start/hire now. 'cold': they're clearly just browsing, comparing options with no timeline, or said it's for \"someday\"/\"just curious\". 'warm': anything in between, or if it's genuinely unclear -- warm is always the safe default, never invent urgency or budget signals that weren't actually said.";
+
 const SUBMIT_LEAD_TOOL: Anthropic.Tool = {
   name: 'submit_lead',
   description: SUBMIT_LEAD_DESCRIPTION,
@@ -170,6 +174,7 @@ const SUBMIT_LEAD_TOOL: Anthropic.Tool = {
       email: { type: 'string', description: "The visitor's email address, if they gave one." },
       phone: { type: 'string', description: 'A phone or WhatsApp number, if they gave one, in whatever format they typed it.' },
       message: { type: 'string', description: 'A short note on what they want, in your own words, for Abdulwahab to read.' },
+      priority: { type: 'string', enum: ['hot', 'warm', 'cold'], description: PRIORITY_DESCRIPTION },
     },
     required: ['name', 'message'],
   },
@@ -185,10 +190,15 @@ const SUBMIT_LEAD_FUNCTION_DECLARATION: FunctionDeclaration = {
       email: { type: Type.STRING, description: "The visitor's email address, if they gave one." },
       phone: { type: Type.STRING, description: 'A phone or WhatsApp number, if they gave one, in whatever format they typed it.' },
       message: { type: Type.STRING, description: 'A short note on what they want, in your own words, for Abdulwahab to read.' },
+      priority: { type: Type.STRING, enum: ['hot', 'warm', 'cold'], description: PRIORITY_DESCRIPTION },
     },
     required: ['name', 'message'],
   },
 };
+
+function toLeadPriority(value: unknown): LeadPriority {
+  return value === 'hot' || value === 'cold' ? value : 'warm';
+}
 
 const LEAD_RESULT_TEXT: Record<LeadResult, string> = {
   ok: 'Saved. Abdulwahab will follow up soon.',
@@ -199,13 +209,17 @@ const LEAD_RESULT_TEXT: Record<LeadResult, string> = {
 
 // Runs the submit_lead tool call the same way regardless of which model asked for it, so both providers get
 // identical validation/rate-limiting behaviour.
-async function runSubmitLead(visitorKeyValue: string, input: { name?: unknown; email?: unknown; phone?: unknown; message?: unknown }): Promise<LeadResult> {
+async function runSubmitLead(
+  visitorKeyValue: string,
+  input: { name?: unknown; email?: unknown; phone?: unknown; message?: unknown; priority?: unknown },
+): Promise<LeadResult> {
   try {
     const name = typeof input.name === 'string' ? input.name : '';
     const email = typeof input.email === 'string' ? input.email : undefined;
     const phone = typeof input.phone === 'string' ? input.phone : undefined;
     const note = typeof input.message === 'string' ? input.message : '';
-    return await submitLead(visitorKeyValue, name, email, note, phone);
+    const priority = toLeadPriority(input.priority);
+    return await submitLead(visitorKeyValue, name, email, note, phone, priority);
   } catch (err: any) {
     console.error('Lead submit error:', err?.message);
     return 'global_day';
