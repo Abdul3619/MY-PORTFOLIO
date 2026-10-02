@@ -1,11 +1,14 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MutableRefObject, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUp, Maximize2, Mic, Minimize2, RotateCcw, Sparkles, Square, X } from "lucide-react";
+import { ArrowUp, Maximize2, Mic, Minimize2, Phone, RotateCcw, Sparkles, Square, X } from "lucide-react";
 import OrbVisual, { type AssistantState } from "./OrbVisual";
 import TypedText from "./TypedText";
 import Waveform from "./Waveform";
+import useOrbWobble from "./useOrbWobble";
+import VoiceCallOverlay from "./VoiceCallOverlay";
+import { getSpeechRecognitionCtor, type SpeechRecognitionLike } from "./speechRecognition";
 import "./assistant.css";
 import { getActiveSection, subscribeActiveSection } from "../../lib/activeSection";
 
@@ -282,11 +285,18 @@ function ChatActions({
   );
 }
 
-function Orb({ state, size }: { state: AssistantState; size: number }) {
+// The small header/launcher orb. It now actually moves with what's happening -- a gentle multi-directional
+// wobble while listening, faster and more energetic while speaking -- driven by the same `energy` ref the
+// waveform already uses (bumped on keystrokes, typed characters, mic volume and, in a voice call, TTS word
+// boundaries), instead of just sitting there and changing colour.
+function Orb({ state, size, energy, reduceMotion }: { state: AssistantState; size: number; energy: MutableRefObject<number>; reduceMotion: boolean }) {
+  const wobbleRef = useOrbWobble(energy, state, size, reduceMotion);
   return (
-    <Suspense fallback={<OrbVisual size={size} />}>
-      <AssistantOrb state={state} size={size} />
-    </Suspense>
+    <div ref={wobbleRef} style={{ display: "inline-flex" }}>
+      <Suspense fallback={<OrbVisual size={size} />}>
+        <AssistantOrb state={state} size={size} />
+      </Suspense>
+    </div>
   );
 }
 
@@ -307,24 +317,6 @@ function panelSize(expanded: boolean) {
 }
 
 type Phase = "idle" | "thinking" | "speaking";
-
-// Speech-to-text for the input box, using whichever speech recognition the visitor's own browser ships with
-// (Chrome/Edge/Safari all have one under slightly different names) -- free, no server or API key involved. Where
-// no browser support exists (e.g. Firefox), the mic button simply isn't offered and typing works as before.
-type SpeechRecognitionLike = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult: ((e: any) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | undefined {
-  if (typeof window === "undefined") return undefined;
-  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-}
 
 export default function ChatWidget() {
   const { t } = useTranslation();
@@ -348,6 +340,9 @@ export default function ChatWidget() {
   const [speechSupported] = useState(() => Boolean(getSpeechRecognitionCtor()));
   const [listeningSpeech, setListeningSpeech] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  // The full voice-call mode -- a separate thing from the mic button above: that one speaks-to-fill-the-textbox,
+  // this one is an actual back-and-forth call (listens, replies out loud, keeps listening).
+  const [callOpen, setCallOpen] = useState(false);
   const [activeSection, setActiveSectionState] = useState<string | null>(() => getActiveSection());
   const [hasUnseenCue, setHasUnseenCue] = useState(false);
   // A small speech bubble that steps up next to the collapsed launcher on its own, like a showroom guide
@@ -724,7 +719,7 @@ export default function ChatWidget() {
           >
             <header className="px-4 pt-4 pb-3 border-b border-white/5">
               <div className="flex items-center gap-3">
-                <Orb state={state} size={expanded ? 52 : 40} />
+                <Orb state={state} size={expanded ? 52 : 40} energy={energy} reduceMotion={reduceMotion} />
                 <div className="flex-1 min-w-0">
                   <h2 id="assistant-title" className="font-display text-white text-sm font-semibold truncate">
                     {t("assistant.title", "Portfolio assistant")}
@@ -877,6 +872,18 @@ export default function ChatWidget() {
                     <Mic size={17} aria-hidden="true" className={listeningSpeech ? "animate-pulse" : undefined} />
                   </button>
                 )}
+                {speechSupported && (
+                  <button
+                    type="button"
+                    onClick={() => setCallOpen(true)}
+                    disabled={busy}
+                    aria-label={t("assistant.start_call", "Start a voice call")}
+                    title={t("assistant.start_call", "Start a voice call")}
+                    className="interactive glass-button rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 bg-white/10 text-gray-300 hover:text-white hover:bg-white/15"
+                  >
+                    <Phone size={17} aria-hidden="true" />
+                  </button>
+                )}
                 <button
                   type={busy ? "button" : "submit"}
                   onClick={busy ? stop : undefined}
@@ -949,7 +956,7 @@ export default function ChatWidget() {
                   className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-gold border border-bg-darker ${reduceMotion ? "" : "animate-pulse"}`}
                 />
               )}
-              <Orb state={state} size={48} />
+              <Orb state={state} size={48} energy={energy} reduceMotion={reduceMotion} />
               <span className="text-left leading-tight">
                 <span className="block font-display text-sm text-white">{t("assistant.launcher", "Ask AI")}</span>
                 <span className="block font-mono text-[10px] text-gray-400">{t("assistant.launcher_hint", "About my work")}</span>
@@ -959,6 +966,17 @@ export default function ChatWidget() {
         )}
       </AnimatePresence>
       </div>
+      <VoiceCallOverlay
+        open={callOpen}
+        onClose={() => setCallOpen(false)}
+        messages={messages}
+        onExchange={(userText, assistantText) => {
+          const next: ChatMessage[] = [...messages, { role: "user", content: userText }, { role: "assistant", content: assistantText }];
+          setMessages(next);
+          saveMessages(next);
+        }}
+        reduceMotion={reduceMotion}
+      />
     </>
   );
 }
