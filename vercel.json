@@ -20,5 +20,15 @@
       "source": "/(.*)",
       "destination": "/api/index.ts"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/digest-daily",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/digest-weekly",
+      "schedule": "0 6 * * 1"
+    }
   ]
 }
