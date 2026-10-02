@@ -623,17 +623,11 @@ export function createChatRouter() {
         console.error('Chat model error:', err?.status ?? '', err?.message);
       }
       const busy = isProviderOverloaded(err);
-      // TEMPORARY: re-adding the raw detail again to confirm whether a second overload report after switching
-      // models is the same Google-side condition or something new hiding behind the same friendly text -- revert
-      // once confirmed.
-      const debugDetail = `${err?.status ?? ''} ${err?.message ?? String(err)}`.trim().slice(0, 300);
       send({
         type: 'error',
-        message: `${
-          busy
-            ? "The AI model is getting a lot of requests right now. Please try again in a few seconds, or use the contact form at /contact."
-            : 'Something went wrong on my side. Please try again in a moment, or use the contact form at /contact.'
-        } [debug: ${debugDetail}]`,
+        message: busy
+          ? "The AI model is getting a lot of requests right now. Please try again in a few seconds, or use the contact form at /contact."
+          : 'Something went wrong on my side. Please try again in a moment, or use the contact form at /contact.',
       });
     } finally {
       if (!closed) res.end();
