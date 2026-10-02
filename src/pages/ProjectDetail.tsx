@@ -340,7 +340,7 @@ export default function ProjectDetail() {
                 {t("project_detail.access_points", "Access Points")}
               </h3>
               <div className="flex flex-col gap-4">
-                {project.live_url && (
+                {project.live_url && !project.has_dashboard && (
                   <a href={project.live_url} target="_blank" rel="noopener noreferrer" className="w-full interactive">
                     <MagneticButton variant="primary" className="w-full flex justify-center py-2">
                       <ExternalLink size={16} />
@@ -348,7 +348,16 @@ export default function ProjectDetail() {
                     </MagneticButton>
                   </a>
                 )}
-                
+
+                {project.live_url && project.has_dashboard && (
+                  <p className="text-gray-400 font-mono text-center text-xs py-2 leading-relaxed">
+                    {t(
+                      "project_detail.dashboard_gated",
+                      "This project's dashboard isn't linked here -- ask the assistant to show it to you and it'll open it for you.",
+                    )}
+                  </p>
+                )}
+
                 {project.github_url && (
                   <a href={project.github_url} target="_blank" rel="noopener noreferrer" className="w-full interactive">
                     <MagneticButton variant="outline" className="w-full flex justify-center py-2">

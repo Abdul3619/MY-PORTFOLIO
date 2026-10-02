@@ -39,8 +39,8 @@ function saveMessages(messages: ChatMessage[]) {
   }
 }
 
-// Plain text with clickable links: full URLs open in a new tab, site paths like /contact use the router.
-// Built from React elements, never HTML, so model output can't inject markup.
+// Full URLs and known site paths (/contact, /projects/<slug>, etc) inside assistant replies. Used to find
+// destinations for the ChatActions buttons below, and (for plain error strings only) to keep them clickable.
 const LINK_PATTERN = /(https?:\/\/[^\s<>"]+|(?<![\w/])\/(?:contact|projects|about|skills|resume|certificates|testimonials|solar-estimator)(?:\/[\w-]+)?)/g;
 
 function renderWithLinks(text: string): ReactNode[] {
@@ -65,6 +65,24 @@ function renderWithLinks(text: string): ReactNode[] {
   }
   if (last < text.length) parts.push(text.slice(last));
   return parts;
+}
+
+// Assistant replies: every destination should reach the visitor as a tap-able button (ChatActions below), never
+// as a clickable (or even just visible) raw link sitting in the sentence. This renders the same prose with every
+// matched link/path removed from view -- extractActions() still reads the untouched original text separately, so
+// the button always appears even though its URL no longer prints inline.
+function renderForDisplay(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let last = 0;
+  for (const match of text.matchAll(LINK_PATTERN)) {
+    const start = match.index ?? 0;
+    if (start > last) parts.push(text.slice(last, start));
+    last = start + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts
+    .map((p) => (typeof p === "string" ? p.replace(/[ \t]{2,}/g, " ").replace(/[ \t]+([.,;:!?])/g, "$1") : p))
+    .filter((p) => p !== "");
 }
 
 interface Suggestion {
@@ -709,10 +727,10 @@ export default function ChatWidget() {
                 ) : (
                   <p key={i} className="text-gray-200 leading-relaxed whitespace-pre-wrap break-words pr-2">
                     {live?.index === i ? (
-                      <TypedText text={m.content} streaming={live.streaming} render={renderWithLinks} onType={onTyped} onDone={onTypedDone} />
+                      <TypedText text={m.content} streaming={live.streaming} render={renderForDisplay} onType={onTyped} onDone={onTypedDone} />
                     ) : (
                       <>
-                        {renderWithLinks(m.content)}
+                        {renderForDisplay(m.content)}
                         <ChatActions content={m.content} onOpenDemo={(url, label) => setDemoPanel({ url, label })} />
                       </>
                     )}

@@ -89,10 +89,14 @@ function formatProjects(projects: ProjectEntry[]) {
     .map((p) => {
       const stack = [...p.techStack, ...p.tags].filter(Boolean).join(', ');
       const lines = [
-        `<project slug="${escape(p.slug)}" title="${escape(p.title).replace(/"/g, "'")}">`,
+        `<project slug="${escape(p.slug)}" title="${escape(p.title).replace(/"/g, "'")}" hasDashboard="${p.hasDashboard ? 'true' : 'false'}">`,
         escape(p.description),
+        p.longDescription ? escape(p.longDescription) : '',
         stack ? `Tech/tags: ${escape(stack)}` : '',
         p.liveUrl ? `Live demo: ${escape(p.liveUrl)}` : 'No live demo link.',
+        p.hasDashboard
+          ? 'This project has an admin/booking dashboard that is deliberately not linked from its own page -- only offer it here in conversation, with its live demo link as a button.'
+          : '',
         `Project page: /projects/${escape(p.slug)}`,
         '</project>',
       ].filter(Boolean);

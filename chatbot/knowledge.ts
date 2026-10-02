@@ -25,6 +25,7 @@ export interface ProjectEntry {
   techStack: string[];
   tags: string[];
   liveUrl: string | null;
+  hasDashboard: boolean;
 }
 
 export type QuotaResult = 'ok' | 'visitor_minute' | 'visitor_day' | 'global_day';
@@ -107,7 +108,8 @@ export async function retrieveProjects(): Promise<ProjectEntry[]> {
     tech_stack: unknown;
     tags: unknown;
     live_url: string | null;
-  }>(`select slug, title, description, long_description, tech_stack, tags, live_url from public.chat_live_projects limit $1`, [
+    has_dashboard: boolean | null;
+  }>(`select slug, title, description, long_description, tech_stack, tags, live_url, has_dashboard from public.chat_live_projects limit $1`, [
     MAX_PROJECTS,
   ]);
   const toStringArray = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
@@ -119,6 +121,7 @@ export async function retrieveProjects(): Promise<ProjectEntry[]> {
     techStack: toStringArray(r.tech_stack),
     tags: toStringArray(r.tags),
     liveUrl: r.live_url,
+    hasDashboard: Boolean(r.has_dashboard),
   }));
 }
 

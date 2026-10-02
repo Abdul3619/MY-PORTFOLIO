@@ -156,7 +156,7 @@ export default function Projects() {
                       <ArrowRight size={16} />
                     </Link>
                     
-                    {project.live_url && (
+                    {project.live_url && !project.has_dashboard && (
                       <a href={project.live_url} target="_blank" rel="noopener noreferrer" aria-label={`Open live site for ${project.title}`} className="p-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-gold hover:border-gold/50 transition-all duration-300 interactive">
                         <ExternalLink size={20} />
                       </a>
