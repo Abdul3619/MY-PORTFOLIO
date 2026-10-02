@@ -151,6 +151,42 @@ export type LeadPriority = 'hot' | 'warm' | 'cold';
 // WhatsApp is less common. `priority` is the model's own read of how hot the lead is (see the tool description
 // in route.ts); the database function re-validates it to one of hot/warm/cold regardless, so a stray value here
 // can at worst fall back to 'warm', never anything invalid.
+export type DashboardLinkResult = { ok: true; url: string } | { ok: false; error: string };
+
+// Mints a one-time dashboard login link for a project that has one wired up. Each supported project has its own
+// underlying mechanism -- a different repo, a different Supabase project or auth system -- so this is the single
+// place that knows which slug maps to which mechanism and which URL the visitor lands on. Add an entry here (and
+// a matching function below) for each project as its own magic-link mechanism is built; a slug with no entry
+// here simply isn't supported yet, which createDashboardLink() reports as 'not_supported'.
+const DASHBOARD_LINK_HANDLERS: Record<string, () => Promise<DashboardLinkResult>> = {
+  'agbada-luxe': () => createAgbadaDashboardLink(),
+};
+
+// Agbada Luxe is a separate frontend-only app that happens to share this same Supabase project, so its
+// agbada_admin_create_magic_link() function is reachable over this same chatbot_reader connection -- no separate
+// API call needed. The function itself is locked down to only chatbot_reader/service_role (see its migration in
+// the agbada-luxe repo), so this server is the only thing besides Abdulwahab's own SQL access that can mint one.
+async function createAgbadaDashboardLink(): Promise<DashboardLinkResult> {
+  const { rows } = await getPool().query<{ ok: boolean; error: string | null; link_token: string | null }>(
+    'select ok, error, link_token from public.agbada_admin_create_magic_link($1)',
+    ['abdulwahababdullahi3619@gmail.com'],
+  );
+  const row = rows[0];
+  if (!row?.ok || !row.link_token) return { ok: false, error: row?.error || 'unknown' };
+  return { ok: true, url: `https://agbada-luxe.vercel.app/admin/magic/${row.link_token}` };
+}
+
+export async function createDashboardLink(projectSlug: string): Promise<DashboardLinkResult> {
+  const handler = DASHBOARD_LINK_HANDLERS[projectSlug];
+  if (!handler) return { ok: false, error: 'not_supported' };
+  try {
+    return await handler();
+  } catch (err: any) {
+    console.error('Dashboard magic link error:', err?.message);
+    return { ok: false, error: 'error' };
+  }
+}
+
 export async function submitLead(
   visitorKey: string,
   name: string,

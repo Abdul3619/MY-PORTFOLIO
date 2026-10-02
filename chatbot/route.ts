@@ -27,6 +27,7 @@ import {
   takeQuota,
   submitLead,
   takeBookingQuota,
+  createDashboardLink,
   type KnowledgeEntry,
   type ProjectEntry,
   type LeadResult,
@@ -280,20 +281,65 @@ const BOOK_CALL_FUNCTION_DECLARATION: FunctionDeclaration = {
   },
 };
 
-const TOOL_NAMES = ['submit_lead', 'check_availability', 'book_call'] as const;
+// Mints a one-time login link straight into a project's real admin dashboard. Only meaningful for a project
+// marked hasDashboard="true" in <projects> -- see systemPrompt.ts for when the model should call this.
+const GET_DASHBOARD_ACCESS_DESCRIPTION =
+  'Mints a one-time login link into a project\'s real admin dashboard. Only call this for a project marked hasDashboard="true" in <projects>, and only when you\'re offering the dashboard or the visitor asked to see it -- the dashboard is deliberately not reachable any other way. The link signs the visitor straight in, is single-use, and expires after 10 minutes, so mint a fresh one each time rather than reusing one from earlier in the conversation, even for the same project.';
+
+const GET_DASHBOARD_ACCESS_TOOL: Anthropic.Tool = {
+  name: 'get_dashboard_access',
+  description: GET_DASHBOARD_ACCESS_DESCRIPTION,
+  input_schema: {
+    type: 'object',
+    properties: {
+      slug: { type: 'string', description: 'The exact slug of the project, copied from its <project slug="..."> attribute.' },
+    },
+    required: ['slug'],
+  },
+};
+
+const GET_DASHBOARD_ACCESS_FUNCTION_DECLARATION: FunctionDeclaration = {
+  name: 'get_dashboard_access',
+  description: GET_DASHBOARD_ACCESS_DESCRIPTION,
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      slug: { type: Type.STRING, description: 'The exact slug of the project, copied from its <project slug="..."> attribute.' },
+    },
+    required: ['slug'],
+  },
+};
+
+const DASHBOARD_LINK_RESULT_TEXT: Record<string, string> = {
+  not_found: "That didn't go through -- the dashboard login couldn't be found. Offer the project's live demo link instead.",
+  not_supported: "This project doesn't have a dashboard login wired up yet. Offer its live demo link instead, and don't mention a dashboard for it.",
+  unknown: "Couldn't open the dashboard right now. Offer the project's live demo link instead.",
+  error: "Couldn't reach the dashboard right now. Offer the project's live demo link instead.",
+};
+
+async function runGetDashboardAccess(input: { slug?: unknown }): Promise<string> {
+  const slug = typeof input.slug === 'string' ? input.slug : '';
+  const result = await createDashboardLink(slug);
+  if (result.ok) {
+    return `Here is a one-time dashboard login link, valid for the next 10 minutes and usable once: ${result.url}\nGive this to the visitor exactly as given so it becomes a button, and mention it's a one-time link just for them.`;
+  }
+  return DASHBOARD_LINK_RESULT_TEXT[result.error] ?? DASHBOARD_LINK_RESULT_TEXT.unknown;
+}
+
+const TOOL_NAMES = ['submit_lead', 'check_availability', 'book_call', 'get_dashboard_access'] as const;
 type ToolName = (typeof TOOL_NAMES)[number];
 function isToolName(name: string): name is ToolName {
   return (TOOL_NAMES as readonly string[]).includes(name);
 }
 
 function anthropicTools(): Anthropic.Tool[] {
-  return calComConfigured() ? [SUBMIT_LEAD_TOOL, CHECK_AVAILABILITY_TOOL, BOOK_CALL_TOOL] : [SUBMIT_LEAD_TOOL];
+  const tools = [SUBMIT_LEAD_TOOL, GET_DASHBOARD_ACCESS_TOOL];
+  return calComConfigured() ? [...tools, CHECK_AVAILABILITY_TOOL, BOOK_CALL_TOOL] : tools;
 }
 
 function geminiFunctionDeclarations(): FunctionDeclaration[] {
-  return calComConfigured()
-    ? [SUBMIT_LEAD_FUNCTION_DECLARATION, CHECK_AVAILABILITY_FUNCTION_DECLARATION, BOOK_CALL_FUNCTION_DECLARATION]
-    : [SUBMIT_LEAD_FUNCTION_DECLARATION];
+  const tools = [SUBMIT_LEAD_FUNCTION_DECLARATION, GET_DASHBOARD_ACCESS_FUNCTION_DECLARATION];
+  return calComConfigured() ? [...tools, CHECK_AVAILABILITY_FUNCTION_DECLARATION, BOOK_CALL_FUNCTION_DECLARATION] : tools;
 }
 
 async function runCheckAvailability(): Promise<string> {
@@ -342,6 +388,7 @@ async function runBookCall(
 async function runTool(name: ToolName, visitorKeyValue: string, input: Record<string, unknown>): Promise<string> {
   if (name === 'check_availability') return runCheckAvailability();
   if (name === 'book_call') return runBookCall(visitorKeyValue, input);
+  if (name === 'get_dashboard_access') return runGetDashboardAccess(input);
   const result = await runSubmitLead(visitorKeyValue, input);
   return LEAD_RESULT_TEXT[result];
 }
