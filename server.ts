@@ -1402,6 +1402,83 @@ app.get('/api/projects/:slug', async (req, res) => {
   }
 });
 
+// Generates a draft project entry from a screenshot/image the admin uploads -- the AI looks at the image (plus
+// any short context the admin typed) and proposes title, slug, description, case study, category and tech tags.
+// Nothing is saved here: the admin UI fills its form with the result for review/editing, and the existing
+// POST/PUT /api/projects routes are what actually persist it, same as a hand-typed entry would.
+const PROJECT_FROM_IMAGE_CATEGORIES = ['Web Development', 'Solar Installations', 'Mobile Applications', 'IoT Engineering', 'UX/UI Prototypes'];
+
+app.post('/api/admin/projects/generate-from-image', requireAuth, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+    if (!req.file.mimetype.startsWith('image/')) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Please upload an image file' });
+    }
+    if (!process.env.GEMINI_API_KEY) {
+      fs.unlinkSync(req.file.path);
+      return res.status(503).json({ error: 'Image analysis is not configured (GEMINI_API_KEY missing).' });
+    }
+
+    const imageBuffer = fs.readFileSync(req.file.path);
+    fs.unlinkSync(req.file.path);
+    const context = typeof req.body?.context === 'string' ? req.body.context.slice(0, 1000) : '';
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: req.file.mimetype, data: imageBuffer.toString('base64') } },
+            {
+              text:
+                `This is a screenshot of a web/app project for Abdulwahab's developer portfolio.${context ? ` Extra context from him: ${context}` : ''}\n` +
+                'Look at what the screenshot actually shows (layout, UI patterns, visible text, branding, apparent purpose) and propose a portfolio entry for it. ' +
+                'Guess a plausible, specific tech stack from what the UI style suggests (do not just default to React/Tailwind unless the screenshot actually looks like it). ' +
+                'Keep the description to 1-2 sentences, written the way a developer would describe their own work -- confident, plain, no hype words.',
+            },
+          ],
+        },
+      ],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: 'A short, specific project name (2-5 words)' },
+            description: { type: Type.STRING, description: 'A 1-2 sentence pitch of what it is and does' },
+            long_description: { type: Type.STRING, description: 'A longer case-study style write-up, 2-4 short paragraphs in markdown, covering the problem and the build' },
+            category: { type: Type.STRING, enum: PROJECT_FROM_IMAGE_CATEGORIES },
+            tags: { type: Type.ARRAY, items: { type: Type.STRING }, description: '3-6 specific technology/tool tags suggested by the screenshot' },
+          },
+          required: ['title', 'description', 'long_description', 'category', 'tags'],
+        },
+      },
+    });
+
+    let raw = response.text?.trim() || '{}';
+    if (raw.startsWith('```')) raw = raw.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+
+    const title = typeof parsed.title === 'string' ? parsed.title.slice(0, 120) : '';
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const tags = Array.isArray(parsed.tags) ? parsed.tags.filter((t: any) => typeof t === 'string').slice(0, 8) : [];
+
+    res.json({
+      title,
+      slug,
+      description: typeof parsed.description === 'string' ? parsed.description.slice(0, 500) : '',
+      long_description: typeof parsed.long_description === 'string' ? parsed.long_description.slice(0, 5000) : '',
+      category: PROJECT_FROM_IMAGE_CATEGORIES.includes(parsed.category) ? parsed.category : 'Web Development',
+      tags,
+    });
+  } catch (err: any) {
+    console.error('Error generating project from image:', err?.message);
+    res.status(500).json({ error: 'Could not analyze that image. Try again, or fill the form in by hand.' });
+  }
+});
+
 app.post('/api/projects', requireAuth, async (req, res) => {
   try {
     const validatedData = projectSchema.parse(req.body);
