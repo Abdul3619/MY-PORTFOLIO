@@ -25,6 +25,7 @@ import { getPageTitle, getSiteTitle } from "@/lib/seo";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 import { projectsData } from "@/data/projects";
 import { useTranslation } from "react-i18next";
+import { MobilePreviewBlock } from "@/components/project/MobilePreviewBlock";
 
 export default function ProjectDetail() {
   const { t } = useTranslation();
@@ -205,6 +206,11 @@ export default function ProjectDetail() {
                 {description}
               </p>
             </motion.section>
+
+            {/* Live, scannable preview for projects that are actually running apps rather than static case studies */}
+            {project?.slug === "atelierfit" && project?.live_url && (
+              <MobilePreviewBlock url={project.live_url} appName={title} />
+            )}
 
             {/* In-Depth Story Details (Dynamic long description column) */}
             {longDescription && (

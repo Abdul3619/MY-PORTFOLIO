@@ -25,6 +25,8 @@ import SolarEstimator from "./pages/SolarEstimator";
 import NotFound from "./pages/NotFound";
 import { AdminLayout, ProtectedRoute, AdminLogin } from "./components/admin/AdminLayout";
 import Maintenance from "./pages/Maintenance";
+const AtelierFit = lazy(() => import("./pages/AtelierFit"));
+const AdminAtelierFit = lazy(() => import("./pages/admin/AdminAtelierFit"));
 
 // Admin pages are code-split so public visitors never download the CMS (and its charting libraries)
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
@@ -138,6 +140,10 @@ function AnimatedRoutes() {
         </Route>
       )}
 
+      {/* AtelierFit: a full-screen app-like route, intentionally outside the main site's <Layout /> (no header/
+          footer) so the QR-scanned experience reads as its own app rather than a page on the portfolio. */}
+      <Route path="/atelierfit" element={adminPage(AtelierFit)} />
+
       {/* Admin Login */}
       <Route path="/admin/login" element={<AdminLogin />} />
 
@@ -158,6 +164,7 @@ function AnimatedRoutes() {
           <Route path="/admin/resume" element={adminPage(AdminResume)} />
           <Route path="/admin/media" element={adminPage(AdminMedia)} />
           <Route path="/admin/account" element={adminPage(AdminAccount)} />
+          <Route path="/admin/atelierfit" element={adminPage(AdminAtelierFit)} />
         </Route>
       </Route>
     </Routes>

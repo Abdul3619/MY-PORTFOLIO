@@ -1,0 +1,17 @@
+{
+  "name": "AtelierFit — Tailor Orders",
+  "short_name": "AtelierFit",
+  "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+  "start_url": "/atelierfit",
+  "scope": "/atelierfit",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0A08",
+  "theme_color": "#0B0A08",
+  "icons": [
+    { "src": "/icons/atelierfit-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/atelierfit-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/atelierfit-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/atelierfit-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -50,6 +50,11 @@ export function getRoutePlan(pathname: string): RoutePlan {
     return { kind: 'client', queries: [], knownRoute: true };
   }
 
+  // AtelierFit is its own full-screen app (camera access, PWA install) with nothing worth server-rendering.
+  if (path === '/atelierfit' || path.startsWith('/atelierfit/')) {
+    return { kind: 'client', queries: [], knownRoute: true };
+  }
+
   const queries = [...globalQueries];
   if (path === '/about') {
     queries.push({ key: ['about', LANG], resource: { type: 'about' } });

@@ -17,6 +17,7 @@ import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl.js';
 import { createChatRouter, createVoiceLiveRouter } from './chatbot/route.js';
 import { buildDigest, sendDigestEmail, digestConfigured, STALE_LEAD_DAYS, type DigestLead } from './digest.js';
 import { createOutreachRouter } from './outreach/route.js';
+import { createAtelierFitRouter } from './atelierfit/route.js';
 
 dotenv.config();
 
@@ -2244,6 +2245,9 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
 // Every route is admin-only (requireAuth), so it's safe to reuse the service-role client here even though the
 // original standalone app only ever held a restricted anon key (it had no login of its own to gate behind).
 app.use('/api/admin/outreach', createOutreachRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
+// AtelierFit: public order-intake + Paystack verification routes live here too, with the admin list/status routes
+// gated inside the router itself -- see atelierfit/route.ts.
+app.use('/api/atelierfit', createAtelierFitRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
 
 // --- PUBLIC CONTENT LOADERS ---
 // Shared by the JSON API routes above and by the server-side renderer below.
