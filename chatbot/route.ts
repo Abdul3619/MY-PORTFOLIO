@@ -153,10 +153,23 @@ function getGeminiClient() {
 // that typically clears within a second or two. Anthropic's SDK already retries transient errors itself
 // (see getClient()'s maxRetries), but the Gemini SDK doesn't, so this gives the Gemini path the same one-retry
 // grace before it gives up and tells the visitor to try again.
+//
+// 429/RESOURCE_EXHAUSTED counts as "overloaded" too -- that's Google's free-tier *rate limit* kicking in (a low
+// requests-per-minute ceiling, separate from the daily quota), which a live voice conversation hits far more
+// easily than typed chat since every turn is its own request. Treating it the same as a 503 means: one short
+// retry here, and (in runGeminiTurn's candidate loop) a chance to fall through to the next fallback model rather
+// than hard-failing the visitor's turn.
 function isProviderOverloaded(err: any): boolean {
   const status = err?.status ?? err?.error?.code;
   const message = String(err?.message ?? err?.error?.message ?? '');
-  return status === 503 || status === 'UNAVAILABLE' || /\bUNAVAILABLE\b|overloaded|high demand/i.test(message);
+  return (
+    status === 503 ||
+    status === 429 ||
+    String(status) === '429' ||
+    status === 'UNAVAILABLE' ||
+    status === 'RESOURCE_EXHAUSTED' ||
+    /\bUNAVAILABLE\b|\bRESOURCE_EXHAUSTED\b|overloaded|high demand|quota|rate limit/i.test(message)
+  );
 }
 
 async function withOverloadRetry<T>(fn: () => Promise<T>): Promise<T> {
