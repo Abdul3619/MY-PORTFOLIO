@@ -60,6 +60,10 @@ export default function AdminProjects() {
   const [formTags, setFormTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
   const [formGallery, setFormGallery] = useState<any[]>([]);
+  // Gates this project's live demo link off the public project page; the AI assistant still has the live_url and
+  // is instructed to offer it as a button in conversation (see chatbot/systemPrompt.ts). Only meant for projects
+  // whose demo includes an admin/booking dashboard -- everything else should stay unchecked and unaffected.
+  const [formHasDashboard, setFormHasDashboard] = useState(false);
 
   // Fetch all projects from Supabase via server API proxy
   const fetchProjects = async () => {
@@ -149,6 +153,7 @@ export default function AdminProjects() {
       setFormCaseStudy(project.caseStudy || '');
       setFormTags(project.tags || []);
       setFormGallery(project.gallery || []);
+      setFormHasDashboard(project.has_dashboard || false);
     } else {
       setSelectedProject(null);
       // Autofill default values or empty
@@ -169,6 +174,7 @@ export default function AdminProjects() {
       setFormCaseStudy('');
       setFormTags(['TypeScript', 'Tailwind', 'React']);
       setFormGallery([]);
+      setFormHasDashboard(false);
     }
     setIsDrawerOpen(true);
   };
@@ -192,29 +198,27 @@ export default function AdminProjects() {
     }
 
     try {
-      const metadataBlock: ProjectMetadata = {
-        category: formCategory,
-        status: formStatus,
-        views: formViews,
-        tags: formTags,
-        caseStudy: formCaseStudy,
-        gallery: formGallery
-      };
-
-      // We append our serialized rich metadata block cleanly inside the description field
-      // to keep the native Supabase schema compatible, while maintaining a synchronized localStorage shadow block.
-      const compositeDescription = `${formDesc}\n\n---METADATA---\n${JSON.stringify(metadataBlock)}`;
-
+      // Every editorial field is sent as its own real column -- category and view count aside, these aren't
+      // free-text extras, they're dedicated columns on public.projects (status, tags, tech_stack,
+      // long_description, gallery_images, has_dashboard). Jamming them into `description` as a "---METADATA---"
+      // JSON blob (the old approach) was what corrupted the Azure Hotel and H'orizon Hotel projects: it fed that
+      // raw blob straight to the AI assistant's knowledge of those projects instead of a clean description.
       const payload = {
         title: formTitle,
         slug: formSlug,
-        description: compositeDescription,
+        description: formDesc,
+        long_description: formCaseStudy || null,
         live_url: formLiveUrl || null,
         github_url: formGithubUrl || null,
         thumbnail_url: formThumbnail || null,
         hero_image_url: formHeroImage || null,
         is_featured: formIsFeatured,
-        order_index: formOrderIndex
+        order_index: formOrderIndex,
+        status: formStatus,
+        tags: formTags,
+        tech_stack: formTags,
+        gallery_images: formGallery,
+        has_dashboard: formHasDashboard
       };
 
       let recordId = selectedProject?.id;
@@ -234,8 +238,9 @@ export default function AdminProjects() {
         if (saved && saved.id) recordId = saved.id;
       }
 
-      // Save to local shadow database for guaranteed offline redundancy
-      localStorage.setItem(`shadow_project_${recordId || formSlug}`, JSON.stringify(metadataBlock));
+      // Category and view count have no dedicated columns yet, so those two (only) still live in a local shadow
+      // cache -- everything else now round-trips through its real column above.
+      localStorage.setItem(`shadow_project_${recordId || formSlug}`, JSON.stringify({ category: formCategory, views: formViews }));
 
       // Trigger Audit Log insertion via server API proxy
       try {
@@ -651,6 +656,27 @@ export default function AdminProjects() {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* 8b. Dashboard gating -- only for projects whose demo includes an admin/booking dashboard */}
+                <div className="flex items-center justify-between bg-white/2 p-3 border border-white/8 rounded-lg">
+                  <div className="pr-4">
+                    <label className="block text-[10px] font-mono uppercase text-[#00F0FF]">Gate Dashboard Behind AI</label>
+                    <p className="text-[9px] text-gray-500">
+                      When on, the Live URL above is hidden from this project's public page -- visitors can only reach it by asking the AI assistant, which offers it as a button in the chat.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormHasDashboard(!formHasDashboard)}
+                    className="text-gray-400 hover:text-white transition-colors shrink-0"
+                  >
+                    {formHasDashboard ? (
+                      <ToggleRight size={28} className="text-[#00F0FF]" />
+                    ) : (
+                      <ToggleLeft size={28} className="text-gray-600" />
+                    )}
+                  </button>
                 </div>
 
                 {/* 9. Feature Toggle Switch and Presentation Order Index */}

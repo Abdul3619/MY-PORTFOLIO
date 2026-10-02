@@ -123,7 +123,8 @@ const projectSchema = z.object({
   seo_description: z.string().optional().nullable(),
   tech_stack: z.array(z.string()).optional().default([]),
   tags: z.array(z.string()).optional().default([]),
-  gallery_images: z.array(z.string()).optional().default([]),
+  gallery_images: z.array(z.any()).optional().default([]),
+  has_dashboard: z.boolean().optional().default(false),
 });
 
 const certificateSchema = z.object({
@@ -1307,6 +1308,7 @@ function deserializeProject(row: any) {
       tech_stack: techStack,
       tags: tags,
       gallery_images: galleryImages,
+      has_dashboard: row.has_dashboard ?? false,
       created_at: row.created_at,
       updated_at: row.updated_at
     };
@@ -1333,6 +1335,7 @@ function deserializeProject(row: any) {
     tech_stack: techStack,
     tags: tags,
     gallery_images: galleryImages,
+    has_dashboard: row.has_dashboard ?? false,
     created_at: row.created_at,
     updated_at: row.updated_at
   };
@@ -1424,9 +1427,10 @@ app.post('/api/projects', requireAuth, async (req, res) => {
         seo_description: preprocessed.seo_description,
         tech_stack: preprocessed.tech_stack,
         tags: preprocessed.tags,
-        gallery_images: preprocessed.gallery_images
+        gallery_images: preprocessed.gallery_images,
+        has_dashboard: preprocessed.has_dashboard
       }]).select();
-      
+
       if (!error && data && data.length > 0) {
         return res.status(201).json(deserializeProject(data[0]));
       }
@@ -1440,20 +1444,23 @@ app.post('/api/projects', requireAuth, async (req, res) => {
       console.log('Exception in direct column insert, falling back:', directInsertErr.message);
     }
 
-    // Attempt 2: Fallback to serialized JSON in description column (for unmigrated schema)
-    const serializedDesc = serializeProjectDesc(validatedData);
+    // Attempt 2: Fallback to serialized JSON in description column (for unmigrated schema). Uses `preprocessed`
+    // (not the raw validatedData) so a description that already carried a legacy "---METADATA---" blob gets
+    // unwrapped first -- otherwise this would re-serialize the whole already-wrapped payload into a new, doubly
+    // wrapped JSON blob (this was the root cause of the Azure-hotel / h-orizon-hotel data corruption).
+    const serializedDesc = serializeProjectDesc(preprocessed);
     const { data, error } = await supabaseAdmin.from('projects').insert([{
-      slug: validatedData.slug,
-      title: validatedData.title,
+      slug: preprocessed.slug,
+      title: preprocessed.title,
       description: serializedDesc,
-      thumbnail_url: validatedData.thumbnail_url,
-      hero_image_url: validatedData.hero_image_url,
-      live_url: validatedData.live_url,
-      github_url: validatedData.github_url,
-      is_featured: validatedData.is_featured,
-      order_index: validatedData.order_index
+      thumbnail_url: preprocessed.thumbnail_url,
+      hero_image_url: preprocessed.hero_image_url,
+      live_url: preprocessed.live_url,
+      github_url: preprocessed.github_url,
+      is_featured: preprocessed.is_featured,
+      order_index: preprocessed.order_index
     }]).select();
-    
+
     if (error) throw new Error(error.message);
     res.status(201).json(deserializeProject(data[0]));
   } catch (err: any) {
@@ -1488,6 +1495,7 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
         tech_stack: preprocessed.tech_stack,
         tags: preprocessed.tags,
         gallery_images: preprocessed.gallery_images,
+        has_dashboard: preprocessed.has_dashboard,
         updated_at: new Date().toISOString()
       }).eq('id', req.params.id).select();
       
@@ -1504,18 +1512,19 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
       console.log('Exception in direct column update, falling back:', directUpdateErr.message);
     }
 
-    // Attempt 2: Fallback to serialized JSON in description column (for unmigrated schema)
-    const serializedDesc = serializeProjectDesc(validatedData);
+    // Attempt 2: Fallback to serialized JSON in description column (for unmigrated schema). Uses `preprocessed`,
+    // same reasoning as the POST route above -- never re-wrap an already-wrapped description.
+    const serializedDesc = serializeProjectDesc(preprocessed);
     const { data, error } = await supabaseAdmin.from('projects').update({
-      slug: validatedData.slug,
-      title: validatedData.title,
+      slug: preprocessed.slug,
+      title: preprocessed.title,
       description: serializedDesc,
-      thumbnail_url: validatedData.thumbnail_url,
-      hero_image_url: validatedData.hero_image_url,
-      live_url: validatedData.live_url,
-      github_url: validatedData.github_url,
-      is_featured: validatedData.is_featured,
-      order_index: validatedData.order_index,
+      thumbnail_url: preprocessed.thumbnail_url,
+      hero_image_url: preprocessed.hero_image_url,
+      live_url: preprocessed.live_url,
+      github_url: preprocessed.github_url,
+      is_featured: preprocessed.is_featured,
+      order_index: preprocessed.order_index,
       updated_at: new Date().toISOString()
     }).eq('id', req.params.id).select();
     
