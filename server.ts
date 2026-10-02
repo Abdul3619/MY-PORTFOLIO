@@ -15,7 +15,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { STATIC_ROUTES } from './src/lib/seo.js';
 import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl.js';
 import { createChatRouter } from './chatbot/route.js';
-import { buildDigest, sendDigestEmail, digestConfigured, type DigestLead } from './digest.js';
+import { buildDigest, sendDigestEmail, digestConfigured, STALE_LEAD_DAYS, type DigestLead } from './digest.js';
 
 dotenv.config();
 
@@ -2005,22 +2005,33 @@ async function runDigest(req: express.Request, res: express.Response, sinceMs: n
   try {
     if (!digestConfigured()) return res.status(503).json({ error: 'Digest email is not configured (RESEND_API_KEY missing).' });
     const since = new Date(Date.now() - sinceMs).toISOString();
-    const { data, error } = await supabaseAdmin
-      .from('leads')
-      .select('id, name, email, phone, company, status, source, notes, priority, created_at')
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(200);
+    const staleCutoff = new Date(Date.now() - STALE_LEAD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const selectCols = 'id, name, email, phone, company, status, source, notes, priority, created_at, updated_at';
+
+    const [{ data, error }, { data: staleData, error: staleError }] = await Promise.all([
+      supabaseAdmin.from('leads').select(selectCols).gte('created_at', since).order('created_at', { ascending: false }).limit(200),
+      // Quiet leads: still 'New' or 'Contacted' (nothing resolved either way) and untouched for days --
+      // surfaced as a reminder to Abdulwahab himself, never contacted automatically.
+      supabaseAdmin
+        .from('leads')
+        .select(selectCols)
+        .in('status', ['New', 'Contacted'])
+        .lt('updated_at', staleCutoff)
+        .order('updated_at', { ascending: true })
+        .limit(10),
+    ]);
     if (error) throw new Error(error.message);
+    if (staleError) throw new Error(staleError.message);
     const leads = (data || []) as DigestLead[];
+    const staleLeads = (staleData || []) as DigestLead[];
 
-    // A daily digest with nothing new is just noise -- skip it. A weekly digest always sends, as a quiet
-    // heartbeat confirming the pipeline is still working even in a slow week.
-    if (leads.length === 0 && !isWeekly) return res.status(200).json({ sent: false, reason: 'no_new_leads' });
+    // A daily digest with nothing new and nothing stale to flag is just noise -- skip it. A weekly digest always
+    // sends, as a quiet heartbeat confirming the pipeline is still working even in a slow week.
+    if (leads.length === 0 && staleLeads.length === 0 && !isWeekly) return res.status(200).json({ sent: false, reason: 'nothing_to_report' });
 
-    const content = buildDigest(leads, periodLabel, isWeekly);
+    const content = buildDigest(leads, periodLabel, isWeekly, staleLeads);
     const sent = await sendDigestEmail(content);
-    res.status(sent ? 200 : 502).json({ sent, leadCount: leads.length });
+    res.status(sent ? 200 : 502).json({ sent, leadCount: leads.length, staleCount: staleLeads.length });
   } catch (err: any) {
     console.error('Digest cron error:', err?.message);
     res.status(500).json({ error: 'Digest failed', message: err?.message });
