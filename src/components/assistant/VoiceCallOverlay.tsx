@@ -75,7 +75,6 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
   const activeRef = useRef(false); // true while the overlay is mounted & live, false once closing -- guards async callbacks
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
-  const stateRef = useRef<AssistantState>("idle");
   // Accumulates everything finalized across however many recognition instances a single "turn" spans -- the
   // browser's own engine stops and restarts on its own well before the visitor is actually done talking, so a
   // turn is only considered over when nothing NEW has come in for a while (see silenceTimerRef), never just
@@ -85,75 +84,30 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
   // Set right before we deliberately stop a recognition instance ourselves (to finalize the turn), so its onend
   // handler knows not to treat that as "the engine gave up, restart it" and start listening all over again.
   const finalizingRef = useRef(false);
-  const micStreamRef = useRef<MediaStream | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const micRafRef = useRef<number | null>(null);
+  const consecutiveErrorsRef = useRef(0);
+  const errorCooldownRef = useRef(false); // true once a non-transient mic error (permission denied) has fired
   // finalizeTurn is defined before handleTurn/startListening (it's used by beginRecognitionInstance, which has to
   // exist before startListening can call it) but needs to invoke both -- routed through refs, always reassigned
   // to this render's versions below, so it never calls a stale closure from an earlier render.
   const handleTurnRef = useRef<(said: string) => void>(() => {});
   const startListeningRef = useRef<() => void>(() => {});
 
-  stateRef.current = state;
-
   const synth = getSpeechSynthesis();
 
-  const stopMicMeter = useCallback(() => {
-    if (micRafRef.current !== null) cancelAnimationFrame(micRafRef.current);
-    micRafRef.current = null;
-    micStreamRef.current?.getTracks().forEach((track) => track.stop());
-    micStreamRef.current = null;
-    audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
-  }, []);
-
-  // Real mic loudness, not a guess -- so the orb's listening wobble actually tracks how loud the visitor is
-  // talking (quiet drifting, loud surging) instead of a fixed little bump per speech-recognition event. Falls
-  // back silently to the old event-based bump (still applied in onresult) if the mic permission is denied.
-  const startMicMeter = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!activeRef.current) {
-        stream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      micStreamRef.current = stream;
-      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new Ctx();
-      audioCtxRef.current = ctx;
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.6;
-      source.connect(analyser);
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      const tick = () => {
-        if (!activeRef.current) return;
-        analyser.getByteTimeDomainData(data);
-        let sumSquares = 0;
-        for (let i = 0; i < data.length; i++) {
-          const v = (data[i] - 128) / 128;
-          sumSquares += v * v;
-        }
-        const rms = Math.sqrt(sumSquares / data.length);
-        // Only let it drive the orb while we're actually listening -- while speaking/thinking, this is picking
-        // up room noise (or echo of our own TTS) rather than the visitor, so it would be misleading there.
-        if (stateRef.current === "listening") {
-          energy.current = Math.max(energy.current * 0.7, Math.min(1.3, rms * 9));
-        }
-        micRafRef.current = requestAnimationFrame(tick);
-      };
-      tick();
-    } catch {
-      // Permission denied or no mic -- the call still works via the onresult event bumps below, just less lively.
-    }
-  }, []);
-
+  // Earlier version of this also opened a second, independent getUserMedia stream (through an AnalyserNode) just
+  // to measure real mic loudness for the orb. That's what started throwing "audio-capture"/mic errors even with
+  // the permission already granted: SpeechRecognition manages its own exclusive microphone capture internally
+  // (the Web Speech API has no way to hand it an existing MediaStreamTrack -- see w3c/speech-api#66), and on a
+  // lot of setups a second app/stream trying to open the same device at once makes the OS hand back "busy"
+  // instead of sharing it. So the orb's listening energy is driven purely by recognition events (below) and
+  // eased/smoothed in useOrbWobble -- less literally tied to loudness, but it doesn't fight the mic for it.
   const stopAll = useCallback(() => {
     activeRef.current = false;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = null;
     finalizingRef.current = false;
+    consecutiveErrorsRef.current = 0;
+    errorCooldownRef.current = false;
     recognitionRef.current?.abort?.();
     recognitionRef.current = null;
     abortRef.current?.abort();
@@ -162,8 +116,7 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     speechQueueRef.current = [];
     speakingRef.current = false;
     energy.current = 0;
-    stopMicMeter();
-  }, [synth, stopMicMeter]);
+  }, [synth]);
 
   const speakNext = useCallback(() => {
     if (!synth || speakingRef.current) return;
@@ -220,7 +173,14 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     }
   }, []);
 
-  const SILENCE_MS = 2000;
+  // How long to wait after the visitor goes quiet before treating the turn as finished. Real-time voice assistants
+  // (OpenAI's Realtime API, for one) default this around 500-800ms when they're listening to a raw, continuous
+  // audio stream -- but that number only works because they're measuring actual silence in the audio itself. The
+  // browser's own speech engine instead gives us discrete recognized phrases with gaps between them that don't
+  // mean much (thinking pauses, a breath, the engine just being slow), so a much longer window is the safer
+  // trade-off here: a few seconds feels slower to respond, but a short one is what was finishing your sentence
+  // for you. 3s given it was still cutting in at 2s.
+  const SILENCE_MS = 3000;
 
   const beginRecognitionInstance = useCallback(() => {
     if (!activeRef.current) return;
@@ -248,22 +208,36 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
         }
       }
       setYouSaid(`${finalTranscriptRef.current} ${interim}`.trim());
-      // Real mic loudness (startMicMeter) drives most of the listening wobble; this is just a small guaranteed
-      // bump on every recognized word so there's still some life even if the mic-meter permission was denied.
+      consecutiveErrorsRef.current = 0;
+      errorCooldownRef.current = false;
+      setErrorMsg("");
       energy.current = Math.min(1.2, energy.current + 0.2);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(finalizeTurn, SILENCE_MS);
     };
     recognition.onerror = (e: any) => {
-      if (e?.error === "no-speech" || e?.error === "aborted") return;
-      setErrorMsg(t("assistant.call_mic_error", "I couldn't hear you there -- check the microphone permission and try again."));
+      const code = e?.error;
+      if (code === "no-speech" || code === "aborted") return;
+      if (code === "not-allowed" || code === "service-not-allowed") {
+        // Permission was actually denied/blocked -- this one isn't transient, don't keep hammering the API.
+        errorCooldownRef.current = true;
+        setErrorMsg(t("assistant.call_mic_denied", "The microphone permission looks blocked for this site -- check your browser's site settings and try again."));
+        return;
+      }
+      // "audio-capture" (device busy/unavailable) and anything else transient: these can happen for a moment even
+      // with permission already granted, so don't scare the visitor on the first one -- only speak up if several
+      // happen back to back, and keep retrying underneath either way.
+      consecutiveErrorsRef.current += 1;
+      if (consecutiveErrorsRef.current >= 3) {
+        setErrorMsg(t("assistant.call_mic_error", "I'm having trouble reaching the microphone right now -- check that another app or tab isn't using it, then try again."));
+      }
     };
     recognition.onend = () => {
       if (finalizingRef.current) {
         finalizingRef.current = false;
         return;
       }
-      if (!activeRef.current) return;
+      if (!activeRef.current || errorCooldownRef.current) return;
       // The engine stopped on its own (a short pause, or just its own internal time limit) -- the visitor hasn't
       // necessarily finished, so pick a fresh instance back up immediately rather than treating this as the end
       // of the turn. Whatever's already in finalTranscriptRef carries over untouched.
@@ -276,6 +250,7 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
   const startListening = useCallback(() => {
     if (!activeRef.current) return;
     finalTranscriptRef.current = "";
+    consecutiveErrorsRef.current = 0;
     setState("listening");
     setYouSaid("");
     setCaption("");
@@ -387,7 +362,6 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     }
     // A short beat for the grow-from-small-orb entrance to land before the mic opens.
     const timer = setTimeout(() => startListeningRef.current(), 500);
-    void startMicMeter();
     return () => {
       clearTimeout(timer);
       stopAll();
