@@ -16,6 +16,7 @@ import { STATIC_ROUTES } from './src/lib/seo.js';
 import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl.js';
 import { createChatRouter } from './chatbot/route.js';
 import { buildDigest, sendDigestEmail, digestConfigured, STALE_LEAD_DAYS, type DigestLead } from './digest.js';
+import { createOutreachRouter } from './outreach/route.js';
 
 dotenv.config();
 
@@ -2234,6 +2235,11 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Lead discovery, crawling, AI drafting and the review queue -- merged in from the standalone AI-Outreach tool.
+// Every route is admin-only (requireAuth), so it's safe to reuse the service-role client here even though the
+// original standalone app only ever held a restricted anon key (it had no login of its own to gate behind).
+app.use('/api/admin/outreach', createOutreachRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
 
 // --- PUBLIC CONTENT LOADERS ---
 // Shared by the JSON API routes above and by the server-side renderer below.

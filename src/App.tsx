@@ -30,6 +30,7 @@ import Maintenance from "./pages/Maintenance";
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminProjects = lazy(() => import("./pages/admin/AdminProjects"));
 const AdminLeads = lazy(() => import("./pages/admin/AdminLeads"));
+const AdminOutreach = lazy(() => import("./pages/admin/AdminOutreach"));
 const AdminMessages = lazy(() => import("./pages/admin/AdminMessages"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminResume = lazy(() => import("./pages/admin/AdminResume"));
@@ -149,6 +150,7 @@ function AnimatedRoutes() {
           <Route path="/admin/projects" element={adminPage(AdminProjects)} />
           <Route path="/admin/skills" element={adminPage(AdminSkills)} />
           <Route path="/admin/leads" element={adminPage(AdminLeads)} />
+          <Route path="/admin/outreach" element={adminPage(AdminOutreach)} />
           <Route path="/admin/testimonials" element={adminPage(AdminTestimonials)} />
           <Route path="/admin/reviews" element={adminPage(AdminReviews)} />
           <Route path="/admin/messages" element={adminPage(AdminMessages)} />
