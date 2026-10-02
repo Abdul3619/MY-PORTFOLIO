@@ -15,6 +15,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { STATIC_ROUTES } from './src/lib/seo.js';
 import { normalizeSiteUrl, siteUrlFromEnv } from './src/lib/siteUrl.js';
 import { createChatRouter } from './chatbot/route.js';
+import { buildDigest, sendDigestEmail, digestConfigured, type DigestLead } from './digest.js';
 
 dotenv.config();
 
@@ -1989,6 +1990,46 @@ app.post('/api/leads', async (req, res) => {
     res.status(400).json({ error: formatZodError(err) });
   }
 });
+// Lead digest cron routes. Vercel's scheduler calls these on the schedule in vercel.json's `crons` array, sending
+// `Authorization: Bearer $CRON_SECRET` automatically -- so as long as CRON_SECRET is set in the environment, only
+// Vercel's own scheduler (or someone with that secret) can trigger a send. Uses supabaseAdmin directly, same as
+// every other admin route here, since this never takes visitor input.
+function isAuthorizedCronRequest(req: express.Request): boolean {
+  const secret = (process.env.CRON_SECRET || '').trim();
+  if (!secret) return false;
+  return req.headers.authorization === `Bearer ${secret}`;
+}
+
+async function runDigest(req: express.Request, res: express.Response, sinceMs: number, periodLabel: string, isWeekly: boolean) {
+  if (!isAuthorizedCronRequest(req)) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (!digestConfigured()) return res.status(503).json({ error: 'Digest email is not configured (RESEND_API_KEY missing).' });
+    const since = new Date(Date.now() - sinceMs).toISOString();
+    const { data, error } = await supabaseAdmin
+      .from('leads')
+      .select('id, name, email, phone, company, status, source, notes, priority, created_at')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    const leads = (data || []) as DigestLead[];
+
+    // A daily digest with nothing new is just noise -- skip it. A weekly digest always sends, as a quiet
+    // heartbeat confirming the pipeline is still working even in a slow week.
+    if (leads.length === 0 && !isWeekly) return res.status(200).json({ sent: false, reason: 'no_new_leads' });
+
+    const content = buildDigest(leads, periodLabel, isWeekly);
+    const sent = await sendDigestEmail(content);
+    res.status(sent ? 200 : 502).json({ sent, leadCount: leads.length });
+  } catch (err: any) {
+    console.error('Digest cron error:', err?.message);
+    res.status(500).json({ error: 'Digest failed', message: err?.message });
+  }
+}
+
+app.get('/api/cron/digest-daily', (req, res) => runDigest(req, res, 24 * 60 * 60 * 1000, 'today', false));
+app.get('/api/cron/digest-weekly', (req, res) => runDigest(req, res, 7 * 24 * 60 * 60 * 1000, 'this week', true));
+
 app.get('/api/admin/messages', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin.from('contact_messages').select('*').order('created_at', { ascending: false });
