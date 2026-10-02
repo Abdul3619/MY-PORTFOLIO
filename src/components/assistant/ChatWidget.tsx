@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type FormEven
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUp, Maximize2, Minimize2, RotateCcw, X } from "lucide-react";
+import { ArrowUp, Maximize2, Minimize2, RotateCcw, Sparkles, X } from "lucide-react";
 import OrbVisual, { type AssistantState } from "./OrbVisual";
 import TypedText from "./TypedText";
 import Waveform from "./Waveform";
@@ -299,14 +299,19 @@ function Orb({ state, size }: { state: AssistantState; size: number }) {
   );
 }
 
-// Panel size for the compact and expanded views, kept inside the viewport
+// Panel size for the compact and expanded views, kept inside the viewport. Reads window.visualViewport when it's
+// available: on mobile, that's the actual visible area above the on-screen keyboard (innerHeight doesn't shrink
+// on iOS Safari when the keyboard opens, and over-shrinks inconsistently on other mobile browsers), so this keeps
+// the size calculation stable across devices instead of guessing from whichever quirk a given browser has.
 function panelSize(expanded: boolean) {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const vw = window.visualViewport?.width ?? window.innerWidth;
+  const vh = window.visualViewport?.height ?? window.innerHeight;
   const mobile = vw < 640;
   const width = mobile ? vw - 32 : Math.min(expanded ? 760 : 368, vw - 48);
-  // Desktop: stay clear of the site's floating navbar at the top
-  const height = Math.min(expanded ? 820 : 540, vh - (mobile ? 32 : 136));
+  // Desktop: stay clear of the site's floating navbar at the top. A floor keeps the panel usable (header + a
+  // couple of messages + the input) even when a keyboard eats most of a small phone screen, instead of letting
+  // it get squeezed down to near nothing.
+  const height = Math.max(mobile ? 280 : 320, Math.min(expanded ? 820 : 540, vh - (mobile ? 32 : 136)));
   return { width, height };
 }
 
@@ -359,8 +364,14 @@ export default function ChatWidget() {
     if (!mounted) return;
     const update = () => setSize(panelSize(expanded));
     update();
+    // visualViewport fires its own resize when the on-screen keyboard opens/closes, ahead of (or instead of)
+    // window's -- listening to both keeps the panel's size current on every mobile browser.
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
   }, [mounted, expanded]);
 
   const close = useCallback(() => setOpen(false), []);
@@ -636,7 +647,7 @@ export default function ChatWidget() {
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.96, width: size.width, height: size.height }}
             animate={{ opacity: 1, y: 0, scale: 1, width: size.width, height: size.height }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.96 }}
-            transition={transition}
+            transition={{ ...transition, width: { duration: 0 }, height: { duration: 0 } }}
             style={{ transformOrigin: "bottom right" }}
             className="ai-panel bg-bg-darker/85 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.55)] rounded-3xl flex flex-col overflow-hidden"
           >
@@ -773,8 +784,9 @@ export default function ChatWidget() {
                   <ArrowUp size={18} aria-hidden="true" />
                 </button>
               </div>
-              <p className="mt-2 font-mono text-[10px] text-gray-500 text-center">
-                {t("assistant.disclaimer", "AI answers can be wrong. For anything important, use the contact form.")}
+              <p className="mt-2 flex items-center justify-center gap-1.5 font-mono text-[11px] text-gray-400 text-center">
+                <Sparkles size={11} className="text-gold/70 shrink-0" aria-hidden="true" />
+                {t("assistant.disclaimer", "AI can make mistakes -- double-check anything important.")}
               </p>
             </form>
           </motion.section>
