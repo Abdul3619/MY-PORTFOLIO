@@ -149,6 +149,26 @@ function getGeminiClient() {
   return gemini;
 }
 
+// Google's free-tier models occasionally return a transient 503 ("model is currently experiencing high demand")
+// that typically clears within a second or two. Anthropic's SDK already retries transient errors itself
+// (see getClient()'s maxRetries), but the Gemini SDK doesn't, so this gives the Gemini path the same one-retry
+// grace before it gives up and tells the visitor to try again.
+function isProviderOverloaded(err: any): boolean {
+  const status = err?.status ?? err?.error?.code;
+  const message = String(err?.message ?? err?.error?.message ?? '');
+  return status === 503 || status === 'UNAVAILABLE' || /\bUNAVAILABLE\b|overloaded|high demand/i.test(message);
+}
+
+async function withOverloadRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isProviderOverloaded(err)) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    return fn();
+  }
+}
+
 // Which model actually answers the chat. Anthropic is preferred (it's what the system prompt and tone were tuned
 // against); Gemini is a free-tier fallback for whenever ANTHROPIC_API_KEY isn't set (e.g. no budget for it yet)
 // -- same system prompt, same knowledge, same submit_lead tool, just a different model underneath. The moment an
@@ -484,15 +504,17 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
   ];
 
   const client = getGeminiClient();
-  const stream = await client.models.generateContentStream({
-    model,
-    contents,
-    config: {
-      systemInstruction,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-      tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
-    },
-  });
+  const stream = await withOverloadRetry(() =>
+    client.models.generateContentStream({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
+      },
+    }),
+  );
 
   let sentText = false;
   let functionCall: { name: ToolName; args: Record<string, unknown> } | undefined;
@@ -600,10 +622,13 @@ export function createChatRouter() {
       } else {
         console.error('Chat model error:', err?.status ?? '', err?.message);
       }
-      // TEMPORARY: surfacing the real error detail to the visitor while diagnosing a live 500 -- revert before
-      // merging for real, this would otherwise leak internal error text to visitors.
-      const debugDetail = `${err?.status ?? ''} ${err?.message ?? String(err)}`.trim().slice(0, 300);
-      send({ type: 'error', message: `Something went wrong on my side. Please try again in a moment, or use the contact form at /contact. [debug: ${debugDetail}]` });
+      const busy = isProviderOverloaded(err);
+      send({
+        type: 'error',
+        message: busy
+          ? "The AI model is getting a lot of requests right now. Please try again in a few seconds, or use the contact form at /contact."
+          : 'Something went wrong on my side. Please try again in a moment, or use the contact form at /contact.',
+      });
     } finally {
       if (!closed) res.end();
     }
