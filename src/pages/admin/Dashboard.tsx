@@ -15,20 +15,41 @@ import {
   Pie, 
   Cell 
 } from 'recharts';
-import { 
-  Users, 
-  Eye, 
-  Download, 
-  Mail, 
-  UserPlus, 
-  Percent, 
-  Zap, 
-  Plus, 
-  FileText, 
-  MessageSquare, 
-  ArrowUpRight, 
-  RefreshCw 
+import {
+  Users,
+  Eye,
+  Download,
+  Mail,
+  UserPlus,
+  Percent,
+  Zap,
+  Plus,
+  FileText,
+  MessageSquare,
+  ArrowUpRight,
+  RefreshCw,
+  FolderKanban,
+  Settings2
 } from 'lucide-react';
+
+// Every activity_log row gets sorted into one of these "spaces" so the feed can be filtered instead of read as one
+// long undifferentiated list -- the same idea the AI copilot will eventually use to summarize per-section activity.
+type LogCategory = 'leads' | 'messages' | 'projects' | 'system';
+
+const LOG_CATEGORY_META: Record<LogCategory, { label: string; color: string; icon: React.ElementType }> = {
+  leads: { label: 'Leads', color: '#10B981', icon: UserPlus },
+  messages: { label: 'Messages', color: '#3B82F6', icon: Mail },
+  projects: { label: 'Projects', color: '#00F0FF', icon: FolderKanban },
+  system: { label: 'System', color: '#8B5CF6', icon: Settings2 },
+};
+
+function categorizeLog(log: any): LogCategory {
+  const text = `${log?.action || ''} ${log?.details || ''}`.toLowerCase();
+  if (text.includes('lead')) return 'leads';
+  if (text.includes('message') || text.includes('inbox') || text.includes('contact')) return 'messages';
+  if (text.includes('project')) return 'projects';
+  return 'system';
+}
 
 // Count-up helper component using standard state-interval
 const AnimatedCounter: React.FC<{ value: number; duration?: number; prefix?: string; suffix?: string }> = ({ value, duration = 1000, prefix = '', suffix = '' }) => {
@@ -67,6 +88,7 @@ export default function AdminDashboard() {
   const { searchQuery, triggerToast } = useAdmin();
   const [dateFilter, setDateFilter] = useState<'7D' | '30D' | '90D'>('30D');
   const [loading, setLoading] = useState(true);
+  const [activityFilter, setActivityFilter] = useState<'all' | LogCategory>('all');
 
   // States for KPIs
   const [kpis, setKpis] = useState({
@@ -240,6 +262,7 @@ export default function AdminDashboard() {
   };
 
   const filteredLogs = activityStream.filter(log => {
+    if (activityFilter !== 'all' && categorizeLog(log) !== activityFilter) return false;
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -247,6 +270,16 @@ export default function AdminDashboard() {
       log.details?.toLowerCase().includes(query)
     );
   });
+
+  // How many of each space's events are in the current (unfiltered-by-tab) stream, so each tab can show a count.
+  const logCountsByCategory = activityStream.reduce(
+    (acc, log) => {
+      const cat = categorizeLog(log);
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    },
+    { leads: 0, messages: 0, projects: 0, system: 0 } as Record<LogCategory, number>,
+  );
 
   return (
     <div className="space-y-6">
@@ -288,112 +321,122 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* KPI Row (6 glass slots) */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
-        
-        {/* Metric 1 */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
-          className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start text-gray-400 mb-2">
-            <Users size={16} className="group-hover:text-[#00F0FF] transition-colors" />
-            <span className="text-[9px] font-mono font-bold tracking-wider text-[#00F0FF]">LIVE</span>
-          </div>
-          <p className="text-2xl font-black text-white font-mono tracking-tight">
-            <AnimatedCounter value={kpis.visitors} />
-          </p>
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Total Visitors</h4>
-        </motion.div>
+      {/* KPI Rows -- grouped into two clearly-labeled bands instead of one undifferentiated strip of six, so it's
+          obvious at a glance which numbers are "how the site is doing" vs "what needs my attention". */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-gray-500 mb-2 flex items-center gap-1.5">
+            <Eye size={11} /> Audience &amp; Engagement
+          </h2>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.05 }}
+              className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
+            >
+              <div className="flex justify-between items-start text-gray-400 mb-2">
+                <Users size={16} className="group-hover:text-[#00F0FF] transition-colors" />
+                <span className="text-[9px] font-mono font-bold tracking-wider text-[#00F0FF]">LIVE</span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">
+                <AnimatedCounter value={kpis.visitors} />
+              </p>
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Total Visitors</h4>
+            </motion.div>
 
-        {/* Metric 2 */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start text-gray-400 mb-2">
-            <Eye size={16} className="group-hover:text-[#00F0FF] transition-colors" />
-            <span className="text-[9px] font-mono font-bold tracking-wider text-green-400">+12%</span>
-          </div>
-          <p className="text-2xl font-black text-white font-mono tracking-tight">
-            <AnimatedCounter value={kpis.projectViews} />
-          </p>
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Project Views</h4>
-        </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
+            >
+              <div className="flex justify-between items-start text-gray-400 mb-2">
+                <Eye size={16} className="group-hover:text-[#00F0FF] transition-colors" />
+                <span className="text-[9px] font-mono font-bold tracking-wider text-green-400">+12%</span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">
+                <AnimatedCounter value={kpis.projectViews} />
+              </p>
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Project Views</h4>
+            </motion.div>
 
-        {/* Metric 3 */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-          className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start text-gray-400 mb-2">
-            <Download size={16} className="group-hover:text-[#00F0FF] transition-colors" />
-            <span className="text-[9px] font-mono font-bold tracking-wider text-[#00F0FF]">PDF</span>
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.15 }}
+              className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
+            >
+              <div className="flex justify-between items-start text-gray-400 mb-2">
+                <Percent size={16} className="group-hover:text-[#00F0FF] transition-colors" />
+                <span className="text-[9px] font-mono font-bold tracking-wider text-green-400">YIELD</span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">
+                {kpis.conversion}%
+              </p>
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Conversion Rate</h4>
+            </motion.div>
           </div>
-          <p className="text-2xl font-black text-white font-mono tracking-tight">
-            <AnimatedCounter value={kpis.downloads} />
-          </p>
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Downloads</h4>
-        </motion.div>
+        </div>
 
-        {/* Metric 4 */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start text-gray-400 mb-2">
-            <Mail size={16} className="group-hover:text-[#00F0FF] transition-colors" />
-            {kpis.unreadMessages > 0 && (
-              <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
-            )}
-          </div>
-          <p className="text-2xl font-black text-white font-mono tracking-tight">
-            <AnimatedCounter value={kpis.unreadMessages} />
-          </p>
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Unread Inbox</h4>
-        </motion.div>
+        <div>
+          <h2 className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-gray-500 mb-2 flex items-center gap-1.5">
+            <UserPlus size={11} /> Pipeline &amp; Inbox -- needs your attention
+          </h2>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className={`glass-admin p-4 rounded-lg bg-[#111111]/40 border relative group transition-all duration-300 ${
+                kpis.unreadMessages > 0 ? 'border-[#EF4444]/30 hover:border-[#EF4444]/50' : 'border-white/8 hover:border-[#00F0FF]/30'
+              }`}
+            >
+              <div className="flex justify-between items-start text-gray-400 mb-2">
+                <Mail size={16} className="group-hover:text-[#00F0FF] transition-colors" />
+                {kpis.unreadMessages > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
+                )}
+              </div>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">
+                <AnimatedCounter value={kpis.unreadMessages} />
+              </p>
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Unread Inbox</h4>
+            </motion.div>
 
-        {/* Metric 5 */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.25 }}
-          className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start text-gray-400 mb-2">
-            <UserPlus size={16} className="group-hover:text-[#00F0FF] transition-colors" />
-            <span className="text-[9px] font-mono font-bold tracking-wider text-green-400">ACTIVE</span>
-          </div>
-          <p className="text-2xl font-black text-white font-mono tracking-tight">
-            <AnimatedCounter value={kpis.activeLeads} />
-          </p>
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Active Leads</h4>
-        </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.25 }}
+              className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
+            >
+              <div className="flex justify-between items-start text-gray-400 mb-2">
+                <UserPlus size={16} className="group-hover:text-[#00F0FF] transition-colors" />
+                <span className="text-[9px] font-mono font-bold tracking-wider text-green-400">ACTIVE</span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">
+                <AnimatedCounter value={kpis.activeLeads} />
+              </p>
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Active Leads</h4>
+            </motion.div>
 
-        {/* Metric 6 */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-          className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start text-gray-400 mb-2">
-            <Percent size={16} className="group-hover:text-[#00F0FF] transition-colors" />
-            <span className="text-[9px] font-mono font-bold tracking-wider text-green-400">YIELD</span>
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+              className="glass-admin p-4 rounded-lg bg-[#111111]/40 border border-white/8 relative group hover:border-[#00F0FF]/30 transition-all duration-300"
+            >
+              <div className="flex justify-between items-start text-gray-400 mb-2">
+                <Download size={16} className="group-hover:text-[#00F0FF] transition-colors" />
+                <span className="text-[9px] font-mono font-bold tracking-wider text-[#00F0FF]">PDF</span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono tracking-tight">
+                <AnimatedCounter value={kpis.downloads} />
+              </p>
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Downloads</h4>
+            </motion.div>
           </div>
-          <p className="text-2xl font-black text-white font-mono tracking-tight">
-            {kpis.conversion}%
-          </p>
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-1">Conversion Rate</h4>
-        </motion.div>
+        </div>
       </div>
 
       {/* Main Grid (60/40 Split) */}
@@ -465,41 +508,79 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Sequential Activity Stream Card */}
+          {/* Activity Stream Card -- split into spaces (Leads / Messages / Projects / System) via filter tabs
+              instead of one flat mixed list, so scanning "what happened with leads today" doesn't mean reading
+              past everything else first. */}
           <div className="glass-admin p-4 sm:p-6 rounded-lg bg-[#111111]/40 border border-white/8">
-            <div className="flex items-center justify-between mb-4 border-b border-white/8 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-white/8 pb-3">
               <div>
-                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-white">Sequential System Audits</h3>
-                <p className="text-[10px] text-gray-500 mt-0.5">Live immutable stream pulling from activity_log</p>
+                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-white">Recent Activity</h3>
+                <p className="text-[10px] text-gray-500 mt-0.5">Live stream from activity_log, grouped by space</p>
               </div>
-              <span className="px-2 py-0.5 rounded bg-[#00F0FF]/10 text-[#00F0FF] text-[9px] font-mono">BROADCAST ACTIVE</span>
+              <span className="px-2 py-0.5 rounded bg-[#00F0FF]/10 text-[#00F0FF] text-[9px] font-mono">LIVE</span>
+            </div>
+
+            {/* Space filter tabs */}
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {(['all', 'leads', 'messages', 'projects', 'system'] as const).map((tab) => {
+                const count = tab === 'all' ? activityStream.length : logCountsByCategory[tab as LogCategory];
+                const meta = tab === 'all' ? null : LOG_CATEGORY_META[tab as LogCategory];
+                const active = activityFilter === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActivityFilter(tab)}
+                    className={`px-2.5 py-1 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider border transition-all flex items-center gap-1 ${
+                      active
+                        ? 'bg-white/10 border-[#00F0FF]/40 text-white'
+                        : 'bg-white/2 border-white/8 text-gray-500 hover:text-gray-300 hover:border-white/20'
+                    }`}
+                    style={active && meta ? { color: meta.color, borderColor: `${meta.color}66` } : undefined}
+                  >
+                    {tab === 'all' ? 'All' : meta!.label}
+                    <span className="opacity-60">({count})</span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="space-y-4">
-              {filteredLogs.map((log: any, idx) => (
-                <div key={log.id || idx} className="flex gap-4 items-start relative group">
-                  {/* Visual Connector Timeline Line */}
-                  {idx !== filteredLogs.length - 1 && (
-                    <div className="absolute left-2 top-6 bottom-[-16px] w-[1px] bg-white/8 group-hover:bg-[#00F0FF]/20 transition-colors" />
-                  )}
-                  {/* Node icon */}
-                  <div className="w-4 h-4 rounded-full bg-[#1A1A1A] border border-white/12 flex items-center justify-center shrink-0 mt-1 shadow-inner group-hover:border-[#00F0FF]/30 transition-all">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#00F0FF]" />
-                  </div>
-                  {/* Content block */}
-                  <div className="flex-1 min-w-0 bg-white/[0.01] hover:bg-white/[0.02] border border-white/4 p-3 rounded-md transition-all">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-xs font-bold text-white font-mono group-hover:text-[#00F0FF] transition-colors">{log.action || 'System Mutation'}</h4>
-                      <span className="text-[9px] text-gray-500 font-mono">
-                        {new Date(log.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      </span>
+              {filteredLogs.map((log: any, idx) => {
+                const meta = LOG_CATEGORY_META[categorizeLog(log)];
+                const Icon = meta.icon;
+                return (
+                  <div key={log.id || idx} className="flex gap-4 items-start relative group">
+                    {/* Visual Connector Timeline Line */}
+                    {idx !== filteredLogs.length - 1 && (
+                      <div className="absolute left-2 top-6 bottom-[-16px] w-[1px] bg-white/8 group-hover:bg-white/20 transition-colors" />
+                    )}
+                    {/* Node icon, colored by space */}
+                    <div
+                      className="w-4 h-4 rounded-full bg-[#1A1A1A] border flex items-center justify-center shrink-0 mt-1 shadow-inner transition-all"
+                      style={{ borderColor: `${meta.color}55` }}
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
                     </div>
-                    <p className="text-[11px] text-gray-400">{log.details || log.message || 'Audit reference index recorded.'}</p>
+                    {/* Content block */}
+                    <div className="flex-1 min-w-0 bg-white/[0.01] hover:bg-white/[0.02] border border-white/4 p-3 rounded-md transition-all">
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Icon size={11} style={{ color: meta.color }} className="shrink-0" />
+                          <h4 className="text-xs font-bold text-white font-mono truncate">{log.action || 'System Mutation'}</h4>
+                        </div>
+                        <span className="text-[9px] text-gray-500 font-mono shrink-0">
+                          {new Date(log.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-400">{log.details || log.message || 'Audit reference index recorded.'}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {filteredLogs.length === 0 && (
-                <p className="text-xs font-mono text-gray-500 py-4 text-center">No audit matches located in database memory.</p>
+                <p className="text-xs font-mono text-gray-500 py-4 text-center">
+                  {activityFilter === 'all' ? 'No activity recorded yet.' : `No ${LOG_CATEGORY_META[activityFilter as LogCategory].label.toLowerCase()} activity yet.`}
+                </p>
               )}
             </div>
           </div>
