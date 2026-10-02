@@ -21,11 +21,14 @@ export function Layout() {
 
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 1.2,
+      // Shorter duration than before (was 1.2s) -- a long settle time is what reads as "sticky"/slow rather than
+      // smooth, especially on a quick flick of the wheel or trackpad.
+      duration: 0.9,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: "vertical",
       gestureOrientation: "vertical",
       smoothWheel: true,
+      wheelMultiplier: 1.1,
       touchMultiplier: 2,
     });
 
