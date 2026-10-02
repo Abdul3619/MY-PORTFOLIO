@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type FormEven
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUp, Maximize2, Minimize2, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowUp, Maximize2, Minimize2, RotateCcw, Sparkles, Square, X } from "lucide-react";
 import OrbVisual, { type AssistantState } from "./OrbVisual";
 import TypedText from "./TypedText";
 import Waveform from "./Waveform";
@@ -332,6 +332,9 @@ export default function ChatWidget() {
   const [inputFocused, setInputFocused] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState("");
+  // Index of the assistant message that was cut short by the stop button, so a "Continue" pill can be offered
+  // right under it -- cleared the moment any new message (including the continue itself) starts sending.
+  const [stoppedIndex, setStoppedIndex] = useState<number | null>(null);
   const [pageSuggestion, setPageSuggestion] = useState<Suggestion | null>(null);
   const [activeSection, setActiveSectionState] = useState<string | null>(() => getActiveSection());
   const [hasUnseenCue, setHasUnseenCue] = useState(false);
@@ -348,6 +351,9 @@ export default function ChatWidget() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Set right before clear() aborts an in-flight request, so the catch block below knows to throw the partial
+  // answer away instead of treating it as a user-requested stop (which keeps and offers to continue it).
+  const discardAbortRef = useRef(false);
   const wasOpen = useRef(false);
   const busy = phase !== "idle";
 
@@ -470,6 +476,7 @@ export default function ChatWidget() {
     const message = text.trim();
     if (!message || busy) return;
     setError("");
+    setStoppedIndex(null);
     setInput("");
     inputRef.current?.focus();
     const history = messages.slice(-HISTORY_TURNS);
@@ -526,7 +533,25 @@ export default function ChatWidget() {
       // The phase returns to idle once the typing catches up (TypedText onDone)
       setLive({ index: next.length, streaming: false });
     } catch (err: any) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        const discard = discardAbortRef.current;
+        discardAbortRef.current = false;
+        if (discard) return; // clear() already reset everything itself
+        if (answer) {
+          // Stopped mid-reply: keep what was generated so far as a real message (TypedText finishes animating
+          // the already-buffered text and fires onDone, same as a normal completion) and offer to pick it back up.
+          saveMessages([...next, { role: "assistant", content: answer }]);
+          setLive({ index: next.length, streaming: false });
+          setStoppedIndex(next.length);
+        } else {
+          // Stopped before anything came back at all: nothing to keep, behave like any other failed turn.
+          setMessages(next.slice(0, -1));
+          saveMessages(next.slice(0, -1));
+          setLive(null);
+          setPhase("idle");
+        }
+        return;
+      }
       // Drop the unanswered question so the conversation still alternates, and offer it back in the input
       setMessages(next.slice(0, -1));
       saveMessages(next.slice(0, -1));
@@ -538,6 +563,10 @@ export default function ChatWidget() {
       abortRef.current = null;
     }
   };
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   const onTyped = useCallback((count: number) => {
     energy.current = Math.min(1.4, energy.current + count * 0.12);
@@ -566,12 +595,14 @@ export default function ChatWidget() {
   };
 
   const clear = () => {
+    discardAbortRef.current = true;
     abortRef.current?.abort();
     setMessages([]);
     saveMessages([]);
     setLive(null);
     setPhase("idle");
     setError("");
+    setStoppedIndex(null);
     inputRef.current?.focus();
   };
 
@@ -743,6 +774,17 @@ export default function ChatWidget() {
                       <>
                         {renderForDisplay(m.content)}
                         <ChatActions content={m.content} onOpenDemo={(url, label) => setDemoPanel({ url, label })} />
+                        {stoppedIndex === i && !busy && (
+                          <span className="mt-3 flex flex-wrap not-italic">
+                            <button
+                              type="button"
+                              onClick={() => send(t("assistant.continue_prompt", "Please continue your answer from exactly where you left off."))}
+                              className="interactive inline-flex items-center gap-1 text-xs font-medium text-gold border border-gold/40 hover:bg-gold/10 rounded-full px-3 py-1.5 transition-colors"
+                            >
+                              {t("assistant.continue", "Continue")}
+                            </button>
+                          </span>
+                        )}
                       </>
                     )}
                   </p>
@@ -776,12 +818,13 @@ export default function ChatWidget() {
                   className="flex-1 resize-none max-h-28 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold/50 transition-colors"
                 />
                 <button
-                  type="submit"
-                  disabled={busy || !input.trim()}
-                  aria-label={t("assistant.send", "Send")}
+                  type={busy ? "button" : "submit"}
+                  onClick={busy ? stop : undefined}
+                  disabled={!busy && !input.trim()}
+                  aria-label={busy ? t("assistant.stop", "Stop the reply") : t("assistant.send", "Send")}
                   className="interactive glass-button bg-gold text-black rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 disabled:opacity-50"
                 >
-                  <ArrowUp size={18} aria-hidden="true" />
+                  {busy ? <Square size={14} fill="currentColor" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}
                 </button>
               </div>
               <p className="mt-2 flex items-center justify-center gap-1.5 font-mono text-[11px] text-gray-400 text-center">
