@@ -15,6 +15,14 @@ import "@/components/atelierfit/ui/atelierfit-glass.css";
 // Standard four-colour "G" mark used on "Continue/Sign in with Google" buttons -- this is the button
 // convention Google's own brand guidelines ask for, not a design flourish, same as the card-network logos
 // on the payment step.
+function AppleLogo({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M16.365 1.43c0 1.14-.46 2.1-1.18 2.84-.78.8-2.07 1.42-3.03 1.34-.12-1.1.46-2.25 1.17-2.98.8-.82 2.16-1.42 3.04-1.2zM20.3 17.2c-.5 1.16-.74 1.68-1.39 2.7-.9 1.42-2.17 3.2-3.74 3.22-1.4.02-1.76-.92-3.66-.91-1.9.01-2.3.93-3.7.91-1.57-.02-2.77-1.62-3.67-3.04-2.52-3.98-2.78-8.65-1.23-11.13.1-1.6 2.56-2.6 4.17-2.63 1.44-.03 2.12.95 3.7.95 1.56 0 1.9-.95 3.66-.92 1.1.02 2.76.44 3.86 2.06-3.3 2.01-2.77 6.02.5 7.3z" />
+    </svg>
+  );
+}
+
 function GoogleG({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden>
@@ -1019,14 +1027,38 @@ export default function AtelierFit() {
               <h2 className="relative z-10 text-xl font-display font-semibold">Order recorded</h2>
               <p className="relative z-10 text-white/60 text-sm">Reference {order.reference}. Pay your {naira(deposit)} deposit to confirm it.</p>
             </div>
-            <button
-              onClick={pay}
-              disabled={busy}
-              className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {busy ? <Loader2 className="animate-spin" size={18} /> : null}
-              {busy ? "Opening Paystack..." : `Pay ${naira(deposit)} with Paystack`}
-            </button>
+
+            {/* Three ways in, one real processor underneath -- Paystack's own checkout natively supports
+                Apple Pay and Google Pay wherever the customer's device/bank does, alongside card, so these
+                aren't decorative: each one opens the same real Paystack popup, which then offers whichever
+                of these the customer's own device actually supports. */}
+            <div className="space-y-2.5 text-left">
+              <button
+                onClick={pay}
+                disabled={busy}
+                className="w-full py-3.5 rounded-xl bg-black text-white font-semibold hover:bg-black/80 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {busy ? <Loader2 className="animate-spin" size={18} /> : <AppleLogo size={18} />}
+                <span>Pay</span>
+              </button>
+              <button
+                onClick={pay}
+                disabled={busy}
+                className="w-full py-3.5 rounded-xl bg-white text-[#1a0515] font-semibold hover:bg-white/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {busy ? <Loader2 className="animate-spin" size={18} /> : <GoogleG size={18} />}
+                <span>Pay</span>
+              </button>
+              <button
+                onClick={pay}
+                disabled={busy}
+                className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {busy ? <Loader2 className="animate-spin" size={18} /> : <Lock size={16} />}
+                {busy ? "Opening Paystack..." : `Pay ${naira(deposit)} with card`}
+              </button>
+              <p className="text-center text-[11px] text-white/35">All options are processed securely by Paystack.</p>
+            </div>
           </section>
         )}
 

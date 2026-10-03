@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, RotateCcw, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { Camera, RotateCcw, CheckCircle2, Loader2, RefreshCw, Volume2, VolumeX } from "lucide-react";
 import {
   loadLivePoseLandmarker,
   detectPoseFromImage,
@@ -46,13 +46,40 @@ export function LiveCameraStage({
   // anything, which is fine since there's nothing to switch to.
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [canFlip, setCanFlip] = useState(true);
+  const [voiceOn, setVoiceOn] = useState(true);
+  const [caption, setCaption] = useState<string | null>(null);
+  const hasSpeechSynthesis = typeof window !== "undefined" && "speechSynthesis" in window;
+  const lastUntrackedSpokenAtRef = useRef(0);
+  const hasSpokenAlignedRef = useRef(false);
+
+  // Real browser text-to-speech -- the Web Speech API's SpeechSynthesis, built into every modern browser with
+  // no account, API key or network call needed -- so the orb genuinely talks you through the scan instead of
+  // just showing captions. Always updates the caption bubble either way, so the guidance still reads even on
+  // a browser without speech support or with voice muted.
+  const speak = useCallback(
+    (text: string) => {
+      setCaption(text);
+      if (!voiceOn || !hasSpeechSynthesis) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.02;
+        utterance.pitch = 1.05;
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // speech synthesis can throw on some locked-down browsers -- the caption still shows, so fail silent
+      }
+    },
+    [voiceOn, hasSpeechSynthesis],
+  );
 
   const stopStream = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-  }, []);
+    if (hasSpeechSynthesis) window.speechSynthesis.cancel();
+  }, [hasSpeechSynthesis]);
 
   useEffect(() => {
     if (captured) return; // already captured for this stage -- don't reopen the camera
@@ -90,6 +117,8 @@ export function LiveCameraStage({
         video.srcObject = stream;
         await video.play();
         setStatus("live");
+        hasSpokenAlignedRef.current = false;
+        speak("Stand naturally, about two and a half metres back, with your whole body in frame.");
 
         const canvas = canvasRef.current;
         const draw = () => {
@@ -100,7 +129,22 @@ export function LiveCameraStage({
           }
           const pose = detectPoseFromVideoFrame(landmarker, video, performance.now());
           latestPoseRef.current = pose;
-          setTracked((prev) => (prev === !!pose ? prev : !!pose));
+          setTracked((prevTracked) => {
+            const nowTracked = !!pose;
+            if (nowTracked === prevTracked) return prevTracked;
+            if (nowTracked && !hasSpokenAlignedRef.current) {
+              hasSpokenAlignedRef.current = true;
+              speak("Perfect, hold still -- tap capture when you're ready.");
+            } else if (!nowTracked) {
+              const now = performance.now();
+              // Throttled -- don't re-announce every single frame someone briefly steps half out of shot.
+              if (now - lastUntrackedSpokenAtRef.current > 4000) {
+                lastUntrackedSpokenAtRef.current = now;
+                speak("Step back so your head and feet are both visible.");
+              }
+            }
+            return nowTracked;
+          });
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -278,14 +322,39 @@ export function LiveCameraStage({
                 </span>
               </div>
 
-              {canFlip && (
-                <button
-                  onClick={flipCamera}
-                  aria-label="Switch camera"
-                  className="absolute top-3 right-3 p-2 rounded-full bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/70 transition-colors"
-                >
-                  <RefreshCw size={16} />
-                </button>
+              <div className="absolute top-3 right-3 flex flex-col gap-2">
+                {canFlip && (
+                  <button
+                    onClick={flipCamera}
+                    aria-label="Switch camera"
+                    className="p-2 rounded-full bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/70 transition-colors"
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                )}
+                {hasSpeechSynthesis && (
+                  <button
+                    onClick={() => {
+                      setVoiceOn((v) => {
+                        if (v) window.speechSynthesis.cancel();
+                        return !v;
+                      });
+                    }}
+                    aria-label={voiceOn ? "Mute voice guidance" : "Unmute voice guidance"}
+                    className="p-2 rounded-full bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/70 transition-colors"
+                  >
+                    {voiceOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                  </button>
+                )}
+              </div>
+
+              {caption && (
+                <div className="absolute bottom-20 left-3 right-3 flex items-start gap-2 px-3 py-2 rounded-xl bg-black/55 backdrop-blur-sm">
+                  <span className={`mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center ${voiceOn ? "bg-[#F06BA6]/30" : "bg-white/10"}`}>
+                    <span className={`w-2 h-2 rounded-full ${voiceOn ? "bg-[#F06BA6] animate-pulse" : "bg-white/40"}`} />
+                  </span>
+                  <span className="text-[11px] leading-snug text-white/85">{caption}</span>
+                </div>
               )}
 
               <button
