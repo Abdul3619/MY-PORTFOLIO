@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User } from "lucide-react";
 import { detectPoseFromImage, estimateMeasurements, type EstimatedMeasurements } from "@/lib/atelierfit/measure";
 import { openPaystackCheckout } from "@/lib/atelierfit/paystack";
-import { FlowingBackground } from "@/components/atelierfit/FlowingBackground";
+import { BackgroundGlow } from "@/components/atelierfit/ui/BackgroundGlow";
+import { CopilotOrb } from "@/components/atelierfit/ui/CopilotOrb";
+import { GlassCard } from "@/components/atelierfit/ui/GlassCard";
+import { GarmentPlaceholder } from "@/components/atelierfit/ui/GarmentPlaceholder";
+import "@/components/atelierfit/ui/atelierfit-glass.css";
 
 // AtelierFit -- a real tailoring order app, not a portfolio mockup. Lives outside the main site's SSR'd layout
 // (registered as a pure client route, same as /admin) so it can behave like an installable app: full-screen,
@@ -41,33 +45,6 @@ const FIELD_LABELS: Record<keyof EstimatedMeasurements, string> = {
   hipCm: "Hip", sleeveLengthCm: "Sleeve length", armLengthCm: "Arm length", legLengthCm: "Leg / inseam length",
 };
 
-// Soft blurred magenta-rose blobs drifting behind glass panels -- the "plasma bleeding through the space"
-// effect: large, heavily-blurred colour fields placed in an overflow-visible wrapper so the glow spills past
-// the panel's own edges rather than being clipped neatly inside it, with a slow drift/pulse so it reads as
-// alive rather than a static background image.
-function PlasmaField({ className = "" }: { className?: string }) {
-  return (
-    <div className={`pointer-events-none absolute inset-0 -z-10 ${className}`} aria-hidden>
-      <div
-        className="absolute w-64 h-64 rounded-full blur-3xl opacity-60 animate-[af-drift-a_9s_ease-in-out_infinite]"
-        style={{ background: "radial-gradient(circle, #F06BA6, transparent 70%)", top: "-20%", left: "-10%" }}
-      />
-      <div
-        className="absolute w-72 h-72 rounded-full blur-3xl opacity-50 animate-[af-drift-b_11s_ease-in-out_infinite]"
-        style={{ background: "radial-gradient(circle, #D6397D, transparent 70%)", bottom: "-25%", right: "-15%" }}
-      />
-      <div
-        className="absolute w-48 h-48 rounded-full blur-3xl opacity-40 animate-[af-drift-a_13s_ease-in-out_infinite]"
-        style={{ background: "radial-gradient(circle, #8a2456, transparent 70%)", top: "30%", right: "5%" }}
-      />
-      <style>{`
-        @keyframes af-drift-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(14px, -10px) scale(1.12); } }
-        @keyframes af-drift-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-12px, 12px) scale(1.08); } }
-      `}</style>
-    </div>
-  );
-}
-
 const PATTERN_BG: Record<string, string> = {
   diagonal: "repeating-linear-gradient(135deg, rgba(240,107,166,0.22) 0px, rgba(240,107,166,0.22) 2px, transparent 2px, transparent 14px)",
   grid: "linear-gradient(rgba(240,107,166,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(240,107,166,0.18) 1px, transparent 1px)",
@@ -79,15 +56,15 @@ const PATTERN_BG: Record<string, string> = {
 
 function GalleryTile({ title, tag, pattern }: { title: string; tag: string; pattern: string }) {
   return (
-    <div className="relative h-36 rounded-xl overflow-hidden border border-white/15 bg-white/[0.06] backdrop-blur-xl flex flex-col justify-end p-3">
+    <div className="relative h-36 rounded-[18px] overflow-hidden glass-card-subtle flowing-pink-edge flex flex-col justify-end p-3">
       <div
         className="absolute inset-0"
         style={{ backgroundImage: PATTERN_BG[pattern], backgroundSize: pattern === "dots" ? "14px 14px" : pattern === "grid" ? "16px 16px" : "auto" }}
         aria-hidden
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0B0A08]/90 via-transparent to-transparent" aria-hidden />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#1a0515]/90 via-transparent to-transparent" aria-hidden />
       <div className="relative z-10">
-        <div className="text-sm font-medium leading-snug">{title}</div>
+        <div className="text-sm font-medium leading-snug font-serif">{title}</div>
         <div className="text-[11px] text-white/50 mt-0.5">{tag}</div>
       </div>
     </div>
@@ -103,6 +80,14 @@ function greeting() {
 
 function naira(n: number) {
   return `₦${n.toLocaleString("en-NG")}`;
+}
+
+// Maps a garment id to one of GarmentPlaceholder's abstract silhouette types -- still an honest,
+// unphotographed placeholder (see the GALLERY comment above), just shaped roughly like the garment.
+function garmentPlaceholderType(garmentId: string): "gown" | "suit" | "fabric" {
+  if (garmentId === "dress") return "gown";
+  if (garmentId === "agbada" || garmentId === "kaftan" || garmentId === "senator") return "suit";
+  return "fabric";
 }
 
 async function loadImage(file: File): Promise<HTMLImageElement> {
@@ -259,23 +244,26 @@ export default function AtelierFit() {
   }, [order, config, customer.email]);
 
   return (
-    <div className="relative min-h-screen w-full text-[#F5F0E6] font-sans flex flex-col items-center px-4 py-8">
-      <FlowingBackground />
-      <div className="w-full max-w-md">
-        <header className="flex items-center gap-3 mb-8">
-          {step !== "home" && (
-            <button
-              onClick={() => setStep(stepBack(step))}
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
-              aria-label="Back"
-            >
-              <ArrowLeft size={18} />
-            </button>
-          )}
-          <div className="flex items-center gap-2">
-            <Ruler className="text-[#D6397D]" size={22} />
-            <span className="font-display text-lg tracking-wide font-semibold">AtelierFit</span>
+    <div className="atelierfit-root relative min-h-screen w-full text-[#F5F0E6] font-sans flex flex-col items-center px-4 py-8">
+      <BackgroundGlow glowPositions={["top-right", "top-left", "bottom-left", "bottom-right"]} intensity="vibrant" />
+      <div className="w-full max-w-md relative z-10">
+        <header className="flex items-center justify-between gap-3 mb-8">
+          <div className="flex items-center gap-3">
+            {step !== "home" && (
+              <button
+                onClick={() => setStep(stepBack(step))}
+                className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+                aria-label="Back"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <Ruler className="text-[#D6397D]" size={22} />
+              <span className="font-serif text-lg tracking-wide font-semibold">AtelierFit</span>
+            </div>
           </div>
+          {step === "home" && <CopilotOrb size="sm" statusText="Ready to help" showWaveform />}
         </header>
 
         {error && (
@@ -290,16 +278,15 @@ export default function AtelierFit() {
                   <Sparkles size={13} className="text-[#D6397D]" />
                   <span>By Atelier Noir</span>
                 </div>
-                <h1 className="text-2xl font-display font-bold leading-tight">{greeting()}.</h1>
+                <h1 className="text-2xl font-serif font-bold leading-tight">{greeting()}.</h1>
                 <p className="text-white/60 text-sm mt-0.5">Ready to start your next fit?</p>
               </div>
             </div>
 
-            {/* The AI-copilot hero -- a glass panel with plasma glow bleeding past its own edges (overflow
-                visible), rather than a flat banner clipped neatly inside its border. */}
+            {/* The AI-copilot hero -- pink glassmorphism panel (ported from the AI-Studio build) with an
+                animated flowing border and inner glow, rather than a flat banner. */}
             <div className="relative py-6">
-              <PlasmaField />
-              <div className="relative rounded-3xl border border-white/15 bg-white/[0.07] backdrop-blur-xl py-10 flex flex-col items-center gap-3 shadow-[0_0_60px_-15px_rgba(214,57,125,0.55)]">
+              <div className="relative rounded-[28px] glass-card py-10 flex flex-col items-center gap-3">
                 <button
                   onClick={() => setStep("garment")}
                   disabled={!config}
@@ -320,53 +307,49 @@ export default function AtelierFit() {
                   />
                   <span className="relative z-10 flex flex-col items-center gap-1 text-black">
                     <Ruler size={24} />
-                    <span className="font-display font-semibold text-sm tracking-wide">
+                    <span className="font-serif font-semibold text-sm tracking-wide">
                       {config ? "Begin fitting" : "Loading..."}
                     </span>
                   </span>
                 </button>
                 <style>{`@keyframes af-ring { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.65); opacity: 0; } }`}</style>
                 <div className="relative z-10 text-center">
-                  <div className="font-display text-sm tracking-wide text-white/80">AtelierFit Copilot</div>
+                  <div className="font-serif text-sm tracking-wide text-white/80">AtelierFit Copilot</div>
                   <div className="text-[11px] text-white/40">Measuring · Fitting · Creating</div>
                 </div>
               </div>
             </div>
 
-            {/* Quick actions -- taller glass cards with their own glow, each taking the full width/height the
-                grid gives it rather than being squeezed into a cramped row. */}
-            <div className="relative">
-              <PlasmaField className="opacity-70" />
-              <div className="relative grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => { setMethod("camera_ai"); setStep("garment"); }}
-                  className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/15 hover:border-[#F06BA6]/60 transition-colors text-center shadow-[0_0_30px_-12px_rgba(214,57,125,0.5)]"
-                >
-                  <Scan size={22} className="text-[#F06BA6]" />
-                  <span className="text-xs font-medium leading-tight">Scan Body</span>
-                  <span className="text-[10px] text-white/40 leading-tight">AI measurements</span>
-                </button>
-                <button
-                  onClick={() => setStep("garment")}
-                  disabled={!config}
-                  className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/15 hover:border-[#F06BA6]/60 transition-colors text-center disabled:opacity-50 shadow-[0_0_30px_-12px_rgba(214,57,125,0.5)]"
-                >
-                  <Palette size={22} className="text-[#F06BA6]" />
-                  <span className="text-xs font-medium leading-tight">Start Order</span>
-                  <span className="text-[10px] text-white/40 leading-tight">Pick a garment</span>
-                </button>
-                <button
-                  onClick={() => setStep("gallery")}
-                  className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/15 hover:border-[#F06BA6]/60 transition-colors text-center shadow-[0_0_30px_-12px_rgba(214,57,125,0.5)]"
-                >
-                  <Images size={22} className="text-[#F06BA6]" />
-                  <span className="text-xs font-medium leading-tight">Gallery</span>
-                  <span className="text-[10px] text-white/40 leading-tight">See our work</span>
-                </button>
-              </div>
+            {/* Quick actions -- pink glass tiles with the flowing animated edge. */}
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => { setMethod("camera_ai"); setStep("garment"); }}
+                className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors text-center"
+              >
+                <Scan size={22} className="text-[#F06BA6]" />
+                <span className="text-xs font-medium leading-tight">Scan Body</span>
+                <span className="text-[10px] text-white/40 leading-tight">AI measurements</span>
+              </button>
+              <button
+                onClick={() => setStep("garment")}
+                disabled={!config}
+                className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors text-center disabled:opacity-50"
+              >
+                <Palette size={22} className="text-[#F06BA6]" />
+                <span className="text-xs font-medium leading-tight">Start Order</span>
+                <span className="text-[10px] text-white/40 leading-tight">Pick a garment</span>
+              </button>
+              <button
+                onClick={() => setStep("gallery")}
+                className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors text-center"
+              >
+                <Images size={22} className="text-[#F06BA6]" />
+                <span className="text-xs font-medium leading-tight">Gallery</span>
+                <span className="text-[10px] text-white/40 leading-tight">See our work</span>
+              </button>
             </div>
 
-            <div className="flex items-start gap-3 text-sm text-white/60 bg-white/5 rounded-xl p-4 border border-white/10">
+            <div className="flex items-start gap-3 text-sm text-white/60 glass-card-subtle rounded-xl p-4">
               <ShieldCheck size={18} className="text-[#F06BA6] shrink-0 mt-0.5" />
               <span>Camera measurements are estimated entirely on your own phone. No photo is ever uploaded or stored -- you confirm every number before anything is charged.</span>
             </div>
@@ -413,15 +396,18 @@ export default function AtelierFit() {
 
         {step === "garment" && config && (
           <section className="space-y-4">
-            <h2 className="text-xl font-display font-semibold mb-2">What are you having made?</h2>
+            <h2 className="text-xl font-serif font-semibold mb-2">What are you having made?</h2>
             {config.garments.map((g) => (
               <button
                 key={g.id}
                 onClick={() => { setGarment(g); setStep("method"); }}
-                className="w-full text-left p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#D6397D]/50 transition-colors flex justify-between items-center"
+                className="w-full text-left p-3 rounded-xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors flex items-center gap-3"
               >
-                <span>{g.label}</span>
-                <span className="text-white/50 text-sm">{naira(g.basePriceNaira)}</span>
+                <GarmentPlaceholder type={garmentPlaceholderType(g.id)} className="w-14 h-14 rounded-xl shrink-0" ratio="square" />
+                <span className="flex-1 flex justify-between items-center">
+                  <span>{g.label}</span>
+                  <span className="text-white/50 text-sm">{naira(g.basePriceNaira)}</span>
+                </span>
               </button>
             ))}
           </section>
@@ -565,8 +551,8 @@ export default function AtelierFit() {
 
       {/* Bottom nav -- only on the two "browsing" screens, out of the way once someone's mid-order. */}
       {(step === "home" || step === "gallery") && (
-        <nav className="fixed bottom-0 inset-x-0 flex justify-center pointer-events-none">
-          <div className="pointer-events-auto w-full max-w-md flex items-center justify-around bg-[#121015]/90 backdrop-blur border-t border-white/10 px-2 py-2.5 mx-4 mb-3 rounded-2xl">
+        <nav className="atelierfit-root fixed bottom-0 inset-x-0 flex justify-center pointer-events-none z-20">
+          <div className="pointer-events-auto w-full max-w-md flex items-center justify-around pink-glass-card px-2 py-2.5 mx-4 mb-3 rounded-[22px]">
             <button onClick={() => setStep("home")} className={`flex flex-col items-center gap-1 px-4 py-1 rounded-xl transition-colors ${step === "home" ? "text-[#D6397D]" : "text-white/40 hover:text-white/70"}`}>
               <HomeIcon size={18} />
               <span className="text-[10px] font-medium">Home</span>
