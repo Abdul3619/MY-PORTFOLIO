@@ -36,7 +36,8 @@ function GoogleG({ size = 18 }: { size?: number }) {
 // AtelierFit's own signature accent is copper-rose (#D6397D / hover #F06BA6), distinct from Atelier Noir's gold.
 
 type Garment = { id: string; label: string; basePriceNaira: number; imageUrl?: string };
-type Step = "splash" | "home" | "gallery" | "garment" | "method" | "camera" | "manual" | "review" | "details" | "checkout" | "success";
+type Fabric = { id: string; label: string; tagline: string; surchargeNaira: number };
+type Step = "splash" | "home" | "gallery" | "garment" | "design" | "method" | "camera" | "manual" | "review" | "booking" | "details" | "checkout" | "success";
 
 const GUEST_FLAG = "atelierfit_guest";
 
@@ -138,15 +139,32 @@ export default function AtelierFit() {
     }
     return "splash";
   });
-  const [config, setConfig] = useState<{ garments: Garment[]; depositRate: number; paystackConfigured: boolean; paystackPublicKey: string | null } | null>(null);
+  const [config, setConfig] = useState<{
+    garments: Garment[];
+    fabrics: Fabric[];
+    occasions: string[];
+    depositRate: number;
+    paystackConfigured: boolean;
+    paystackPublicKey: string | null;
+    bookableDates: string[];
+    timeSlots: string[];
+    estimatedTurnaroundDays: number;
+  } | null>(null);
   const [garment, setGarment] = useState<Garment | null>(null);
+  const [fabricId, setFabricId] = useState<string>("cotton");
+  const [embroideryNotes, setEmbroideryNotes] = useState("");
+  const [occasion, setOccasion] = useState<string | null>(null);
+  const [appointmentDate, setAppointmentDate] = useState<string | null>(null);
+  const [appointmentTime, setAppointmentTime] = useState<string | null>(null);
   const [heightCm, setHeightCm] = useState(170);
   const [method, setMethod] = useState<"camera_ai" | "manual" | null>(null);
   const [measurements, setMeasurements] = useState<EstimatedMeasurements>(emptyMeasurements);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "", notes: "" });
-  const [order, setOrder] = useState<{ orderId: string; reference: string; amountKobo: number; paystackReady: boolean } | null>(null);
+  const [order, setOrder] = useState<{ orderId: string; reference: string; amountKobo: number; paystackReady: boolean; estimatedReadyAt?: string } | null>(null);
+
+  const fabric = useMemo(() => config?.fabrics.find((f) => f.id === fabricId) || null, [config, fabricId]);
 
   // Once auth finishes loading (including right after a Google OAuth redirect back into this page), a
   // visitor who signed in with Google specifically for AtelierFit skips straight past the splash -- they
@@ -225,7 +243,9 @@ export default function AtelierFit() {
       .catch(() => setError("Couldn't reach the server -- check your connection and reload."));
   }, []);
 
-  const deposit = useMemo(() => (garment ? Math.round(garment.basePriceNaira * (config?.depositRate ?? 0.4)) : 0), [garment, config]);
+  const totalPriceNaira = useMemo(() => (garment ? garment.basePriceNaira + (fabric?.surchargeNaira ?? 0) : 0), [garment, fabric]);
+  const deposit = useMemo(() => Math.round(totalPriceNaira * (config?.depositRate ?? 0.4)), [totalPriceNaira, config]);
+  const balanceDue = totalPriceNaira - deposit;
 
   // A single source of truth for how the AI orb should "feel" right now -- not wired to a real backend brain,
   // but reflecting real app state (still loading the catalogue, mid-submit, actively watching the camera, just
@@ -271,6 +291,11 @@ export default function AtelierFit() {
           customerEmail: customer.email,
           customerPhone: customer.phone || null,
           garment: garment.id,
+          fabric: fabricId,
+          embroideryNotes: embroideryNotes || null,
+          occasion,
+          appointmentDate,
+          appointmentTime,
           notes: customer.notes || null,
           measurements,
           measurementMethod: method,
@@ -289,7 +314,7 @@ export default function AtelierFit() {
     } finally {
       setBusy(false);
     }
-  }, [garment, customer, measurements, method, config]);
+  }, [garment, fabricId, embroideryNotes, occasion, appointmentDate, appointmentTime, customer, measurements, method, config]);
 
   const pay = useCallback(async () => {
     if (!order || !config?.paystackPublicKey) return;
@@ -504,7 +529,7 @@ export default function AtelierFit() {
             {config.garments.map((g) => (
               <button
                 key={g.id}
-                onClick={() => { setGarment(g); setStep("method"); }}
+                onClick={() => { setGarment(g); setStep("design"); }}
                 className="w-full text-left p-3 rounded-xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors flex items-center gap-3"
               >
                 <GarmentCutoutThumb garment={g} />
@@ -514,6 +539,87 @@ export default function AtelierFit() {
                 </span>
               </button>
             ))}
+          </section>
+        )}
+
+        {step === "design" && garment && config && (
+          <section className="space-y-5">
+            <h2 className="text-xl font-serif font-semibold mb-1">Design review</h2>
+            <p className="text-sm text-white/60 mb-2">Pick a fabric and any details -- your price updates live as you choose.</p>
+
+            <div>
+              <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Fabric</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {config.fabrics.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFabricId(f.id)}
+                    className={`text-left p-3 rounded-xl transition-colors ${fabricId === f.id ? "glass-card flowing-pink-edge" : "glass-card-subtle hover:border-pink-400/40"}`}
+                  >
+                    <div className="text-sm font-medium flex items-center justify-between">
+                      <span>{f.label}</span>
+                      {fabricId === f.id && <CheckCircle2 size={14} className="text-[#F06BA6]" />}
+                    </div>
+                    <div className="text-[11px] text-white/45 mt-0.5">{f.tagline}</div>
+                    <div className="text-[11px] text-[#F8A0C8] mt-1">{f.surchargeNaira > 0 ? `+${naira(f.surchargeNaira)}` : "Included"}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Occasion</div>
+              <div className="flex flex-wrap gap-2">
+                {config.occasions.map((o) => (
+                  <button
+                    key={o}
+                    onClick={() => setOccasion(occasion === o ? null : o)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${occasion === o ? "bg-[#D6397D] text-black" : "glass-card-subtle text-white/60 hover:text-white"}`}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs uppercase tracking-wide text-white/40 mb-2">Embroidery / style notes (optional)</label>
+              <textarea
+                value={embroideryNotes}
+                onChange={(e) => setEmbroideryNotes(e.target.value)}
+                placeholder="e.g. floral embroidery on the collar, your initials monogrammed..."
+                rows={3}
+                className="w-full p-3 rounded-lg glass-input resize-none text-sm"
+              />
+            </div>
+
+            <div className="rounded-xl glass-card-subtle p-4 space-y-3">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/40">
+                <Sparkles size={13} className="text-[#F06BA6]" /> Delivery timeline
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-white/50">
+                {["Design", "Crafting", "Quality check", "Delivery"].map((label, i) => (
+                  <div key={label} className="flex-1 flex flex-col items-center gap-1 relative">
+                    {i > 0 && <span className="absolute top-1.5 right-1/2 w-full h-px bg-white/15" aria-hidden />}
+                    <span className={`relative z-10 w-3 h-3 rounded-full ${i === 0 ? "bg-[#F06BA6]" : "bg-white/20"}`} />
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-center text-xs text-white/60">Estimated {config.estimatedTurnaroundDays - 2}-{config.estimatedTurnaroundDays + 1} days from your fitting appointment</div>
+            </div>
+
+            <div className="rounded-xl glass-card p-4 flex items-center justify-between">
+              <span className="text-sm text-white/60">Estimated price</span>
+              <span className="font-serif font-semibold text-lg">{naira(totalPriceNaira)}</span>
+            </div>
+
+            <button
+              onClick={() => setStep("method")}
+              className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors"
+            >
+              Continue to measurements
+            </button>
           </section>
         )}
 
@@ -607,10 +713,88 @@ export default function AtelierFit() {
             </p>
             <MeasurementForm measurements={measurements} onChange={setMeasurements} />
             <button
-              onClick={() => setStep("details")}
+              onClick={() => setStep("booking")}
               className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors"
             >
               These look right -- continue
+            </button>
+          </section>
+        )}
+
+        {step === "booking" && garment && config && (
+          <section className="space-y-5">
+            <h2 className="text-xl font-serif font-semibold mb-1">Book your fitting</h2>
+            <p className="text-sm text-white/60 mb-2">Pick a date and time for your fitting appointment at the atelier.</p>
+
+            <div className="rounded-xl glass-card-subtle p-3 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#F8A0C8] to-[#D6397D] flex items-center justify-center shrink-0">
+                <Scan size={18} className="text-black" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium">Atelier Noir</div>
+                <div className="text-[11px] text-white/45">Your tailor · usually responds within a day</div>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden />
+            </div>
+
+            <div>
+              <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Select a date</div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {config.bookableDates.map((d) => {
+                  const date = new Date(d + "T00:00:00");
+                  const selected = appointmentDate === d;
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => setAppointmentDate(d)}
+                      className={`shrink-0 w-14 py-2.5 rounded-xl flex flex-col items-center gap-0.5 transition-colors ${selected ? "bg-[#D6397D] text-black" : "glass-card-subtle text-white/70 hover:text-white"}`}
+                    >
+                      <span className="text-[10px] uppercase">{date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                      <span className="text-sm font-semibold">{date.getDate()}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {appointmentDate && (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Time slot</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {config.timeSlots.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setAppointmentTime(t)}
+                      className={`py-2.5 rounded-lg text-xs font-medium transition-colors ${appointmentTime === t ? "bg-[#D6397D] text-black" : "glass-card-subtle text-white/70 hover:text-white"}`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {appointmentDate && (
+              <div className="rounded-xl glass-card-subtle p-4 text-sm flex items-center justify-between">
+                <span className="text-white/60">Estimated completion</span>
+                <span className="font-medium">
+                  {new Date(new Date(appointmentDate + "T00:00:00").getTime() + config.estimatedTurnaroundDays * 86400000)
+                    .toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </span>
+              </div>
+            )}
+
+            <div className="rounded-xl glass-card p-4 space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-white/60">Deposit due now (40%)</span><span className="font-semibold">{naira(deposit)}</span></div>
+              <div className="flex justify-between text-white/50 text-xs"><span>Balance on delivery (60%)</span><span>{naira(balanceDue)}</span></div>
+            </div>
+
+            <button
+              onClick={() => setStep("details")}
+              disabled={!appointmentDate || !appointmentTime}
+              className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors disabled:opacity-50"
+            >
+              Reserve appointment
             </button>
           </section>
         )}
@@ -783,7 +967,7 @@ function CardNetworkLogos() {
 }
 
 function stepBack(step: Step): Step {
-  const order: Step[] = ["home", "gallery", "garment", "method", "camera", "manual", "review", "details", "checkout", "success"];
+  const order: Step[] = ["home", "gallery", "garment", "design", "method", "camera", "manual", "review", "booking", "details", "checkout", "success"];
   const idx = order.indexOf(step);
   if (step === "manual" || step === "camera") return "method";
   return order[Math.max(0, idx - 1)];

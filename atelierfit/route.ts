@@ -24,6 +24,26 @@ export const GARMENTS: Record<string, { label: string; basePriceNaira: number; i
   custom: { label: 'Custom / Other (confirmed by message)', basePriceNaira: 25000 },
 };
 
+// Fabric options for the Design Review step -- a flat surcharge per fabric, same pattern as garment pricing:
+// fixed server-side, the client only ever picks an id. "Everyday Cotton" carries no surcharge so every
+// garment has a zero-extra-cost option.
+export const FABRICS: Record<string, { label: string; tagline: string; surchargeNaira: number }> = {
+  cotton: { label: 'Everyday Cotton', tagline: 'Breathable & reliable', surchargeNaira: 0 },
+  linen: { label: 'Linen Blend', tagline: 'Breathable & fresh', surchargeNaira: 4000 },
+  silk: { label: 'Silk Satin', tagline: 'Luxurious & elegant', surchargeNaira: 12000 },
+  cashmere: { label: 'Cashmere Blend', tagline: 'Soft & premium', surchargeNaira: 15000 },
+  velvet: { label: 'Velvet', tagline: 'Rich & sophisticated', surchargeNaira: 10000 },
+};
+
+export const OCCASIONS = ['Wedding', 'Evening', 'Business', 'Casual', 'Other'] as const;
+
+// How many working days out a slot can be booked, and which slots exist per day -- used by both the
+// /config response (so the client can render real selectable dates) and order creation (so a bad date/time
+// can't be submitted around the UI).
+const BOOKING_WINDOW_DAYS = 21;
+const TIME_SLOTS = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM', '5:00 PM'];
+const ESTIMATED_TURNAROUND_DAYS = 9; // "7-10 days" from the reference design, midpoint
+
 const DEPOSIT_RATE = 0.4;
 
 const measurementsSchema = z.object({
@@ -42,6 +62,11 @@ const createOrderSchema = z.object({
   customerEmail: z.string().email().max(254),
   customerPhone: z.string().max(30).optional().nullable(),
   garment: z.string().refine((g) => g in GARMENTS, { message: 'Unknown garment type' }),
+  fabric: z.string().refine((f) => f in FABRICS, { message: 'Unknown fabric' }).optional().nullable(),
+  embroideryNotes: z.string().max(500).optional().nullable(),
+  occasion: z.enum(OCCASIONS).optional().nullable(),
+  appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'appointmentDate must be YYYY-MM-DD').optional().nullable(),
+  appointmentTime: z.string().refine((t) => TIME_SLOTS.includes(t), { message: 'Unknown time slot' }).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   measurements: measurementsSchema,
   measurementMethod: z.enum(['camera_ai', 'manual']),
@@ -70,11 +95,27 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
   router.get(
     '/config',
     asyncHandler(async (_req, res) => {
+      // Real selectable dates -- the next BOOKING_WINDOW_DAYS calendar days, Mondays-Saturdays only (the
+      // reference design's calendar grid needs actual dates to render, not just a visual mockup).
+      const bookableDates: string[] = [];
+      const cursor = new Date();
+      cursor.setHours(0, 0, 0, 0);
+      cursor.setDate(cursor.getDate() + 1); // earliest slot is tomorrow
+      while (bookableDates.length < BOOKING_WINDOW_DAYS) {
+        if (cursor.getDay() !== 0) bookableDates.push(cursor.toISOString().slice(0, 10)); // skip Sundays
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
       res.json({
         paystackConfigured: Boolean(paystackSecret && paystackPublicKey),
         paystackPublicKey: paystackPublicKey || null,
         garments: Object.entries(GARMENTS).map(([id, g]: [string, { label: string; basePriceNaira: number; imageUrl?: string }]) => ({ id, ...g })),
+        fabrics: Object.entries(FABRICS).map(([id, f]) => ({ id, ...f })),
+        occasions: OCCASIONS,
         depositRate: DEPOSIT_RATE,
+        bookableDates,
+        timeSlots: TIME_SLOTS,
+        estimatedTurnaroundDays: ESTIMATED_TURNAROUND_DAYS,
       });
     }),
   );
@@ -91,7 +132,9 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
       }
       const body = parsed.data;
       const garment = GARMENTS[body.garment];
-      const amountNaira = Math.round(garment.basePriceNaira * DEPOSIT_RATE);
+      const fabric = body.fabric ? FABRICS[body.fabric] : null;
+      const basePriceNaira = garment.basePriceNaira + (fabric?.surchargeNaira ?? 0);
+      const amountNaira = Math.round(basePriceNaira * DEPOSIT_RATE);
       const amountKobo = amountNaira * 100;
       const reference = `ATF-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
 
@@ -102,6 +145,12 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
           customer_email: body.customerEmail,
           customer_phone: body.customerPhone || null,
           garment_type: garment.label,
+          fabric: fabric?.label || null,
+          fabric_surcharge_kobo: (fabric?.surchargeNaira ?? 0) * 100,
+          embroidery_notes: body.embroideryNotes || null,
+          occasion: body.occasion || null,
+          appointment_date: body.appointmentDate || null,
+          appointment_time: body.appointmentTime || null,
           notes: body.notes || null,
           measurements: body.measurements,
           measurement_method: body.measurementMethod,
@@ -113,18 +162,24 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
           payment_status: 'pending',
           status: 'New',
         })
-        .select('id, payment_reference, amount_kobo')
+        .select('id, payment_reference, amount_kobo, created_at')
         .single();
 
       if (error) {
         res.status(500).json({ error: error.message });
         return;
       }
+      // Real, computed estimate -- not a hardcoded string -- from either the chosen appointment date (if
+      // the fitting itself is in the future) or today, whichever anchors the turnaround more sensibly.
+      const anchor = body.appointmentDate ? new Date(body.appointmentDate) : new Date(data.created_at);
+      const estimatedReadyAt = new Date(anchor.getTime() + ESTIMATED_TURNAROUND_DAYS * 86400000).toISOString();
+
       res.status(201).json({
         orderId: data.id,
         reference: data.payment_reference,
         amountKobo: data.amount_kobo,
         paystackReady: Boolean(paystackSecret && paystackPublicKey),
+        estimatedReadyAt,
       });
     }),
   );
@@ -179,6 +234,50 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
         return;
       }
       res.json({ success: true });
+    }),
+  );
+
+  // ---- Public (customer-authenticated): my own order history + profile ----
+  //
+  // Orders have no RLS read access for anon/authenticated (see the migration) -- the service-role client
+  // here is the only thing that can read them, so this route is the sole gate. It verifies the caller's own
+  // Supabase access token (sent as a Bearer header, the same session the client already holds from
+  // signInWithOAuth) against Supabase's auth server, then filters strictly by *that verified* email --
+  // never a client-supplied one -- so one signed-in customer can never list another's orders.
+  router.get(
+    '/my-orders',
+    asyncHandler(async (req, res) => {
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      if (!token) {
+        res.status(401).json({ error: 'Sign in to see your orders.' });
+        return;
+      }
+      const { data: userData, error: userErr } = await db.auth.getUser(token);
+      const email = userData?.user?.email;
+      if (userErr || !email) {
+        res.status(401).json({ error: 'Your session has expired -- sign in again.' });
+        return;
+      }
+
+      const { data, error } = await db
+        .from('atelierfit_orders')
+        .select('id, garment_type, fabric, occasion, amount_kobo, currency, payment_status, status, measurements, appointment_date, appointment_time, created_at')
+        .eq('customer_email', email)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+
+      const orders = (data || []).map((o: any) => ({
+        ...o,
+        estimatedReadyAt: new Date(
+          new Date(o.appointment_date || o.created_at).getTime() + ESTIMATED_TURNAROUND_DAYS * 86400000,
+        ).toISOString(),
+      }));
+      res.json({ email, orders });
     }),
   );
 
