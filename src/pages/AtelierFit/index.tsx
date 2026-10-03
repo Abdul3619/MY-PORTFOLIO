@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User, Lock } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User, Lock, Bell, Package } from "lucide-react";
 import { estimateMeasurements, type EstimatedMeasurements } from "@/lib/atelierfit/measure";
 import { LiveCameraStage, type CapturedPose } from "@/components/atelierfit/LiveCameraStage";
 import { openPaystackCheckout } from "@/lib/atelierfit/paystack";
@@ -37,7 +37,7 @@ function GoogleG({ size = 18 }: { size?: number }) {
 
 type Garment = { id: string; label: string; basePriceNaira: number; imageUrl?: string };
 type Fabric = { id: string; label: string; tagline: string; surchargeNaira: number };
-type Step = "splash" | "home" | "gallery" | "garment" | "design" | "method" | "camera" | "manual" | "review" | "booking" | "details" | "checkout" | "success";
+type Step = "splash" | "home" | "gallery" | "garment" | "design" | "method" | "camera" | "manual" | "review" | "booking" | "details" | "checkout" | "success" | "profile";
 
 const GUEST_FLAG = "atelierfit_guest";
 
@@ -48,6 +48,12 @@ const GUEST_FLAG = "atelierfit_guest";
 // (the user's own work, or images sent directly in chat, which Claude can actually see), these tiles are
 // honest, unphotographed categories -- organized by garment type, international and not Nigeria-only, each
 // drawn as its own glass-panel pattern so the gallery still has visual variety without faking content.
+const FEATURED_COLLECTIONS: { id: string; title: string; tagline: string; pattern: "diagonal" | "grid" | "dots" | "wave" | "chevron" | "arc" }[] = [
+  { id: "f1", title: "The Couture Collection", tagline: "Timeless elegance, reimagined with AI-measured precision.", pattern: "wave" },
+  { id: "f2", title: "Everyday Tailoring", tagline: "Shirts, trousers and skirts cut exactly to you.", pattern: "diagonal" },
+  { id: "f3", title: "Traditional Wear", tagline: "Africa, Asia and beyond -- heritage cuts, modern fit.", pattern: "chevron" },
+];
+
 const GALLERY: { id: string; title: string; tag: string; pattern: "diagonal" | "grid" | "dots" | "wave" | "chevron" | "arc" }[] = [
   { id: "g1", title: "Tailored Suits", tag: "International · Menswear & Womenswear", pattern: "diagonal" },
   { id: "g2", title: "Traditional Wear", tag: "Africa, Asia & beyond", pattern: "wave" },
@@ -87,6 +93,67 @@ function GalleryTile({ title, tag, pattern }: { title: string; tag: string; patt
       <div className="relative z-10">
         <div className="text-sm font-medium leading-snug font-serif">{title}</div>
         <div className="text-[11px] text-white/50 mt-0.5">{tag}</div>
+      </div>
+    </div>
+  );
+}
+
+// Swipeable "Featured Collection" card -- a real scroll-snap carousel (not just a static image), with dots
+// that track true scroll position so they stay honest if someone swipes instead of tapping a dot.
+function FeaturedCollectionCarousel({ onOpen }: { onOpen: () => void }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+
+  const handleScroll = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setActive(Math.round(el.scrollLeft / el.clientWidth));
+  }, []);
+
+  const goTo = (i: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  };
+
+  return (
+    <div className="space-y-2">
+      <div
+        ref={trackRef}
+        onScroll={handleScroll}
+        className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory rounded-[20px]"
+        style={{ scrollSnapType: "x mandatory" }}
+      >
+        {FEATURED_COLLECTIONS.map((c) => (
+          <button
+            key={c.id}
+            onClick={onOpen}
+            className="relative w-full shrink-0 snap-center h-40 overflow-hidden glass-card flowing-pink-edge flex flex-col justify-end p-4 text-left"
+            style={{ scrollSnapAlign: "center" }}
+          >
+            <div
+              className="absolute inset-0"
+              style={{ backgroundImage: PATTERN_BG[c.pattern], backgroundSize: c.pattern === "dots" ? "14px 14px" : c.pattern === "grid" ? "16px 16px" : "auto" }}
+              aria-hidden
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#1a0515]/95 via-[#1a0515]/30 to-transparent" aria-hidden />
+            <div className="relative z-10">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-[#F8A0C8] mb-1">Featured Collection</div>
+              <div className="font-serif text-lg font-semibold leading-snug">{c.title}</div>
+              <div className="text-xs text-white/55 mt-1 max-w-[85%]">{c.tagline}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-center gap-1.5">
+        {FEATURED_COLLECTIONS.map((c, i) => (
+          <button
+            key={c.id}
+            onClick={() => goTo(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all ${i === active ? "w-5 bg-[#F06BA6]" : "w-1.5 bg-white/25"}`}
+          />
+        ))}
       </div>
     </div>
   );
@@ -163,6 +230,10 @@ export default function AtelierFit() {
   const [error, setError] = useState<string | null>(null);
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "", notes: "" });
   const [order, setOrder] = useState<{ orderId: string; reference: string; amountKobo: number; paystackReady: boolean; estimatedReadyAt?: string } | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [myOrders, setMyOrders] = useState<any[] | null>(null);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [myOrdersError, setMyOrdersError] = useState<string | null>(null);
 
   const fabric = useMemo(() => config?.fabrics.find((f) => f.id === fabricId) || null, [config, fabricId]);
 
@@ -242,6 +313,34 @@ export default function AtelierFit() {
       .then(setConfig)
       .catch(() => setError("Couldn't reach the server -- check your connection and reload."));
   }, []);
+
+  // Loads the signed-in customer's own order history -- fetched fresh each time the Profile tab is opened,
+  // never cached client-side, since it's the one screen showing real order data back to them.
+  useEffect(() => {
+    if (step !== "profile" || !isAtelierFitGoogleUser) return;
+    let cancelled = false;
+    setMyOrdersLoading(true);
+    setMyOrdersError(null);
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const res = await fetch("/api/atelierfit/my-orders", {
+          headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || "Couldn't load your orders.");
+        setMyOrders(data.orders || []);
+      } catch (e: any) {
+        if (!cancelled) setMyOrdersError(e?.message || "Couldn't load your orders.");
+      } finally {
+        if (!cancelled) setMyOrdersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, isAtelierFitGoogleUser]);
 
   const totalPriceNaira = useMemo(() => (garment ? garment.basePriceNaira + (fabric?.surchargeNaira ?? 0) : 0), [garment, fabric]);
   const deposit = useMemo(() => Math.round(totalPriceNaira * (config?.depositRate ?? 0.4)), [totalPriceNaira, config]);
@@ -416,7 +515,7 @@ export default function AtelierFit() {
 
         {step === "home" && (
           <section className="space-y-8 pb-24">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-white/40 mb-1">
                   <Sparkles size={13} className="text-[#D6397D]" />
@@ -425,7 +524,49 @@ export default function AtelierFit() {
                 <h1 className="text-2xl font-serif font-bold leading-tight">{greeting()}.</h1>
                 <p className="text-white/60 text-sm mt-0.5">Ready to start your next fit?</p>
               </div>
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => setShowNotifications((v) => !v)}
+                  aria-label="Notifications"
+                  className="relative p-2.5 rounded-full glass-card-subtle hover:border-pink-400/50 transition-colors"
+                >
+                  <Bell size={18} className="text-white/70" />
+                  {order && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#F06BA6]" aria-hidden />}
+                </button>
+                {showNotifications && (
+                  <div className="absolute right-0 top-12 w-64 rounded-xl glass-card flowing-pink-edge p-4 z-20 text-left">
+                    <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Notifications</div>
+                    {order ? (
+                      <div className="text-sm text-white/80">Your order is in -- status: <span className="text-[#F8A0C8] font-medium">New</span>. We'll update you here as it moves along.</div>
+                    ) : (
+                      <div className="text-sm text-white/50">You're all caught up. Start a fitting and we'll keep you posted here.</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Quick actions -- single row of four, matching the reference layout. */}
+            <div className="grid grid-cols-4 gap-2.5">
+              {[
+                { icon: Scan, label: "Scan Measurements", onClick: () => { setMethod("camera_ai"); setStep("garment"); } },
+                { icon: Palette, label: "Book Outfit", onClick: () => setStep("garment") },
+                { icon: Images, label: "Browse Styles", onClick: () => setStep("gallery") },
+                { icon: Package, label: "Track Order", onClick: () => setStep("profile") },
+              ].map((a) => (
+                <button
+                  key={a.label}
+                  onClick={a.onClick}
+                  disabled={a.label !== "Browse Styles" && a.label !== "Track Order" && !config}
+                  className="flex flex-col items-center justify-center gap-1.5 py-3.5 rounded-2xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors text-center disabled:opacity-50"
+                >
+                  <a.icon size={19} className="text-[#F06BA6]" />
+                  <span className="text-[10px] font-medium leading-tight px-1">{a.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <FeaturedCollectionCarousel onOpen={() => setStep("gallery")} />
 
             {/* The AI-copilot hero -- pink glassmorphism panel (ported from the AI-Studio build) with an
                 animated flowing border and inner glow, rather than a flat banner. */}
@@ -447,35 +588,6 @@ export default function AtelierFit() {
                   <div className="text-[11px] text-white/40 mt-1">Measuring · Fitting · Creating</div>
                 </div>
               </div>
-            </div>
-
-            {/* Quick actions -- pink glass tiles with the flowing animated edge. */}
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                onClick={() => { setMethod("camera_ai"); setStep("garment"); }}
-                className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors text-center"
-              >
-                <Scan size={22} className="text-[#F06BA6]" />
-                <span className="text-xs font-medium leading-tight">Scan Body</span>
-                <span className="text-[10px] text-white/40 leading-tight">AI measurements</span>
-              </button>
-              <button
-                onClick={() => setStep("garment")}
-                disabled={!config}
-                className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors text-center disabled:opacity-50"
-              >
-                <Palette size={22} className="text-[#F06BA6]" />
-                <span className="text-xs font-medium leading-tight">Start Order</span>
-                <span className="text-[10px] text-white/40 leading-tight">Pick a garment</span>
-              </button>
-              <button
-                onClick={() => setStep("gallery")}
-                className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors text-center"
-              >
-                <Images size={22} className="text-[#F06BA6]" />
-                <span className="text-xs font-medium leading-tight">Gallery</span>
-                <span className="text-[10px] text-white/40 leading-tight">See our work</span>
-              </button>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/60 glass-card-subtle rounded-xl p-4">
@@ -520,6 +632,81 @@ export default function AtelierFit() {
             >
               {config ? "Begin fitting" : "Loading..."}
             </button>
+          </section>
+        )}
+
+        {step === "profile" && (
+          <section className="space-y-5 pb-24">
+            <h2 className="text-xl font-serif font-semibold mb-1">Profile & orders</h2>
+
+            {!isAtelierFitGoogleUser ? (
+              <div className="rounded-xl glass-card-subtle p-5 text-center space-y-3">
+                <User size={28} className="mx-auto text-white/40" />
+                <p className="text-sm text-white/60">Sign in with Google to see your saved measurements and order history here.</p>
+                <button
+                  onClick={continueWithGoogle}
+                  className="inline-flex items-center justify-center gap-2.5 rounded-full bg-white text-[#1a0515] font-medium text-sm py-2.5 px-5 hover:bg-white/90 transition-colors"
+                >
+                  <GoogleG size={16} />
+                  <span>Continue with Google</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-xl glass-card-subtle p-4 flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#F8A0C8] to-[#D6397D] flex items-center justify-center shrink-0 font-serif font-semibold text-black">
+                    {(customer.name || customer.email || "?").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{customer.name || "Your account"}</div>
+                    <div className="text-[11px] text-white/45 truncate">{customer.email}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Your orders</div>
+                  {myOrdersLoading && (
+                    <div className="flex items-center gap-2 text-sm text-white/50 py-4"><Loader2 className="animate-spin" size={16} /> Loading your orders...</div>
+                  )}
+                  {myOrdersError && <p className="text-sm text-red-300">{myOrdersError}</p>}
+                  {!myOrdersLoading && myOrders && myOrders.length === 0 && (
+                    <p className="text-sm text-white/50">No orders yet -- your first fitting will show up here.</p>
+                  )}
+                  <div className="space-y-2.5">
+                    {myOrders?.map((o) => (
+                      <div key={o.id} className="rounded-xl glass-card-subtle p-3.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{o.garment_type}{o.fabric ? ` · ${o.fabric}` : ""}</span>
+                          <span className="text-xs text-[#F8A0C8]">{o.status}</span>
+                        </div>
+                        <div className="text-[11px] text-white/45 mt-0.5">
+                          {new Date(o.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          {o.appointment_date ? ` · Fitting ${new Date(o.appointment_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+                        </div>
+                        <div className="flex items-center justify-between mt-1.5 text-xs">
+                          <span className={o.payment_status === "paid" ? "text-emerald-400" : "text-amber-300"}>{o.payment_status === "paid" ? "Deposit paid" : "Payment pending"}</span>
+                          <span className="text-white/40">Est. ready {new Date(o.estimatedReadyAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {measurements.heightCm !== emptyMeasurements.heightCm && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Last saved measurements</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(Object.keys(FIELD_LABELS) as (keyof EstimatedMeasurements)[]).map((k) => (
+                        <div key={k} className="rounded-lg glass-card-subtle px-3 py-2 flex justify-between text-xs">
+                          <span className="text-white/50">{FIELD_LABELS[k]}</span>
+                          <span className="font-medium">{measurements[k]}cm</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </section>
         )}
 
@@ -858,8 +1045,8 @@ export default function AtelierFit() {
         )}
       </div>
 
-      {/* Bottom nav -- only on the two "browsing" screens, out of the way once someone's mid-order. */}
-      {(step === "home" || step === "gallery") && (
+      {/* Bottom nav -- only on the "browsing" screens, out of the way once someone's mid-order. */}
+      {(step === "home" || step === "gallery" || step === "profile") && (
         <nav className="atelierfit-root fixed bottom-0 inset-x-0 flex justify-center pointer-events-none z-20">
           <div className="pointer-events-auto w-full max-w-md flex items-center justify-around pink-glass-card px-2 py-2.5 mx-4 mb-3 rounded-[22px]">
             <button onClick={() => setStep("home")} className={`flex flex-col items-center gap-1 px-4 py-1 rounded-xl transition-colors ${step === "home" ? "text-[#D6397D]" : "text-white/40 hover:text-white/70"}`}>
@@ -874,7 +1061,7 @@ export default function AtelierFit() {
               <Ruler size={18} />
               <span className="text-[10px] font-medium">Fitting</span>
             </button>
-            <button disabled aria-disabled className="flex flex-col items-center gap-1 px-4 py-1 rounded-xl text-white/20 cursor-not-allowed" title="Coming soon">
+            <button onClick={() => setStep("profile")} className={`flex flex-col items-center gap-1 px-4 py-1 rounded-xl transition-colors ${step === "profile" ? "text-[#D6397D]" : "text-white/40 hover:text-white/70"}`}>
               <User size={18} />
               <span className="text-[10px] font-medium">Profile</span>
             </button>
