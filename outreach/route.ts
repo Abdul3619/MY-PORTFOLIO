@@ -16,6 +16,7 @@
 // express.Router instead) plus a one-method adapter so Store can call this client's .rpc().
 
 import express from 'express';
+import * as Sentry from '@sentry/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Store, type RpcClient } from './store.js';
 import { runLeadPipeline, runNoWebsiteLeadPipeline, runWithConcurrency, loadSenderProfileFromEnv, type PipelineDeps } from './pipeline.js';
@@ -50,6 +51,7 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
     (req: express.Request, res: express.Response) => {
       fn(req, res).catch((err: any) => {
         console.error('Outreach route error:', err?.message);
+        Sentry.captureException(err, { tags: { route: req.path } });
         res.status(502).json({ error: err?.message || String(err) });
       });
     };
@@ -176,6 +178,7 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
         businesses = result.businesses;
         resolvedPlace = result.resolvedPlace;
       } catch (e: any) {
+        Sentry.captureException(e, { tags: { route: '/search' }, extra: { city, category } });
         return void res.status(502).json({ error: `OpenStreetMap search failed: ${e.message || e}` });
       }
 
@@ -193,6 +196,9 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
                 );
           return { business: b.name, website: b.website, contactChannel: b.contactChannel, ...outcome };
         } catch (e: any) {
+          // This is one business out of a batch failing, not the whole request -- worth keeping in Sentry
+          // (e.g. a bad upsert, a dedup-key collision) without it blocking the rest of the search.
+          Sentry.captureException(e, { tags: { route: '/search:business' }, extra: { business: b.name, contactChannel: b.contactChannel } });
           return { business: b.name, website: b.website, contactChannel: b.contactChannel, kind: 'invalid', error: e.message || String(e) };
         }
       });

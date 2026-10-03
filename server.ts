@@ -1,4 +1,5 @@
 import fs from "fs";
+import * as Sentry from '@sentry/node';
 import express from 'express';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
@@ -22,6 +23,22 @@ import { createStitchBookRouter } from './stitchbook/route.js';
 import { createGalleryRouter } from './gallery/route.js';
 
 dotenv.config();
+
+// Error tracking: off by default (no SENTRY_DSN means no-op), on once the env var is set on Vercel. Without
+// this, a server-side failure (like an outreach search that fails) only ever existed as a one-line message
+// shown in the browser -- nothing was kept anywhere to go look up afterwards. With it, Sentry.captureException
+// calls at the points that matter (see outreach/route.ts) record the full error with a stack trace and the
+// request that caused it.
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.VERCEL_ENV || (isProductionEnv() ? 'production' : 'development'),
+    tracesSampleRate: 0.1,
+  });
+}
+function isProductionEnv(): boolean {
+  return process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+}
 
 const app = express();
 app.set('trust proxy', 1);
@@ -2584,6 +2601,13 @@ async function renderPage(req: express.Request, res: express.Response, next: exp
       next(err);
     }
   }
+}
+
+// Registered after every API route above but before the catch-all page renderer below, so any error that
+// reaches here via next(err) (most routes handle and respond to their own errors directly and never hit this,
+// but it's a safety net for ones that don't) is recorded in Sentry before falling through to the HTML renderer.
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
 }
 
 async function startServer() {
