@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAdmin } from '../../components/admin/AdminLayout';
 import { fetchApi } from '../../hooks/useApi';
 import {
@@ -110,6 +110,40 @@ export default function AdminOutreach() {
   const [category, setCategory] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<any>(null);
+  const [searchElapsed, setSearchElapsed] = useState(0);
+  const searchResultRef = useRef<HTMLDivElement>(null);
+
+  // A search can take anywhere from a few seconds to over a minute (it's crawling and drafting several
+  // businesses, not just doing one lookup), and a bare spinner with no sense of progress or time reads as
+  // "stuck" long before it actually is. There's no real progress feed from the backend without streaming
+  // (a bigger change), so this gives an honest, reassuring substitute: a running clock plus a slow-changing
+  // description of what's *likely* happening at that point in the process.
+  useEffect(() => {
+    if (!searching) {
+      setSearchElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    const id = setInterval(() => setSearchElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [searching]);
+
+  const SEARCH_STAGES: Array<{ afterSeconds: number; label: string }> = [
+    { afterSeconds: 0, label: 'Looking up the place on the map...' },
+    { afterSeconds: 4, label: 'Searching OpenStreetMap for matching businesses...' },
+    { afterSeconds: 10, label: 'Visiting each business’s website and checking it over...' },
+    { afterSeconds: 20, label: 'Drafting outreach messages with AI for each lead...' },
+    { afterSeconds: 40, label: 'Still working -- larger searches (50+ results) can take a minute or so...' },
+  ];
+  const currentSearchStage = [...SEARCH_STAGES].reverse().find((s) => searchElapsed >= s.afterSeconds) ?? SEARCH_STAGES[0];
+
+  // So a finished result is impossible to miss on mobile, where this card can be a full scroll away from
+  // where the person's thumb already is.
+  useEffect(() => {
+    if (searchResult && searchResultRef.current) {
+      searchResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchResult]);
 
   const [coverage, setCoverage] = useState<any>(null);
   const [searches, setSearches] = useState<SearchRecord[]>([]);
@@ -589,6 +623,70 @@ export default function AdminOutreach() {
 
       {tab === 'add' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Auto-search comes first in the source order (not just visually) so on mobile -- where this grid
+              stacks into a single column -- it's the first card someone reaches, not the third one down. It's
+              also the feature actually used day to day; the other two are occasional/manual paths. */}
+          <div className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 p-4 space-y-3">
+            <h3 className="text-[10px] font-mono uppercase text-[#00F0FF] tracking-wider flex items-center gap-1.5"><SearchIcon size={13} /> Auto-search (OpenStreetMap)</h3>
+            <div className="space-y-2">
+              <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City, e.g. Lagos, Nigeria" disabled={searching} className="w-full bg-[#161616] border border-white/8 rounded p-2 text-white outline-none focus:border-[#00F0FF]/40 text-xs disabled:opacity-50" />
+              <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category, e.g. plumbers" disabled={searching} className="w-full bg-[#161616] border border-white/8 rounded p-2 text-white outline-none focus:border-[#00F0FF]/40 text-xs disabled:opacity-50" />
+              <button onClick={() => handleSearch(false)} disabled={searching || !city.trim() || !category.trim()} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded bg-[#00F0FF] text-black font-mono font-bold text-[10px] uppercase disabled:opacity-40">
+                {searching ? <Loader2 size={13} className="animate-spin" /> : null} Search & process
+              </button>
+            </div>
+
+            {searching && (
+              <div className="text-[11px] font-mono text-[#00F0FF] bg-[#00F0FF]/5 border border-[#00F0FF]/20 rounded p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Working...</span>
+                  <span className="text-gray-400 tabular-nums">{searchElapsed}s elapsed</span>
+                </div>
+                <p className="text-gray-300">{currentSearchStage.label}</p>
+                <p className="text-gray-500 text-[10px]">
+                  This can take anywhere from a few seconds to a couple of minutes depending on how many businesses match. Feel free to leave this
+                  tab -- it'll still be here, with a result, when you come back.
+                </p>
+              </div>
+            )}
+
+            {!searching && (searchResult?.repeat || searchResult?.error || (searchResult && !searchResult.repeat && !searchResult.error)) && (
+              <div ref={searchResultRef}>
+                {searchResult?.repeat && (
+                  <div className="text-[11px] font-mono text-amber-300 bg-amber-500/5 border border-amber-500/20 rounded p-2.5 space-y-2">
+                    <p>{searchResult.message}</p>
+                    <button onClick={() => handleSearch(true)} className="underline hover:text-amber-200">Run it again anyway</button>
+                  </div>
+                )}
+                {searchResult?.error && (
+                  <div className="text-[11px] font-mono text-rose-300 bg-rose-500/5 border border-rose-500/20 rounded p-2.5 space-y-2">
+                    <p className="flex items-center gap-1.5 font-bold"><XCircle size={13} /> Search failed</p>
+                    <p>{searchResult.error}</p>
+                    <button onClick={() => handleSearch(false)} className="underline hover:text-rose-200">Try again</button>
+                  </div>
+                )}
+                {searchResult && !searchResult.repeat && !searchResult.error && (
+                  <div className="text-[11px] font-mono text-gray-400 bg-emerald-500/5 border border-emerald-500/20 rounded p-2.5 space-y-1">
+                    <p className="flex items-center gap-1.5 text-[#22C55E] font-bold"><CheckCircle2 size={13} /> Done -- found {searchResult.found} business(es)</p>
+                    <p>See the Review Queue tab for drafted messages.</p>
+                    {searchResult.resolvedPlace && (
+                      <p className="text-gray-500">
+                        Searched around: <span className="text-gray-300">{searchResult.resolvedPlace}</span> -- check this matches where you meant.
+                      </p>
+                    )}
+                    {searchResult.found === 0 && typeof searchResult.rawCount === 'number' && (
+                      <p className="text-gray-500">
+                        {searchResult.rawCount === 0
+                          ? "OpenStreetMap has nothing mapped under this category in this area at all -- not a filtering issue, there's simply nothing there to find yet."
+                          : `OpenStreetMap has ${searchResult.rawCount} matching business(es) here, but none of them have a website, WhatsApp, phone, Facebook, or Instagram on file to reach them by.`}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 p-4 space-y-3">
             <h3 className="text-[10px] font-mono uppercase text-[#00F0FF] tracking-wider flex items-center gap-1.5"><Link2 size={13} /> One website</h3>
             <form onSubmit={handleAddUrl} className="space-y-2">
@@ -608,46 +706,6 @@ export default function AdminOutreach() {
                 {addingCsv ? <Loader2 size={13} className="animate-spin" /> : null} Import & process
               </button>
             </form>
-          </div>
-
-          <div className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 p-4 space-y-3">
-            <h3 className="text-[10px] font-mono uppercase text-[#00F0FF] tracking-wider flex items-center gap-1.5"><SearchIcon size={13} /> Auto-search (OpenStreetMap)</h3>
-            <div className="space-y-2">
-              <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City, e.g. Lagos, Nigeria" className="w-full bg-[#161616] border border-white/8 rounded p-2 text-white outline-none focus:border-[#00F0FF]/40 text-xs" />
-              <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category, e.g. plumbers" className="w-full bg-[#161616] border border-white/8 rounded p-2 text-white outline-none focus:border-[#00F0FF]/40 text-xs" />
-              <button onClick={() => handleSearch(false)} disabled={searching || !city.trim() || !category.trim()} className="w-full flex items-center justify-center gap-1.5 py-2 rounded bg-[#00F0FF] text-black font-mono font-bold text-[10px] uppercase disabled:opacity-40">
-                {searching ? <Loader2 size={13} className="animate-spin" /> : null} Search & process
-              </button>
-            </div>
-            {searchResult?.repeat && (
-              <div className="text-[11px] font-mono text-amber-300 bg-amber-500/5 border border-amber-500/20 rounded p-2.5 space-y-2">
-                <p>{searchResult.message}</p>
-                <button onClick={() => handleSearch(true)} className="underline hover:text-amber-200">Run it again anyway</button>
-              </div>
-            )}
-            {searchResult?.error && (
-              <div className="text-[11px] font-mono text-rose-300 bg-rose-500/5 border border-rose-500/20 rounded p-2.5 space-y-2">
-                <p>{searchResult.error}</p>
-                <button onClick={() => handleSearch(false)} className="underline hover:text-rose-200">Try again</button>
-              </div>
-            )}
-            {searchResult && !searchResult.repeat && !searchResult.error && (
-              <div className="text-[11px] font-mono text-gray-400 space-y-1">
-                <p>Found {searchResult.found} business(es). See the Review Queue tab.</p>
-                {searchResult.resolvedPlace && (
-                  <p className="text-gray-500">
-                    Searched around: <span className="text-gray-300">{searchResult.resolvedPlace}</span> -- check this matches where you meant.
-                  </p>
-                )}
-                {searchResult.found === 0 && typeof searchResult.rawCount === 'number' && (
-                  <p className="text-gray-500">
-                    {searchResult.rawCount === 0
-                      ? "OpenStreetMap has nothing mapped under this category in this area at all -- not a filtering issue, there's simply nothing there to find yet."
-                      : `OpenStreetMap has ${searchResult.rawCount} matching business(es) here, but none of them have a website, WhatsApp, phone, Facebook, or Instagram on file to reach them by.`}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}
