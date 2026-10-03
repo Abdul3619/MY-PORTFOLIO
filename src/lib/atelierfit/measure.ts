@@ -176,3 +176,51 @@ export async function detectPoseFromImage(img: HTMLImageElement): Promise<Landma
   if (!pose) throw new Error("Couldn't find a full body in that photo -- stand further back so your head and feet are both visible, with good lighting.");
   return pose;
 }
+
+// --- Live camera (video-mode) pose tracking --------------------------------------------------------------
+//
+// The capture step used to hand off to the phone's native camera app (a plain <input type="file"
+// capture="environment">) and get back a single still photo -- which meant leaving the app to take the photo,
+// with no feedback on whether you were even framed correctly until afterwards. This runs the SAME MediaPipe
+// model Google ships, just in its video-streaming mode instead of its single-image mode, so the body-tracking
+// skeleton draws live over the camera feed, inside the app, while you move -- you see yourself tracked and tap
+// to capture only once you're aligned. A separate landmarker instance is used here (MediaPipe doesn't support
+// switching a single instance between IMAGE and VIDEO modes), lazily loaded the same way.
+let liveLandmarkerPromise: Promise<any> | null = null;
+export async function loadLivePoseLandmarker() {
+  if (!liveLandmarkerPromise) {
+    liveLandmarkerPromise = (async () => {
+      const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      return PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numPoses: 1,
+      });
+    })();
+  }
+  return liveLandmarkerPromise;
+}
+
+// Runs one frame of live video-mode detection. Returns null for a frame with no confidently-detected body
+// (e.g. stepped out of frame for a moment) rather than throwing -- the live overlay just skips drawing that
+// frame; only a capture attempt with no pose at all is an error (see LiveCameraStage).
+export function detectPoseFromVideoFrame(landmarker: any, video: HTMLVideoElement, timestampMs: number): Landmark[] | null {
+  const result = landmarker.detectForVideo(video, timestampMs);
+  return result?.landmarks?.[0] ?? null;
+}
+
+// Bone pairs from MediaPipe Pose's 33-point topology, for drawing the live tracking skeleton overlay.
+export const POSE_CONNECTIONS: [number, number][] = [
+  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+  [11, 23], [12, 24], [23, 24],
+  [23, 25], [25, 27], [24, 26], [26, 28],
+  [27, 29], [28, 30], [27, 31], [28, 32],
+  [0, 11], [0, 12],
+];

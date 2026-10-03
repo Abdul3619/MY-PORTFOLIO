@@ -11,7 +11,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import crypto from 'crypto';
 
-export const GARMENTS: Record<string, { label: string; basePriceNaira: number }> = {
+// `imageUrl` is the one-line hook for real cutout-collection photos later -- unset today (the client falls
+// back to an honest abstract placeholder, see GarmentPlaceholder), set it here once real photos exist and
+// the gallery tile picks it up automatically, no other code changes needed.
+export const GARMENTS: Record<string, { label: string; basePriceNaira: number; imageUrl?: string }> = {
   agbada: { label: 'Agbada (full set)', basePriceNaira: 65000 },
   kaftan: { label: 'Kaftan', basePriceNaira: 35000 },
   senator: { label: 'Senator Suit', basePriceNaira: 40000 },
@@ -70,7 +73,7 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
       res.json({
         paystackConfigured: Boolean(paystackSecret && paystackPublicKey),
         paystackPublicKey: paystackPublicKey || null,
-        garments: Object.entries(GARMENTS).map(([id, g]: [string, { label: string; basePriceNaira: number }]) => ({ id, ...g })),
+        garments: Object.entries(GARMENTS).map(([id, g]: [string, { label: string; basePriceNaira: number; imageUrl?: string }]) => ({ id, ...g })),
         depositRate: DEPOSIT_RATE,
       });
     }),

@@ -224,3 +224,35 @@
 
 .atelierfit-root .no-scrollbar::-webkit-scrollbar { display: none; }
 .atelierfit-root .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Recolors the shared AI assistant orb (src/components/assistant) to AtelierFit's copper-rose palette instead
+   of the main site's gold -- same breathing-glass orb mechanism everywhere, just retinted per app, the same
+   way the rest of this file scopes the AI-Studio glass system under .atelierfit-root. */
+.atelierfit-root .ai-assistant {
+  --ai-c1: #D6397D;
+  --ai-c2: #F8A0C8;
+  --ai-c3: #a8277f;
+  --ai-glow: rgba(240, 107, 166, 0.45);
+  --ai-swirl: 0.55;
+}
+.atelierfit-root .ai-assistant[data-state='listening'] {
+  --ai-c1: #F06BA6;
+  --ai-c2: #F8A0C8;
+  --ai-c3: #D6397D;
+  --ai-glow: rgba(240, 107, 166, 0.55);
+  --ai-swirl: 0.75;
+}
+.atelierfit-root .ai-assistant[data-state='thinking'] {
+  --ai-c1: #F8A0C8;
+  --ai-c2: #D6397D;
+  --ai-c3: #a8277f;
+  --ai-glow: rgba(214, 57, 125, 0.4);
+  --ai-swirl: 1;
+}
+.atelierfit-root .ai-assistant[data-state='speaking'] {
+  --ai-c1: #FFD4EB;
+  --ai-c2: #F8A0C8;
+  --ai-c3: #D6397D;
+  --ai-glow: rgba(248, 160, 200, 0.55);
+  --ai-swirl: 0.85;
+}
