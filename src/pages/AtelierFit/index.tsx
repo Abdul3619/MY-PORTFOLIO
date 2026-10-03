@@ -9,6 +9,7 @@ import type { AssistantState } from "@/components/assistant/OrbVisual";
 import { GlassCard } from "@/components/atelierfit/ui/GlassCard";
 import { GarmentPlaceholder } from "@/components/atelierfit/ui/GarmentPlaceholder";
 import { useAuth } from "@/contexts/AuthContext";
+import { useContactInfo } from "@/hooks/useApi";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import "@/components/atelierfit/ui/atelierfit-glass.css";
 
@@ -239,6 +240,10 @@ export default function AtelierFit() {
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "", notes: "" });
   const [order, setOrder] = useState<{ orderId: string; reference: string; amountKobo: number; paystackReady: boolean; estimatedReadyAt?: string } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [orderStatus, setOrderStatus] = useState("New");
+  const [showCopilotTip, setShowCopilotTip] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const { data: contactInfo } = useContactInfo();
   const [myOrders, setMyOrders] = useState<any[] | null>(null);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [myOrdersError, setMyOrdersError] = useState<string | null>(null);
@@ -350,6 +355,14 @@ export default function AtelierFit() {
     };
   }, [step, isAtelierFitGoogleUser]);
 
+  // Ticks the pickup countdown on the tracking screen -- a real timer against order.estimatedReadyAt, not a
+  // static string, but only runs while that screen is actually visible.
+  useEffect(() => {
+    if (step !== "success") return;
+    const id = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, [step]);
+
   const totalPriceNaira = useMemo(() => (garment ? garment.basePriceNaira + (fabric?.surchargeNaira ?? 0) : 0), [garment, fabric]);
   const deposit = useMemo(() => Math.round(totalPriceNaira * (config?.depositRate ?? 0.4)), [totalPriceNaira, config]);
   const balanceDue = totalPriceNaira - deposit;
@@ -411,6 +424,7 @@ export default function AtelierFit() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't create the order.");
       setOrder(data);
+      setOrderStatus("New");
       if (data.paystackReady && config?.paystackPublicKey) {
         setStep("checkout");
       } else {
@@ -439,6 +453,7 @@ export default function AtelierFit() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ reference }),
           });
+          setOrderStatus("Confirmed");
           setStep("success");
           setBusy(false);
         },
@@ -1062,19 +1077,109 @@ export default function AtelierFit() {
           </section>
         )}
 
-        {step === "success" && (
-          <section className="space-y-6 text-center py-6">
-            <div className="rounded-[22px] glass-card flowing-pink-edge py-10 px-6 space-y-4 flex flex-col items-center">
-              <CopilotOrb size="lg" state="speaking" className="relative z-10" />
-              <h2 className="relative z-10 text-2xl font-display font-semibold">Order received</h2>
-              <p className="relative z-10 text-white/60">
-                {order?.paystackReady
-                  ? "Your deposit is confirmed. The tailor will reach out shortly to arrange fitting and timeline."
-                  : "Online payment isn't switched on yet, so the tailor will contact you directly to arrange your deposit."}
-              </p>
-            </div>
-          </section>
-        )}
+        {step === "success" && (() => {
+          const STAGES = [
+            { key: "New", label: "Deposit recorded" },
+            { key: "Confirmed", label: "Deposit confirmed" },
+            { key: "In Progress", label: "Tailoring in progress" },
+            { key: "Ready", label: "Ready for pickup" },
+            { key: "Delivered", label: "Delivered" },
+          ];
+          const stageIdx = Math.max(0, STAGES.findIndex((s) => s.key === orderStatus));
+          const readyAt = order?.estimatedReadyAt ? new Date(order.estimatedReadyAt).getTime() : null;
+          const remainingMs = readyAt ? Math.max(0, readyAt - nowTick) : null;
+          const remDays = remainingMs !== null ? Math.floor(remainingMs / 86400000) : null;
+          const remHours = remainingMs !== null ? Math.floor((remainingMs % 86400000) / 3600000) : null;
+          const whatsappNumber = contactInfo?.whatsapp as string | undefined;
+          const whatsappHref = whatsappNumber
+            ? `https://wa.me/${whatsappNumber.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi, I'd like an update on my AtelierFit order (${order?.reference}).`)}`
+            : null;
+
+          return (
+            <section className="space-y-5 text-center py-6">
+              <div className="rounded-[22px] glass-card flowing-pink-edge py-8 px-6 space-y-3 flex flex-col items-center">
+                <CopilotOrb size="lg" state="speaking" className="relative z-10" />
+                <h2 className="relative z-10 text-xl font-display font-semibold">Order received</h2>
+                <p className="relative z-10 text-white/60 text-sm">
+                  {order?.paystackReady
+                    ? "Your deposit is confirmed. The tailor will reach out shortly to arrange fitting and timeline."
+                    : "Online payment isn't switched on yet, so the tailor will contact you directly to arrange your deposit."}
+                </p>
+              </div>
+
+              {/* Status timeline -- mapped 1:1 to the real statuses the tailor sets from the admin dashboard,
+                  not invented sub-steps nobody is actually tracking. */}
+              <div className="rounded-xl glass-card-subtle p-4 text-left">
+                <div className="text-xs uppercase tracking-wide text-white/40 mb-3 text-center">Order progress</div>
+                <div className="space-y-0">
+                  {STAGES.map((s, i) => (
+                    <div key={s.key} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className={`w-3 h-3 rounded-full shrink-0 ${i <= stageIdx ? "bg-[#F06BA6]" : "bg-white/15"}`} />
+                        {i < STAGES.length - 1 && <span className={`w-px flex-1 min-h-[18px] ${i < stageIdx ? "bg-[#F06BA6]/50" : "bg-white/10"}`} />}
+                      </div>
+                      <span className={`text-sm pb-4 ${i <= stageIdx ? "text-white/90" : "text-white/35"}`}>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Illustrative route -- not a live GPS feed (there's no courier service wired up), just a
+                  static sense of "workshop to you" alongside the real countdown below. */}
+              <div className="rounded-xl glass-card-subtle p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span className="w-8 h-8 rounded-full bg-[#D6397D]/30 border border-[#F06BA6]/50 flex items-center justify-center"><Scan size={14} className="text-[#F8A0C8]" /></span>
+                    <span className="text-[10px] text-white/50">Atelier Noir</span>
+                  </div>
+                  <div className="flex-1 h-px mx-2 relative top-[-10px]" style={{ backgroundImage: "repeating-linear-gradient(90deg, rgba(240,107,166,0.5) 0 6px, transparent 6px 12px)" }} aria-hidden />
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center"><User size={14} className="text-white/70" /></span>
+                    <span className="text-[10px] text-white/50">You</span>
+                  </div>
+                </div>
+                {remDays !== null && (
+                  <div className="mt-4 text-center">
+                    <div className="text-[11px] text-white/40 uppercase tracking-wide">Ready in</div>
+                    <div className="font-serif text-lg font-semibold mt-0.5">{remDays}d {remHours}h</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Contact -- a real WhatsApp link (from the site's own contact settings) and the copilot's own
+                  speech bubble for quick FAQ-style help, not a dead "voice call" button we can't back up. */}
+              <div className="flex gap-2.5">
+                {whatsappHref && (
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-3 rounded-xl glass-card-subtle flowing-pink-edge text-sm font-medium hover:border-pink-400/60 transition-colors"
+                  >
+                    Message on WhatsApp
+                  </a>
+                )}
+                <button
+                  onClick={() => setShowCopilotTip((v) => !v)}
+                  className="flex-1 py-3 rounded-xl glass-card-subtle flowing-pink-edge text-sm font-medium hover:border-pink-400/60 transition-colors"
+                >
+                  Ask the AI copilot
+                </button>
+              </div>
+              {showCopilotTip && (
+                <div className="flex justify-center">
+                  <CopilotOrb
+                    size="sm"
+                    speechBubble={{
+                      title: "AI Copilot",
+                      text: "Your deposit secures your slot -- the balance is due when you pick up or receive your piece. I'll keep this page updated as the tailor moves your order along.",
+                    }}
+                  />
+                </div>
+              )}
+            </section>
+          );
+        })()}
       </div>
 
       {/* Bottom nav -- only on the "browsing" screens, out of the way once someone's mid-order. */}
