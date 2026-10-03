@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, type Transition } from "motion/react";
-import { PhoneOff } from "lucide-react";
+import { PhoneOff, MessageSquareText, X } from "lucide-react";
 import OrbVisual, { type AssistantState } from "./OrbVisual";
 import useOrbWobble from "./useOrbWobble";
+import Waveform from "./Waveform";
 import { startMicCapture, createPcmPlayer, type MicCapture, type PcmPlayer } from "./liveAudio";
 import { fetchVoiceSession, runVoiceTool, connectLiveVoice, type LiveVoiceHandle, type VoiceSessionInfo } from "./liveVoiceClient";
 
@@ -51,13 +52,14 @@ interface VoiceCallOverlayProps {
   reduceMotion: boolean;
 }
 
-export default function VoiceCallOverlay({ open, onClose, messages: _messages, onExchange, reduceMotion }: VoiceCallOverlayProps) {
+export default function VoiceCallOverlay({ open, onClose, messages, onExchange, reduceMotion }: VoiceCallOverlayProps) {
   const { t } = useTranslation();
   const [state, setState] = useState<AssistantState>("idle");
   const [caption, setCaption] = useState("");
   const [youSaid, setYouSaid] = useState("");
   const [unsupported, setUnsupported] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showTranscript, setShowTranscript] = useState(false);
   const energy = useRef(0);
 
   const activeRef = useRef(false); // true while the overlay is mounted & live, false once closing -- guards async callbacks
@@ -244,6 +246,7 @@ export default function VoiceCallOverlay({ open, onClose, messages: _messages, o
     setState("idle");
     setYouSaid("");
     setCaption("");
+    setShowTranscript(false);
     turnInputRef.current = "";
     turnOutputRef.current = "";
     reconnectAttemptsRef.current = 0;
@@ -335,8 +338,13 @@ export default function VoiceCallOverlay({ open, onClose, messages: _messages, o
             {stateLabel[state]}
           </div>
 
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full">
             <CallOrb state={state} size={Math.min(260, typeof window !== "undefined" ? window.innerWidth * 0.55 : 220)} energy={energy} reduceMotion={reduceMotion} />
+            {!unsupported && (
+              <div className="h-10 w-full max-w-xs">
+                <Waveform state={state} energy={energy} bars={48} active={open} reduceMotion={reduceMotion} />
+              </div>
+            )}
           </div>
 
           <div className="w-full max-w-lg flex flex-col items-center gap-4 text-center">
@@ -358,16 +366,81 @@ export default function VoiceCallOverlay({ open, onClose, messages: _messages, o
                 {errorMsg && <p role="alert" className="text-xs text-red-300">{errorMsg}</p>}
               </>
             )}
-            <button
-              type="button"
-              onClick={handleClose}
-              aria-label={t("assistant.end_call", "End the call")}
-              className="interactive mt-4 inline-flex items-center gap-2 rounded-full bg-red-500 hover:bg-red-600 text-white px-5 py-3 text-sm font-medium transition-colors"
-            >
-              <PhoneOff size={16} aria-hidden="true" />
-              {t("assistant.end_call", "End call")}
-            </button>
+            <div className="mt-4 flex items-center gap-3">
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowTranscript((v) => !v)}
+                  aria-label={t("assistant.call_transcript", "Conversation transcript")}
+                  aria-pressed={showTranscript}
+                  className="interactive inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/15 text-white px-4 py-3 text-sm font-medium transition-colors"
+                >
+                  <MessageSquareText size={16} aria-hidden="true" />
+                  {t("assistant.call_transcript", "Transcript")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label={t("assistant.end_call", "End the call")}
+                className="interactive inline-flex items-center gap-2 rounded-full bg-red-500 hover:bg-red-600 text-white px-5 py-3 text-sm font-medium transition-colors"
+              >
+                <PhoneOff size={16} aria-hidden="true" />
+                {t("assistant.end_call", "End call")}
+              </button>
+            </div>
           </div>
+
+          <AnimatePresence>
+            {showTranscript && (
+              <motion.div
+                key="call-transcript"
+                role="region"
+                aria-label={t("assistant.call_transcript", "Conversation transcript")}
+                className="absolute inset-x-0 bottom-0 z-10 max-h-[60vh] rounded-t-3xl border-t border-white/10 bg-black/95 backdrop-blur-xl px-5 pt-4 pb-6 flex flex-col"
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 40 }}
+                transition={transition}
+              >
+                <div className="flex items-center justify-between pb-3">
+                  <span className="text-xs font-mono uppercase tracking-wide text-gray-400">
+                    {t("assistant.call_transcript", "Transcript")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowTranscript(false)}
+                    aria-label={t("assistant.close", "Close")}
+                    className="interactive p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="overflow-y-auto flex flex-col gap-3 text-sm">
+                  {messages.map((m, i) => (
+                    <p key={i} className={m.role === "user" ? "text-gray-300" : "text-white"}>
+                      <span className="font-medium text-gray-500">
+                        {m.role === "user" ? t("assistant.you", "You") : t("assistant.name", "Assistant")}:{" "}
+                      </span>
+                      {m.content}
+                    </p>
+                  ))}
+                  {youSaid && (
+                    <p className="text-gray-300 italic">
+                      <span className="font-medium text-gray-500">{t("assistant.you", "You")}: </span>
+                      {youSaid}
+                    </p>
+                  )}
+                  {caption && (
+                    <p className="text-white">
+                      <span className="font-medium text-gray-500">{t("assistant.name", "Assistant")}: </span>
+                      {caption}
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>
