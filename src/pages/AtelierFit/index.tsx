@@ -643,28 +643,33 @@ export default function AtelierFit() {
 
         {step === "checkout" && order && garment && (
           <section className="space-y-6 text-center">
-            <CheckCircle2 className="mx-auto text-[#D6397D]" size={40} />
-            <h2 className="text-xl font-display font-semibold">Order recorded</h2>
-            <p className="text-white/60 text-sm">Reference {order.reference}. Pay your {naira(deposit)} deposit to confirm it.</p>
+            <div className="rounded-[22px] glass-card flowing-pink-edge py-10 px-6 space-y-5">
+              <CheckCircle2 className="relative z-10 mx-auto text-[#F06BA6]" size={40} />
+              <h2 className="relative z-10 text-xl font-display font-semibold">Order recorded</h2>
+              <p className="relative z-10 text-white/60 text-sm">Reference {order.reference}. Pay your {naira(deposit)} deposit to confirm it.</p>
+            </div>
             <button
               onClick={pay}
               disabled={busy}
-              className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors disabled:opacity-60"
+              className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Pay {naira(deposit)} with Paystack
+              {busy ? <Loader2 className="animate-spin" size={18} /> : null}
+              {busy ? "Opening Paystack..." : `Pay ${naira(deposit)} with Paystack`}
             </button>
           </section>
         )}
 
         {step === "success" && (
-          <section className="space-y-6 text-center py-10">
-            <CheckCircle2 className="mx-auto text-[#D6397D]" size={48} />
-            <h2 className="text-2xl font-display font-semibold">Order received</h2>
-            <p className="text-white/60">
-              {order?.paystackReady
-                ? "Your deposit is confirmed. The tailor will reach out shortly to arrange fitting and timeline."
-                : "Online payment isn't switched on yet, so the tailor will contact you directly to arrange your deposit."}
-            </p>
+          <section className="space-y-6 text-center py-6">
+            <div className="rounded-[22px] glass-card flowing-pink-edge py-10 px-6 space-y-4 flex flex-col items-center">
+              <CopilotOrb size="lg" state="speaking" className="relative z-10" />
+              <h2 className="relative z-10 text-2xl font-display font-semibold">Order received</h2>
+              <p className="relative z-10 text-white/60">
+                {order?.paystackReady
+                  ? "Your deposit is confirmed. The tailor will reach out shortly to arrange fitting and timeline."
+                  : "Online payment isn't switched on yet, so the tailor will contact you directly to arrange your deposit."}
+              </p>
+            </div>
           </section>
         )}
       </div>
