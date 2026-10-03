@@ -28,6 +28,7 @@ import Maintenance from "./pages/Maintenance";
 const AtelierFit = lazy(() => import("./pages/AtelierFit"));
 const AdminAtelierFit = lazy(() => import("./pages/admin/AdminAtelierFit"));
 const StitchBook = lazy(() => import("./pages/StitchBook"));
+const PhoneFrameShowcase = lazy(() => import("./pages/PhoneFrameShowcase"));
 
 // Admin pages are code-split so public visitors never download the CMS (and its charting libraries)
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
@@ -146,6 +147,9 @@ function AnimatedRoutes() {
       <Route path="/atelierfit" element={adminPage(AtelierFit)} />
       {/* StitchBook: the desktop-app project, same full-screen/no-<Layout> treatment as AtelierFit. */}
       <Route path="/stitchbook" element={adminPage(StitchBook)} />
+      {/* PhoneFrame showcase: an interactive configurator project for the realistic iPhone mockup
+          component itself, same full-screen/no-<Layout> treatment as AtelierFit/StitchBook. */}
+      <Route path="/phoneframe" element={adminPage(PhoneFrameShowcase)} />
 
       {/* Admin Login */}
       <Route path="/admin/login" element={<AdminLogin />} />

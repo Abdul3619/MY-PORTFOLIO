@@ -60,6 +60,11 @@ export function getRoutePlan(pathname: string): RoutePlan {
     return { kind: 'client', queries: [], knownRoute: true };
   }
 
+  // PhoneFrame showcase is a pure client-side interactive configurator -- nothing worth server-rendering.
+  if (path === '/phoneframe' || path.startsWith('/phoneframe/')) {
+    return { kind: 'client', queries: [], knownRoute: true };
+  }
+
   const queries = [...globalQueries];
   if (path === '/about') {
     queries.push({ key: ['about', LANG], resource: { type: 'about' } });

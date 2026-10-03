@@ -26,6 +26,7 @@ import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 import { projectsData } from "@/data/projects";
 import { useTranslation } from "react-i18next";
 import { MobilePreviewBlock } from "@/components/project/MobilePreviewBlock";
+import { AtelierFitPreview } from "@/components/project/AtelierFitPreview";
 
 export default function ProjectDetail() {
   const { t } = useTranslation();
@@ -209,7 +210,7 @@ export default function ProjectDetail() {
 
             {/* Live, scannable preview for projects that are actually running apps rather than static case studies */}
             {project?.slug === "atelierfit" && project?.live_url && (
-              <MobilePreviewBlock url={project.live_url} appName={title} />
+              <AtelierFitPreview url={project.live_url} appName={title} />
             )}
             {project?.slug === "stitchbook" && project?.live_url && (
               <MobilePreviewBlock url={project.live_url} appName={title} defaultView="desktop" />
