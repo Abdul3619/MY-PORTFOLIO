@@ -78,13 +78,13 @@ let differentCards = [
 
 export default function Home() {
   const { t } = useTranslation();
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: isProfileLoading } = useProfile();
   const { data: services } = useServices();
-  const { data: testimonials } = useTestimonials();
-  const { data: certificates } = useCertificates();
+  const { data: testimonials, isLoading: isTestimonialsLoading } = useTestimonials();
+  const { data: certificates, isLoading: isCertificatesLoading } = useCertificates();
   const { data: projects, isLoading: isProjectsLoading } = useProjects();
   const { data: contact } = useContactInfo();
-  const { data: skillsData } = useSkills();
+  const { data: skillsData, isLoading: isSkillsLoading } = useSkills();
 
   const dynamicRoles = profile?.title ? profile.title.split(',').map((s: string) => s.trim()) : roles;
   const displayServices = services && services.length > 0 ? services : differentCards;
@@ -232,6 +232,8 @@ export default function Home() {
                     className="w-full h-full object-cover grayscale-[30%] contrast-110 hover:grayscale-0 hover:scale-110 transition-all duration-700 relative z-0 opacity-100"
                   />
                 </div>
+              ) : isProfileLoading ? (
+                <div className="w-full h-full silver-shimmer" aria-hidden="true" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-black/90 via-black/70 to-zinc-900 flex items-center justify-center text-gold font-display font-bold text-5xl tracking-widest">
                   AW
@@ -431,8 +433,28 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {(() => {
+              if (isSkillsLoading) {
+                return [1, 2, 3].map((i) => (
+                  <div key={i} className="gsap-skills-animate opacity-0" aria-hidden="true">
+                    <div className="p-6 md:p-8 space-y-6 h-full rounded-2xl border border-white/10 bg-white/5">
+                      <div className="w-12 h-12 rounded-xl silver-shimmer" />
+                      <div className="h-5 w-2/3 silver-shimmer rounded" />
+                      <div className="space-y-2">
+                        <div className="h-3 w-full silver-shimmer rounded" />
+                        <div className="h-3 w-4/5 silver-shimmer rounded" />
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {[1, 2, 3, 4].map((j) => (
+                          <div key={j} className="h-6 w-16 silver-shimmer rounded-md" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ));
+              }
               if (!skillsData || skillsData.length === 0) {
-                // Fallback rendering
+                // Genuinely nothing configured yet -- not a loading state, so show nothing rather than a
+                // skeleton that would never resolve into real content.
                 return null;
               }
               
@@ -606,8 +628,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 6. CERTIFICATES PREVIEW SECTION (hidden until real certificates exist) */}
-      {displayCertificates.length > 0 && (
+      {/* 6. CERTIFICATES PREVIEW SECTION (shown while loading too, hidden only once confirmed empty) */}
+      {(isCertificatesLoading || displayCertificates.length > 0) && (
       <section data-assistant-section="certificates" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
@@ -620,7 +642,19 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {displayCertificates.map((cert, index) => (
+            {isCertificatesLoading ? (
+              [1, 2, 3].map((i) => (
+                <div key={i} className="p-6 rounded-2xl border border-white/10 bg-white/5 space-y-4" aria-hidden="true">
+                  <div className="w-10 h-10 rounded-lg silver-shimmer mb-3" />
+                  <div className="h-4 w-4/5 silver-shimmer rounded" />
+                  <div className="h-3 w-1/2 silver-shimmer rounded" />
+                  <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                    <div className="h-3 w-16 silver-shimmer rounded" />
+                    <div className="h-3 w-12 silver-shimmer rounded" />
+                  </div>
+                </div>
+              ))
+            ) : displayCertificates.map((cert, index) => (
               <GlassCard key={index} className="p-6 border-white/10 space-y-4 flex flex-col justify-between" glowOnHover>
                 <div className="space-y-2">
                   <div className="w-10 h-10 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center text-gold mb-3">
@@ -649,8 +683,8 @@ export default function Home() {
       </section>
       )}
 
-      {/* 7. TESTIMONIALS SECTION (hidden until real testimonials exist) */}
-      {displayTestimonials.length > 0 && (
+      {/* 7. TESTIMONIALS SECTION (shown while loading too, hidden only once confirmed empty) */}
+      {(isTestimonialsLoading || displayTestimonials.length > 0) && (
       <section data-assistant-section="testimonials" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
@@ -663,7 +697,29 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {displayTestimonials.map((tItem, index) => {
+            {isTestimonialsLoading ? (
+              [1, 2].map((i) => (
+                <div key={i} className="p-8 space-y-6 rounded-2xl border border-white/15 bg-white/5" aria-hidden="true">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <div key={s} className="w-3.5 h-3.5 silver-shimmer rounded-sm" />
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full silver-shimmer rounded" />
+                    <div className="h-3 w-full silver-shimmer rounded" />
+                    <div className="h-3 w-2/3 silver-shimmer rounded" />
+                  </div>
+                  <div className="flex items-center gap-4 pt-4 border-t border-white/5">
+                    <div className="w-12 h-12 rounded-full silver-shimmer" />
+                    <div className="space-y-1.5">
+                      <div className="h-3 w-24 silver-shimmer rounded" />
+                      <div className="h-3 w-16 silver-shimmer rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : displayTestimonials.map((tItem, index) => {
               // CMS testimonials use content/image_url/company; the built-in ones use review/avatar
               const reviewText = tItem.review || tItem.content;
               const avatar = tItem.avatar || tItem.image_url || tItem.photo;
