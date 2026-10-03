@@ -1,7 +1,7 @@
 // Minimal service worker, scoped to /atelierfit only (see the register() call in src/pages/AtelierFit/index.tsx).
 // Its only job is to satisfy the browser's installability checks (a fetch handler + a cached offline fallback) --
 // this app needs a live connection to actually place an order, so there's no attempt at full offline support.
-const CACHE = "atelierfit-shell-v1";
+const CACHE = "atelierfit-shell-v2";
 const SHELL_URL = "/atelierfit";
 
 self.addEventListener("install", (event) => {
@@ -10,7 +10,11 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener("fetch", (event) => {

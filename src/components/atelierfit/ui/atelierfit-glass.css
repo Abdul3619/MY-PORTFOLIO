@@ -222,6 +222,25 @@
   transform: translateY(-1px);
 }
 
+/* Pink-glass text inputs/textareas -- the flat bg-white/5 Tailwind default a few AtelierFit screens were
+   still using (height field, contact details, the measurement-review form) read as plain and out of step
+   with the rest of the pink glassmorphism system. Same palette as .glass-card-subtle, just tuned for form
+   controls (no flowing border -- that would be distracting on something you're actively typing into). */
+.atelierfit-root .glass-input {
+  background: linear-gradient(145deg, rgba(50, 14, 40, 0.55) 0%, rgba(30, 9, 25, 0.65) 100%);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 110, 190, 0.25);
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 180, 230, 0.2), 0 0 12px -4px rgba(255, 46, 147, 0.16);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.atelierfit-root .glass-input::placeholder { color: rgba(245, 240, 230, 0.35); }
+.atelierfit-root .glass-input:focus {
+  border-color: rgba(240, 107, 166, 0.65);
+  box-shadow: inset 0 1px 2px 0 rgba(255, 200, 235, 0.3), 0 0 20px -2px rgba(255, 46, 147, 0.4);
+  outline: none;
+}
+
 .atelierfit-root .no-scrollbar::-webkit-scrollbar { display: none; }
 .atelierfit-root .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

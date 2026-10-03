@@ -5,6 +5,7 @@ import { LiveCameraStage, type CapturedPose } from "@/components/atelierfit/Live
 import { openPaystackCheckout } from "@/lib/atelierfit/paystack";
 import { BackgroundGlow } from "@/components/atelierfit/ui/BackgroundGlow";
 import { CopilotOrb } from "@/components/atelierfit/ui/CopilotOrb";
+import type { AssistantState } from "@/components/assistant/OrbVisual";
 import { GlassCard } from "@/components/atelierfit/ui/GlassCard";
 import { GarmentPlaceholder } from "@/components/atelierfit/ui/GarmentPlaceholder";
 import { useAuth } from "@/contexts/AuthContext";
@@ -148,10 +149,15 @@ export default function AtelierFit() {
   const [order, setOrder] = useState<{ orderId: string; reference: string; amountKobo: number; paystackReady: boolean } | null>(null);
 
   // Once auth finishes loading (including right after a Google OAuth redirect back into this page), a
-  // signed-in visitor skips straight past the splash -- they just proved who they are, no need to ask again.
+  // visitor who signed in with Google specifically for AtelierFit skips straight past the splash -- they
+  // just proved who they are, no need to ask again. This checks the OAuth provider, not just "is there any
+  // session at all": the site owner's own admin login shares this same Supabase client/localStorage, so a
+  // plain "if (user)" check would also fire for the owner's admin session and hide the splash screen for
+  // them permanently on every visit -- which is exactly the bug this was causing.
+  const isAtelierFitGoogleUser = user?.app_metadata?.provider === "google";
   useEffect(() => {
-    if (!authLoading && user && step === "splash") setStep("home");
-  }, [authLoading, user, step]);
+    if (!authLoading && isAtelierFitGoogleUser && step === "splash") setStep("home");
+  }, [authLoading, isAtelierFitGoogleUser, step]);
 
   // Pre-fill the name/email a signed-in visitor already gave Google, so they don't retype it at checkout.
   useEffect(() => {
@@ -220,6 +226,18 @@ export default function AtelierFit() {
   }, []);
 
   const deposit = useMemo(() => (garment ? Math.round(garment.basePriceNaira * (config?.depositRate ?? 0.4)) : 0), [garment, config]);
+
+  // A single source of truth for how the AI orb should "feel" right now -- not wired to a real backend brain,
+  // but reflecting real app state (still loading the catalogue, mid-submit, actively watching the camera, just
+  // finished) so it reads as connected to what's happening rather than a static decoration.
+  const orbState: AssistantState = useMemo(() => {
+    if (authLoading) return "thinking";
+    if (busy) return "thinking";
+    if (step === "camera") return "listening";
+    if (step === "success" || step === "checkout") return "speaking";
+    if (!config) return "thinking";
+    return "idle";
+  }, [authLoading, busy, step, config]);
 
   const runCameraMeasure = useCallback(() => {
     if (!frontCapture || !sideCapture) {
@@ -321,7 +339,7 @@ export default function AtelierFit() {
                 <span className="font-serif text-lg tracking-wide font-semibold">AtelierFit</span>
               </div>
             </div>
-            {step === "home" && <CopilotOrb size="sm" statusText="Ready to help" showWaveform />}
+            {step === "home" && <CopilotOrb size="sm" statusText="Ready to help" showWaveform state={orbState} />}
           </header>
         )}
 
@@ -332,7 +350,7 @@ export default function AtelierFit() {
         {step === "splash" && (
           <section className="min-h-[85vh] flex flex-col items-center justify-center text-center gap-8 pb-10">
             <div className="flex flex-col items-center gap-4">
-              <CopilotOrb size="hero" />
+              <CopilotOrb size="hero" state={orbState} />
               <div>
                 <div className="flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.2em] text-white/40 mb-2">
                   <Sparkles size={13} className="text-[#D6397D]" />
@@ -392,31 +410,16 @@ export default function AtelierFit() {
                   onClick={() => setStep("garment")}
                   disabled={!config}
                   aria-label="Begin fitting"
-                  className="relative z-10 w-40 h-40 rounded-full flex items-center justify-center group disabled:opacity-50 transition-opacity"
-                  style={{ background: "radial-gradient(circle at 35% 30%, #F8A0C8, #F06BA6 40%, #D6397D 70%, #5a1540 100%)", boxShadow: "0 0 50px 6px rgba(240,107,166,0.55)" }}
+                  className="relative z-10 flex flex-col items-center gap-3 group disabled:opacity-50 transition-opacity"
                 >
-                  <span className="absolute inset-0 rounded-full border border-[#F06BA6]/50 animate-[af-ring_2.6s_ease-out_infinite]" aria-hidden />
-                  <span
-                    className="absolute inset-0 rounded-full border border-[#F06BA6]/40 animate-[af-ring_2.6s_ease-out_infinite]"
-                    style={{ animationDelay: "0.9s" }}
-                    aria-hidden
-                  />
-                  <span
-                    className="absolute inset-0 rounded-full border border-[#F06BA6]/30 animate-[af-ring_2.6s_ease-out_infinite]"
-                    style={{ animationDelay: "1.8s" }}
-                    aria-hidden
-                  />
-                  <span className="relative z-10 flex flex-col items-center gap-1 text-black">
-                    <Ruler size={24} />
-                    <span className="font-serif font-semibold text-sm tracking-wide">
-                      {config ? "Begin fitting" : "Loading..."}
-                    </span>
-                  </span>
+                  <CopilotOrb size="hero" interactive state={orbState} />
                 </button>
-                <style>{`@keyframes af-ring { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.65); opacity: 0; } }`}</style>
                 <div className="relative z-10 text-center">
-                  <div className="font-serif text-sm tracking-wide text-white/80">AtelierFit Copilot</div>
-                  <div className="text-[11px] text-white/40">Measuring · Fitting · Creating</div>
+                  <div className="font-serif font-semibold text-sm tracking-wide text-white/90 flex items-center justify-center gap-1.5">
+                    <Ruler size={16} className="text-[#F06BA6]" />
+                    {config ? "Begin fitting" : "Loading..."}
+                  </div>
+                  <div className="text-[11px] text-white/40 mt-1">Measuring · Fitting · Creating</div>
                 </div>
               </div>
             </div>
@@ -523,12 +526,12 @@ export default function AtelierFit() {
                 type="number"
                 value={heightCm}
                 onChange={(e) => setHeightCm(Number(e.target.value))}
-                className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none"
+                className="w-full p-3 rounded-lg glass-input"
               />
             </div>
             <button
               onClick={() => { setMethod("camera_ai"); setStep("camera"); }}
-              className="w-full text-left p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#D6397D]/50 transition-colors flex items-center gap-3"
+              className="w-full text-left p-4 rounded-xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors flex items-center gap-3"
             >
               <Camera size={20} className="text-[#D6397D]" />
               <div>
@@ -538,7 +541,7 @@ export default function AtelierFit() {
             </button>
             <button
               onClick={() => { setMethod("manual"); setStep("manual"); }}
-              className="w-full text-left p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#D6397D]/50 transition-colors flex items-center gap-3"
+              className="w-full text-left p-4 rounded-xl glass-card-subtle flowing-pink-edge hover:border-pink-400/60 transition-colors flex items-center gap-3"
             >
               <Ruler size={20} className="text-[#D6397D]" />
               <div>
@@ -619,10 +622,10 @@ export default function AtelierFit() {
             <PaymentCardPreview name={customer.name} amountLabel={naira(deposit)} />
             <CardNetworkLogos />
 
-            <input placeholder="Full name" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none" />
-            <input placeholder="Email" type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none" />
-            <input placeholder="Phone (optional)" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none" />
-            <textarea placeholder="Notes for the tailor (fabric, colour, style references...)" value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} rows={3} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none resize-none" />
+            <input placeholder="Full name" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className="w-full p-3 rounded-lg glass-input" />
+            <input placeholder="Email" type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="w-full p-3 rounded-lg glass-input" />
+            <input placeholder="Phone (optional)" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="w-full p-3 rounded-lg glass-input" />
+            <textarea placeholder="Notes for the tailor (fabric, colour, style references...)" value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} rows={3} className="w-full p-3 rounded-lg glass-input resize-none" />
             <div className="rounded-xl glass-card-subtle p-4 text-sm flex justify-between">
               <span className="text-white/60">Deposit due now (40%)</span>
               <span className="font-semibold">{naira(deposit)}</span>
@@ -792,7 +795,7 @@ function MeasurementForm({ measurements, onChange }: { measurements: EstimatedMe
             step="0.1"
             value={measurements[key]}
             onChange={(e) => onChange({ ...measurements, [key]: Number(e.target.value) })}
-            className="w-full p-2.5 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none text-sm"
+            className="w-full p-2.5 rounded-lg glass-input text-sm"
           />
         </div>
       ))}

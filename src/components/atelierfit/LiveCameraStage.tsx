@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
+import { Camera, RotateCcw, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import {
   loadLivePoseLandmarker,
   detectPoseFromImage,
@@ -40,6 +40,12 @@ export function LiveCameraStage({
   const [status, setStatus] = useState<"starting" | "live" | "unavailable">("starting");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tracked, setTracked] = useState(false);
+  // "environment" = the back/world-facing camera, "user" = the front/selfie camera. Phones only -- front and
+  // back are the two cameras worth switching between; desktops with one webcam never see this button change
+  // anything, which is fine since there's nothing to switch to.
+  const [facing, setFacing] = useState<"environment" | "user">("environment");
+  const [canFlip, setCanFlip] = useState(true);
 
   const stopStream = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -51,6 +57,7 @@ export function LiveCameraStage({
   useEffect(() => {
     if (captured) return; // already captured for this stage -- don't reopen the camera
     let cancelled = false;
+    setTracked(false);
 
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -60,7 +67,7 @@ export function LiveCameraStage({
       try {
         const [stream, landmarker] = await Promise.all([
           navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment", width: { ideal: 720 }, height: { ideal: 1280 } },
+            video: { facingMode: facing, width: { ideal: 720 }, height: { ideal: 1280 } },
             audio: false,
           }),
           loadLivePoseLandmarker(),
@@ -70,6 +77,14 @@ export function LiveCameraStage({
           return;
         }
         streamRef.current = stream;
+        // If the device only has one camera, flipping would just reopen the same stream -- hide the button
+        // rather than offer a toggle that visibly does nothing.
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          setCanFlip(devices.filter((d) => d.kind === "videoinput").length > 1);
+        } catch {
+          setCanFlip(true); // can't enumerate (permissions-gated on some browsers until after first grant) -- default to showing it
+        }
         const video = videoRef.current;
         if (!video) return;
         video.srcObject = stream;
@@ -85,12 +100,53 @@ export function LiveCameraStage({
           }
           const pose = detectPoseFromVideoFrame(landmarker, video, performance.now());
           latestPoseRef.current = pose;
+          setTracked((prev) => (prev === !!pose ? prev : !!pose));
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (pose) {
-              ctx.strokeStyle = "#F06BA6";
-              ctx.lineWidth = Math.max(2, canvas.width * 0.006);
+              // Bounding box of the tracked body, padded a little -- drawn as an AR-style scan frame (corner
+              // brackets, not a full rectangle) so the live view reads as "actively measuring a volume", not
+              // just a flat line-drawing traced over the video.
+              let minX = 1, minY = 1, maxX = 0, maxY = 0;
+              for (const p of pose) {
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y > maxY) maxY = p.y;
+              }
+              const pad = 0.04;
+              const bx = Math.max(0, (minX - pad) * canvas.width);
+              const by = Math.max(0, (minY - pad) * canvas.height);
+              const bw = Math.min(canvas.width, (maxX - minX + pad * 2) * canvas.width) - bx;
+              const bh = Math.min(canvas.height, (maxY - minY + pad * 2) * canvas.height) - by;
+              const cornerLen = Math.max(14, canvas.width * 0.05);
+
+              ctx.save();
+              ctx.strokeStyle = "rgba(255, 212, 235, 0.9)";
+              ctx.lineWidth = Math.max(2.5, canvas.width * 0.007);
+              ctx.lineCap = "round";
+              ctx.shadowColor = "#F06BA6";
+              ctx.shadowBlur = 14;
+              const corners: [number, number, number, number][] = [
+                [bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1],
+              ];
+              for (const [cx, cy, dx, dy] of corners) {
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + cornerLen * dy);
+                ctx.lineTo(cx, cy);
+                ctx.lineTo(cx + cornerLen * dx, cy);
+                ctx.stroke();
+              }
+              ctx.restore();
+
+              // The skeleton itself -- thicker, glowing strokes (vs. the original thin flat lines) so it
+              // reads as an active 3D-ish scan rather than a faint debug overlay.
+              ctx.save();
+              ctx.shadowColor = "#F06BA6";
+              ctx.shadowBlur = 10;
+              ctx.strokeStyle = "#F8A0C8";
+              ctx.lineWidth = Math.max(3, canvas.width * 0.009);
               ctx.lineCap = "round";
               for (const [a, b] of POSE_CONNECTIONS) {
                 const pa = pose[a], pb = pose[b];
@@ -100,12 +156,32 @@ export function LiveCameraStage({
                 ctx.lineTo(pb.x * canvas.width, pb.y * canvas.height);
                 ctx.stroke();
               }
-              ctx.fillStyle = "#FFD4EB";
+              ctx.restore();
+
+              ctx.save();
+              ctx.shadowColor = "#FFD4EB";
+              ctx.shadowBlur = 8;
+              ctx.fillStyle = "#FFFFFF";
               for (const p of pose) {
                 ctx.beginPath();
-                ctx.arc(p.x * canvas.width, p.y * canvas.height, Math.max(2.5, canvas.width * 0.007), 0, Math.PI * 2);
+                ctx.arc(p.x * canvas.width, p.y * canvas.height, Math.max(3, canvas.width * 0.008), 0, Math.PI * 2);
                 ctx.fill();
               }
+              ctx.restore();
+
+              // A vertical height-axis guide from the topmost to bottommost tracked point -- a light "ruler"
+              // tick along the side of the frame, reinforcing that this is a measurement in progress, not
+              // just a pose sketch.
+              ctx.save();
+              ctx.strokeStyle = "rgba(255, 212, 235, 0.5)";
+              ctx.setLineDash([4, 6]);
+              ctx.lineWidth = 1.5;
+              const axisX = Math.max(10, bx - 10);
+              ctx.beginPath();
+              ctx.moveTo(axisX, by);
+              ctx.lineTo(axisX, by + bh);
+              ctx.stroke();
+              ctx.restore();
             }
           }
           rafRef.current = requestAnimationFrame(draw);
@@ -123,7 +199,12 @@ export function LiveCameraStage({
       cancelled = true;
       stopStream();
     };
-  }, [captured, stopStream]);
+  }, [captured, stopStream, facing]);
+
+  const flipCamera = useCallback(() => {
+    setStatus("starting");
+    setFacing((f) => (f === "environment" ? "user" : "environment"));
+  }, []);
 
   const handleCapture = useCallback(() => {
     const video = videoRef.current;
@@ -181,18 +262,40 @@ export function LiveCameraStage({
         <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-black border border-white/10">
           <video ref={videoRef} playsInline muted className="absolute inset-0 w-full h-full object-contain" />
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+
           {status === "starting" && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/60">
               <Loader2 className="animate-spin text-white/70" size={28} />
             </div>
           )}
+
           {status === "live" && (
-            <button
-              onClick={handleCapture}
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#D6397D] text-black font-semibold text-sm shadow-lg"
-            >
-              <Camera size={16} /> Capture
-            </button>
+            <>
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-[10px] font-medium tracking-wide">
+                <span className={`w-1.5 h-1.5 rounded-full ${tracked ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                <span className={tracked ? "text-emerald-300" : "text-amber-200"}>
+                  {tracked ? "Tracking · aligned" : "Step back into frame"}
+                </span>
+              </div>
+
+              {canFlip && (
+                <button
+                  onClick={flipCamera}
+                  aria-label="Switch camera"
+                  className="absolute top-3 right-3 p-2 rounded-full bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/70 transition-colors"
+                >
+                  <RefreshCw size={16} />
+                </button>
+              )}
+
+              <button
+                onClick={handleCapture}
+                disabled={!tracked}
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#D6397D] text-black font-semibold text-sm shadow-lg disabled:opacity-50 transition-opacity"
+              >
+                <Camera size={16} /> Capture
+              </button>
+            </>
           )}
         </div>
       ) : (
