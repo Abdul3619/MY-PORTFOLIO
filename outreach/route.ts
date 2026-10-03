@@ -190,7 +190,7 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
         try {
           const outcome =
             b.contactChannel === 'website'
-              ? await runLeadPipeline({ website: b.website!, businessName: b.name, city, source: 'auto_search' }, pipelineDeps)
+              ? await runLeadPipeline({ website: b.website!, businessName: b.name, city, source: 'auto_search', osmPhone: b.osmPhone }, pipelineDeps)
               : await runNoWebsiteLeadPipeline(
                   { businessName: b.name, category, city, contactChannel: b.contactChannel, contactValue: b.contactValue!, source: 'auto_search' },
                   pipelineDeps,

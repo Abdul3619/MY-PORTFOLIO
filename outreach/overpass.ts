@@ -23,6 +23,11 @@ export interface OsmBusinessResult {
   contactChannel: 'website' | 'whatsapp' | 'facebook' | 'instagram' | 'phone';
   /** The raw value for a non-website channel (a phone number or a social handle/URL). Null for website leads. */
   contactValue: string | null;
+  /** A phone number OSM had tagged on this business even though website won out as the primary channel --
+   * carried separately so a website-channel lead doesn't lose a real, independently-confirmed phone number
+   * just because it wasn't the "best" channel. Null when OSM had no phone tag, or when contactChannel is
+   * already 'phone' (in which case it's in contactValue instead, not duplicated here). */
+  osmPhone: string | null;
   lat: number;
   lon: number;
   osmTags: Record<string, string>;
@@ -145,21 +150,26 @@ export function knownCategories(): string[] {
  * then a phone number, then Facebook, then Instagram. Returns null if none
  * of these are present -- that business genuinely can't be reached from
  * what OSM has on file, and gets dropped. */
-function extractContact(tags: Record<string, string>): { channel: OsmBusinessResult['contactChannel']; website: string | null; value: string | null } | null {
+function extractContact(
+  tags: Record<string, string>,
+): { channel: OsmBusinessResult['contactChannel']; website: string | null; value: string | null; osmPhone: string | null } | null {
+  const phone = tags['contact:phone'] || tags.phone || null;
+
   const website = tags.website || tags['contact:website'];
-  if (website) return { channel: 'website', website, value: null };
+  // A phone tag riding alongside a website isn't the "best" channel, but it's a real, independently
+  // confirmed way to reach them -- worth keeping rather than discarding just because website won.
+  if (website) return { channel: 'website', website, value: null, osmPhone: phone };
 
   const whatsapp = tags['contact:whatsapp'] || tags.whatsapp;
-  if (whatsapp) return { channel: 'whatsapp', website: null, value: whatsapp };
+  if (whatsapp) return { channel: 'whatsapp', website: null, value: whatsapp, osmPhone: null };
 
-  const phone = tags['contact:phone'] || tags.phone;
-  if (phone) return { channel: 'phone', website: null, value: phone };
+  if (phone) return { channel: 'phone', website: null, value: phone, osmPhone: null };
 
   const facebook = tags['contact:facebook'] || tags.facebook;
-  if (facebook) return { channel: 'facebook', website: null, value: facebook };
+  if (facebook) return { channel: 'facebook', website: null, value: facebook, osmPhone: null };
 
   const instagram = tags['contact:instagram'] || tags.instagram;
-  if (instagram) return { channel: 'instagram', website: null, value: instagram };
+  if (instagram) return { channel: 'instagram', website: null, value: instagram, osmPhone: null };
 
   return null;
 }
@@ -286,6 +296,7 @@ export async function searchBusinesses(city: string, category: string): Promise<
       website: contact.website,
       contactChannel: contact.channel,
       contactValue: contact.value,
+      osmPhone: contact.osmPhone,
       lat: typeof lat === 'number' ? lat : 0,
       lon: typeof lon === 'number' ? lon : 0,
       osmTags: tags,

@@ -319,28 +319,105 @@ export default function AdminOutreach() {
     }
   };
 
-  const mailtoHref = (lead: Lead) => {
-    const email = lead.evidence?.emails?.[0];
-    if (!email || !lead.draftSubject || !lead.draftBody) return undefined;
-    return `mailto:${email}?subject=${encodeURIComponent(lead.draftSubject)}&body=${encodeURIComponent(lead.draftBody)}`;
-  };
-
-  // For a no-website lead found via WhatsApp, this opens a chat with the drafted message pre-filled --
-  // the closest thing to "send" that exists for a channel with no login/API of its own here.
-  const whatsappHref = (lead: Lead) => {
-    if (lead.contactChannel !== 'whatsapp' || !lead.contactValue || !lead.draftBody) return undefined;
-    const digits = lead.contactValue.replace(/[^\d]/g, '');
-    if (!digits) return undefined;
-    const text = lead.draftSubject ? `${lead.draftSubject}\n\n${lead.draftBody}` : lead.draftBody;
-    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
-  };
-
   const CHANNEL_LABEL: Record<ContactChannel, string> = {
     website: 'Website',
     whatsapp: 'WhatsApp',
     facebook: 'Facebook',
     instagram: 'Instagram',
     phone: 'Phone',
+  };
+
+  interface ContactOption {
+    key: string;
+    label: string;
+    display: string;
+    href?: string;
+    external?: boolean;
+    /** True when this is a phone number being offered as "might also be their WhatsApp" rather than a
+     * confirmed WhatsApp contact -- most small businesses run WhatsApp on their normal line, but OSM/the
+     * crawled site never actually says so, so this is a guess worth labeling as one. */
+    unconfirmed?: boolean;
+  }
+
+  // Every way we actually have on file to reach this lead -- not just whichever one happened to be picked
+  // as the "primary" channel. A website-channel business can still have a phone number the crawler found on
+  // the page, or social links, or (if OSM tagged it) a phone number carried over from the map data even
+  // though the website won out as the primary channel. Surfacing all of them is the fix for leads that
+  // looked like "nothing to reach them by" when a usable contact was sitting in the data all along.
+  const getContactOptions = (lead: Lead): ContactOption[] => {
+    const draftText = lead.draftSubject && lead.draftBody ? `${lead.draftSubject}\n\n${lead.draftBody}` : null;
+    const opts: ContactOption[] = [];
+
+    if (lead.contactChannel === 'website') {
+      const email = lead.evidence?.emails?.[0];
+      if (email) {
+        opts.push({
+          key: 'email',
+          label: 'Email',
+          display: email,
+          href: draftText ? `mailto:${email}?subject=${encodeURIComponent(lead.draftSubject || '')}&body=${encodeURIComponent(lead.draftBody || '')}` : `mailto:${email}`,
+        });
+      }
+
+      // Crawled phone first (found directly on their site); contactValue is the fallback -- for
+      // website-channel leads it only ever holds a phone number OSM had tagged alongside the website.
+      const phone = lead.evidence?.phones?.[0] || lead.contactValue || undefined;
+      if (phone) {
+        const digits = phone.replace(/[^\d+]/g, '');
+        if (digits) {
+          opts.push({ key: 'phone', label: 'Phone', display: phone, href: `tel:${digits}` });
+          if (draftText) {
+            opts.push({
+              key: 'whatsapp-guess',
+              label: 'Try WhatsApp',
+              display: phone,
+              href: `https://wa.me/${digits.replace(/^\+/, '')}?text=${encodeURIComponent(draftText)}`,
+              external: true,
+              unconfirmed: true,
+            });
+          }
+        }
+      }
+
+      for (const [platform, url] of Object.entries(lead.evidence?.socialLinks || {})) {
+        if (!url) continue;
+        opts.push({ key: `social-${platform}`, label: platform.charAt(0).toUpperCase() + platform.slice(1), display: url, href: url, external: true });
+      }
+    } else if (lead.contactValue) {
+      if (lead.contactChannel === 'whatsapp') {
+        const digits = lead.contactValue.replace(/[^\d]/g, '');
+        opts.push({
+          key: 'whatsapp',
+          label: 'WhatsApp',
+          display: lead.contactValue,
+          href: digits && draftText ? `https://wa.me/${digits}?text=${encodeURIComponent(draftText)}` : undefined,
+          external: true,
+        });
+      } else if (lead.contactChannel === 'phone') {
+        const digits = lead.contactValue.replace(/[^\d+]/g, '');
+        opts.push({ key: 'phone', label: 'Phone', display: lead.contactValue, href: digits ? `tel:${digits}` : undefined });
+      } else {
+        // facebook / instagram -- OSM sometimes tags these as a full URL, sometimes just a handle.
+        const isUrl = /^https?:\/\//i.test(lead.contactValue);
+        opts.push({
+          key: lead.contactChannel,
+          label: CHANNEL_LABEL[lead.contactChannel],
+          display: lead.contactValue,
+          href: isUrl ? lead.contactValue : undefined,
+          external: true,
+        });
+      }
+    }
+
+    return opts;
+  };
+
+  /** A single short line for previews/exports -- the first (best) contact option, or an honest "none found"
+   * rather than silently showing nothing. */
+  const primaryContactLine = (lead: Lead): string => {
+    const opts = getContactOptions(lead);
+    if (opts.length === 0) return 'no contact info found';
+    return `${opts[0].label}: ${opts[0].display}`;
   };
 
   const copyDraft = (lead: Lead) => {
@@ -404,14 +481,68 @@ export default function AdminOutreach() {
     }
     const text = withDrafts
       .map((l) => {
-        const contact = l.contactChannel === 'website' ? (l.evidence?.emails?.[0] || 'no email found') : `${CHANNEL_LABEL[l.contactChannel]}: ${l.contactValue}`;
-        return `===== ${l.businessName || l.domain} <${contact}> =====\nSubject: ${l.draftSubject}\n\n${l.draftBody}`;
+        return `===== ${l.businessName || l.domain} <${primaryContactLine(l)}> =====\nSubject: ${l.draftSubject}\n\n${l.draftBody}`;
       })
       .join('\n\n\n');
     navigator.clipboard?.writeText(text).then(
       () => triggerToast('Copied', `${withDrafts.length} draft(s) copied -- paste them wherever you send from.`, 'success'),
       () => triggerToast('Copy failed', 'Could not access the clipboard.', 'warning'),
     );
+  };
+
+  const csvField = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+
+  // Everything needed to actually reach and follow up on a batch of leads, as one CSV -- all the contact
+  // info gathered, not just whichever single field happened to be shown in the UI. Built from the leads
+  // already loaded in this tab, so no extra request or backend route is needed; the date range just filters
+  // what's already here by createdAt.
+  const handleExportContacts = (rangeDays: number | null) => {
+    const cutoff = rangeDays === null ? null : Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+    const inRange = leads.filter((l) => cutoff === null || new Date(l.createdAt).getTime() >= cutoff);
+    if (inRange.length === 0) {
+      triggerToast('Nothing to export', 'No leads fall in that date range.', 'info');
+      return;
+    }
+
+    const headers = ['Business', 'City', 'Country', 'Status', 'Best contact', 'Email', 'Phone', 'WhatsApp/Phone channel', 'Social links', 'Website', 'Subject', 'Created at'];
+    const rows = inRange.map((l) => {
+      const opts = getContactOptions(l);
+      const email = l.contactChannel === 'website' ? l.evidence?.emails?.[0] || '' : '';
+      const phone = l.contactChannel === 'website' ? l.evidence?.phones?.[0] || l.contactValue || '' : l.contactChannel === 'phone' ? l.contactValue || '' : '';
+      const waOrChannel = l.contactChannel !== 'website' ? `${CHANNEL_LABEL[l.contactChannel]}: ${l.contactValue || ''}` : '';
+      const social = Object.entries(l.evidence?.socialLinks || {})
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(' | ');
+      return [
+        l.businessName || l.domain,
+        l.city || '',
+        l.country || '',
+        STATUS_META[l.status].label,
+        opts[0] ? `${opts[0].label}: ${opts[0].display}` : 'none found',
+        email,
+        phone,
+        waOrChannel,
+        social,
+        l.website || '',
+        l.draftSubject || '',
+        l.createdAt,
+      ]
+        .map((v) => csvField(String(v)))
+        .join(',');
+    });
+    const csv = [headers.map(csvField).join(','), ...rows].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const label = rangeDays === null ? 'all-time' : `last-${rangeDays}d`;
+    a.href = url;
+    a.download = `outreach-contacts-${label}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    triggerToast('Exported', `${inRange.length} lead(s) exported to a CSV file.`, 'success');
   };
 
   return (
@@ -469,9 +600,32 @@ export default function AdminOutreach() {
                 {STATUS_META[s].label} ({statusCounts[s] || 0})
               </button>
             ))}
-            <button onClick={loadLeads} className="ml-auto flex items-center gap-1 text-gray-500 hover:text-white">
-              <RefreshCw size={12} /> Refresh
-            </button>
+            <div className="ml-auto flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-gray-500">
+                Export
+                <select
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    handleExportContacts(v === 'all' ? null : Number(v));
+                    e.target.value = '';
+                  }}
+                  defaultValue=""
+                  className="bg-[#161616] border border-white/8 rounded px-2 py-1 text-gray-300 outline-none focus:border-[#00F0FF]/40"
+                >
+                  <option value="" disabled>
+                    contacts as CSV...
+                  </option>
+                  <option value="1">Today</option>
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="all">All time</option>
+                </select>
+              </label>
+              <button onClick={loadLeads} className="flex items-center gap-1 text-gray-500 hover:text-white">
+                <RefreshCw size={12} /> Refresh
+              </button>
+            </div>
           </div>
 
           {selectableLeads.length > 0 && (
@@ -504,7 +658,7 @@ export default function AdminOutreach() {
               {leads.map((lead) => {
                 const expanded = expandedId === lead.id;
                 const edit = draftEdits[lead.id] ?? { subject: lead.draftSubject || '', body: lead.draftBody || '' };
-                const mailto = mailtoHref(lead);
+                const contactOptions = getContactOptions(lead);
                 return (
                   <div key={lead.id} className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 overflow-hidden">
                     <div className="w-full flex items-center gap-3 p-4">
@@ -526,6 +680,7 @@ export default function AdminOutreach() {
                           <p className="text-[10px] font-mono text-gray-500 truncate">
                             {lead.contactChannel === 'website' ? lead.website : `${CHANNEL_LABEL[lead.contactChannel]}: ${lead.contactValue}`}
                             {lead.city ? ` · ${lead.city}` : ''}
+                            {contactOptions.length === 0 && <span className="text-amber-400"> · no contact info found</span>}
                           </p>
                           {!expanded && lead.draftSubject && (
                             <p className="text-[11px] font-mono text-gray-400 truncate mt-1">&ldquo;{lead.draftSubject}&rdquo;</p>
@@ -555,6 +710,8 @@ export default function AdminOutreach() {
                             <p><span className="text-gray-500">Images missing alt text:</span> {lead.evidence.imagesMissingAlt} of {lead.evidence.imageCount}</p>
                             <p><span className="text-gray-500">Detected CMS:</span> {lead.evidence.cms || 'unknown'}</p>
                             <p><span className="text-gray-500">Contact email:</span> {lead.evidence.emails[0] || '(none found)'}</p>
+                            <p><span className="text-gray-500">Phone on site:</span> {lead.evidence.phones[0] || '(none found)'}</p>
+                            <p><span className="text-gray-500">Social links:</span> {Object.keys(lead.evidence.socialLinks).length > 0 ? Object.keys(lead.evidence.socialLinks).join(', ') : '(none found)'}</p>
                             {lead.evidence.issues.length > 0 && <p><span className="text-gray-500">Issues:</span> {lead.evidence.issues.join('; ')}</p>}
                           </div>
                         )}
@@ -575,19 +732,26 @@ export default function AdminOutreach() {
                             />
                             <div className="flex flex-wrap gap-2 pt-1">
                               <button onClick={() => handleSaveDraft(lead)} className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase">Save edits</button>
-                              {mailto && (
-                                <a href={mailto} className="flex items-center gap-1 px-3 py-1.5 rounded bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 border border-[#00F0FF]/20 text-[#00F0FF] font-mono text-[10px] uppercase">
-                                  <Mail size={12} /> Open in mail client
-                                </a>
+                              {contactOptions.map((opt) =>
+                                opt.href ? (
+                                  <a
+                                    key={opt.key}
+                                    href={opt.href}
+                                    {...(opt.external ? { target: '_blank', rel: 'noreferrer' } : {})}
+                                    title={opt.display}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 border border-[#00F0FF]/20 text-[#00F0FF] font-mono text-[10px] uppercase"
+                                  >
+                                    <Mail size={12} /> {opt.unconfirmed ? `Try ${opt.label}` : `Open ${opt.label}`}
+                                  </a>
+                                ) : (
+                                  <span key={opt.key} title={opt.display} className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/2 border border-white/8 text-gray-500 font-mono text-[10px] uppercase">
+                                    {opt.label}: {opt.display}
+                                  </span>
+                                ),
                               )}
-                              {whatsappHref(lead) && (
-                                <a href={whatsappHref(lead)} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-[#22C55E] font-mono text-[10px] uppercase">
-                                  <Mail size={12} /> Open in WhatsApp
-                                </a>
-                              )}
-                              {!mailto && !whatsappHref(lead) && lead.contactChannel !== 'website' && (
-                                <span className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/2 border border-white/8 text-gray-500 font-mono text-[10px] uppercase">
-                                  No direct link for {CHANNEL_LABEL[lead.contactChannel]} -- use Copy text, then message them there
+                              {contactOptions.length === 0 && (
+                                <span className="flex items-center gap-1 px-3 py-1.5 rounded bg-rose-500/5 border border-rose-500/20 text-rose-300 font-mono text-[10px] uppercase">
+                                  No contact info found for this lead
                                 </span>
                               )}
                               <button onClick={() => copyDraft(lead)} className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase">

@@ -16,6 +16,10 @@ export interface PipelineInput {
   city?: string | null;
   country?: string | null;
   source: LeadSource;
+  /** A phone number OSM had on file for this business even though it also has a website (see
+   * overpass.ts's extractContact). Carried onto the business record as a bonus contact method, never
+   * overwriting whatever the crawler itself finds on the site. */
+  osmPhone?: string | null;
 }
 
 export interface PipelineDeps {
@@ -60,6 +64,7 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     name: input.businessName ?? null,
     city: input.city ?? null,
     country: input.country ?? null,
+    contactValue: input.osmPhone ?? null,
   });
 
   const leadId = await store.createLead(business.id, input.source, 'crawling');

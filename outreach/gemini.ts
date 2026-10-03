@@ -33,8 +33,46 @@ export interface DraftLeadInput {
   sender: SenderProfile;
 }
 
+// Technical crawl findings are real, but a business owner has never heard of a "meta description" and
+// doesn't care about one -- they care about customers finding them, or not. This maps each technical signal
+// to the plain, real-world consequence it actually has, so the model is pointed at writing about the thing
+// that matters instead of restating jargon the recipient will skim past.
+function translateEvidence(evidence: CrawlEvidence): string[] {
+  const facts: string[] = [];
+  if (!evidence.hasViewportMeta) facts.push('The site does not resize properly on a phone screen -- most visitors are on mobile, so this is likely costing them customers directly.');
+  if (!evidence.usesHttps) facts.push('The site loads without the secure padlock (HTTP, not HTTPS) -- browsers flag this as "not secure," which makes visitors leave.');
+  if (evidence.emails.length === 0 && evidence.phones.length === 0) facts.push('There is no visible email or phone number anywhere on the homepage -- a visitor who wants to buy or book has no way to reach them.');
+  if (Object.keys(evidence.socialLinks).length === 0) facts.push('No social media links on the site, so there is no path from the website to wherever the business is actually active, if anywhere.');
+  if (evidence.wordCount < 150) facts.push('The homepage has very little actual content -- it looks unfinished or abandoned at a glance.');
+  if (!evidence.title) facts.push('The page has no title at all, so it shows up blank or as a raw URL in a browser tab or a Google search result.');
+  if (evidence.imagesMissingAlt > 0 && evidence.imageCount > 0 && evidence.imagesMissingAlt === evidence.imageCount) {
+    facts.push('None of the images on the page would show up in Google Image search or work for anyone using a screen reader.');
+  }
+  return facts;
+}
+
+const STYLE_RULES = `
+Write the way a direct, honest person writes when they actually mean what they're saying, not the way an AI
+assistant writes a sales email. Concretely:
+- No hashtags, anywhere.
+- No em-dashes (the "--" character or "—"). Use a period or comma instead.
+- No bullet points, numbered lists, or dashes-as-bullets inside the email body itself -- it's a message to
+  one human, not a slide.
+- No corporate/AI-sounding phrases: "in today's digital world/age", "I hope this email finds you well",
+  "take your business to the next level", "unlock your potential", "passionate", "cutting-edge",
+  "game-changer", "seamless", "elevate". If a sentence sounds like it could open a template, cut it.
+- No exclamation points, no emoji.
+- Short, plain, declarative sentences. State things directly rather than hedging ("I was wondering if
+  maybe..." becomes "I noticed...").
+- Translate any technical detail into what it actually means for a customer or the business owner, in plain
+  words -- never use technical terms like "meta description," "alt text," "viewport," "HTTPS," or "H1 tag"
+  literally in the email itself. Say what the person would actually notice or lose because of it.
+- Sign off plainly with just the sender's name, nothing more ornate.
+`.trim();
+
 function buildPrompt(input: DraftLeadInput): string {
   const { businessName, website, evidence, sender } = input;
+  const plainFacts = translateEvidence(evidence);
   return `
 You are drafting a short, honest cold outreach email from a freelance web
 developer to a real local business, based ONLY on the evidence below. Do not
@@ -44,36 +82,54 @@ to you.
 Recipient business: ${businessName}
 Recipient website: ${website}
 
-Real evidence gathered from that website just now:
+Plain-language facts about their site (already translated from technical signals -- use these as the
+substance of the email, not the raw jargon):
+${plainFacts.length > 0 ? plainFacts.map((f) => `- ${f}`).join('\n') : '- No major issues were detected -- the site looks reasonably solid technically; focus the email on offering a second opinion or a small improvement rather than inventing a problem.'}
+
+Raw technical evidence, for your own reference only (do not quote these terms in the email itself):
 - Page title: ${evidence.title || '(none found)'}
-- Meta description: ${evidence.metaDescription || '(none found)'}
-- Has mobile viewport tag: ${evidence.hasViewportMeta}
-- Uses HTTPS: ${evidence.usesHttps}
 - Headings found: ${evidence.headings.slice(0, 8).join(' | ') || '(none)'}
-- Images missing alt text: ${evidence.imagesMissingAlt} of ${evidence.imageCount}
 - Detected CMS/platform: ${evidence.cms || 'unknown'}
-- Issues detected: ${evidence.issues.join('; ') || 'none'}
 
 Sender (who this email is from):
 - Name/business: ${sender.businessName}
 - Services offered: ${sender.services.join(', ') || 'web design and development'}
 - Requested tone: ${sender.tone || 'friendly, direct, not salesy'}
 
+${STYLE_RULES}
+
 Write:
 1. 2-3 specific observations about THIS business's actual site, each one
-   tied directly to a piece of evidence above (no generic filler like
+   tied directly to one of the plain-language facts above, written in the
+   same plain, non-technical way (no jargon, no generic filler like
    "in today's digital world").
 2. A complete outreach email body (not a template with placeholders) that:
-   - opens with a genuine, specific observation from #1
-   - briefly explains one concrete improvement and its plausible benefit
+   - opens with a genuine, specific observation from #1, stated plainly
+   - briefly explains one concrete improvement and the real benefit it has
+     for THIS business (more bookings, fewer lost customers, looking
+     trustworthy) -- not a vague claim
    - offers a low-pressure next step (a short call or a quick reply)
    - signs off as ${sender.businessName}
-   - is under 180 words
-3. A short subject line (under 60 characters, no clickbait, no ALL CAPS).
+   - is under 180 words, in short paragraphs (2-4 sentences each)
+3. A short subject line (under 60 characters, no clickbait, no ALL CAPS, no hashtags).
 
 Return strict JSON with this shape and nothing else:
 {"subject": string, "body": string, "observations": string[]}
 `.trim();
+}
+
+// The prompt and system instruction both tell the model not to do these things, but a model can still slip
+// -- this is the backstop that actually guarantees the output the user asked for, rather than hoping the
+// instructions were followed. Deliberately conservative: it only strips things that are never wanted (a
+// stray "#tag", an em-dash used as punctuation), it never rewrites or reword actual sentence content.
+function sanitizeDraftText(text: string): string {
+  return text
+    .replace(/#[A-Za-z][A-Za-z0-9_]*/g, '') // stray hashtags
+    .replace(/\s*[-–—]{2,}\s*/g, ', ') // em/en-dashes and "--" used as a pause -> a comma
+    .replace(/—/g, ',') // any lone em-dash character
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function extractJson(text: string): any {
@@ -108,7 +164,13 @@ async function callGemini(prompt: string): Promise<DraftResult> {
       contents: prompt,
       config: {
         systemInstruction:
-          'You write short, honest, specific cold outreach emails. You never invent facts, statistics, client names, or results that were not given to you. You return only valid JSON matching the requested shape.',
+          'You write short, honest, specific cold outreach messages the way a direct, plain-spoken person ' +
+          'writes when they mean it, never the way a generic AI sales email reads. No hashtags, no ' +
+          'em-dashes, no bullet points inside the message body, no exclamation points or emoji, no ' +
+          'corporate/AI-sounding phrases ("in today\'s digital world," "I hope this email finds you well," ' +
+          '"take your business to the next level," "unlock your potential," "cutting-edge," "seamless"). ' +
+          'Short, declarative sentences. Never invent facts, statistics, client names, or results that were ' +
+          'not given to you. You return only valid JSON matching the requested shape.',
         responseMimeType: 'application/json',
       },
     });
@@ -131,8 +193,8 @@ async function callGemini(prompt: string): Promise<DraftResult> {
 
     return {
       ok: true,
-      subject: String(parsed.subject),
-      body: String(parsed.body),
+      subject: sanitizeDraftText(String(parsed.subject)),
+      body: sanitizeDraftText(String(parsed.body)),
       observations: Array.isArray(parsed.observations) ? parsed.observations.map(String) : [],
     };
   } catch (e: any) {
@@ -179,6 +241,8 @@ Sender (who this message is from):
 - Services offered: ${sender.services.join(', ') || 'web design and development'}
 - Requested tone: ${sender.tone || 'friendly, direct, not salesy'}
 
+${STYLE_RULES}
+
 Write:
 1. A complete message body (not a template with placeholders) that:
    - opens by noting, plainly and respectfully, that you noticed their
@@ -194,7 +258,7 @@ Write:
    - offers a low-pressure next step (a short call or a quick reply)
    - signs off as ${sender.businessName}
    - is under 160 words
-2. A short subject line (under 60 characters, no clickbait, no ALL CAPS).
+2. A short subject line (under 60 characters, no clickbait, no ALL CAPS, no hashtags).
 
 Return strict JSON with this shape and nothing else:
 {"subject": string, "body": string, "observations": string[]}
