@@ -93,6 +93,7 @@ export default function AdminOutreach() {
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [draftEdits, setDraftEdits] = useState<Record<number, { subject: string; body: string }>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const [website, setWebsite] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -294,6 +295,61 @@ export default function AdminOutreach() {
     return acc;
   }, {});
 
+  // Bulk review: any lead with a drafted message can be selected, regardless of
+  // which status it's currently in (drafted / approved / sent), so the user can
+  // glance at and act on many messages in one pass instead of expanding each.
+  const selectableLeads = leads.filter((l) => l.draftSubject && l.draftBody);
+  const allSelectableSelected = selectableLeads.length > 0 && selectableLeads.every((l) => selectedIds.has(l.id));
+  const selectedLeads = leads.filter((l) => selectedIds.has(l.id));
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelectableSelected ? new Set() : new Set(selectableLeads.map((l) => l.id)));
+  };
+
+  const handleBulkApprove = async () => {
+    const toApprove = selectedLeads.filter((l) => l.status === 'drafted');
+    if (toApprove.length === 0) {
+      triggerToast('Nothing to approve', 'Select one or more drafted leads first.', 'info');
+      return;
+    }
+    await Promise.all(toApprove.map((l) => patchLead(l.id, { action: 'approve' })));
+    triggerToast('Approved', `${toApprove.length} draft(s) approved.`, 'success');
+  };
+
+  const handleBulkMarkSent = async () => {
+    const toMark = selectedLeads.filter((l) => l.status === 'approved');
+    if (toMark.length === 0) {
+      triggerToast('Nothing to mark', 'Select one or more approved leads first.', 'info');
+      return;
+    }
+    await Promise.all(toMark.map((l) => patchLead(l.id, { action: 'mark_sent' })));
+    triggerToast('Marked as sent', `${toMark.length} lead(s) recorded as sent.`, 'success');
+  };
+
+  const handleBulkCopy = () => {
+    const withDrafts = selectedLeads.filter((l) => l.draftSubject && l.draftBody);
+    if (withDrafts.length === 0) {
+      triggerToast('Nothing to copy', 'Select one or more drafted leads first.', 'info');
+      return;
+    }
+    const text = withDrafts
+      .map((l) => `===== ${l.businessName || l.domain} <${l.evidence?.emails?.[0] || 'no email found'}> =====\nSubject: ${l.draftSubject}\n\n${l.draftBody}`)
+      .join('\n\n\n');
+    navigator.clipboard?.writeText(text).then(
+      () => triggerToast('Copied', `${withDrafts.length} draft(s) copied -- paste them wherever you send from.`, 'success'),
+      () => triggerToast('Copy failed', 'Could not access the clipboard.', 'warning'),
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -354,6 +410,27 @@ export default function AdminOutreach() {
             </button>
           </div>
 
+          {selectableLeads.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 bg-white/[0.03] border border-white/8 rounded-lg p-3 text-xs font-mono">
+              <label className="flex items-center gap-2 cursor-pointer text-gray-300">
+                <input type="checkbox" checked={allSelectableSelected} onChange={toggleSelectAll} className="accent-[#00F0FF] w-3.5 h-3.5" />
+                Select all with a draft ({selectableLeads.length})
+              </label>
+              <span className="text-gray-500">{selectedIds.size} selected</span>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <button onClick={handleBulkCopy} disabled={selectedIds.size === 0} className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase disabled:opacity-30 disabled:cursor-not-allowed">
+                  <Copy size={12} /> Copy all selected
+                </button>
+                <button onClick={handleBulkApprove} disabled={selectedIds.size === 0} className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-[#22C55E] font-mono text-[10px] uppercase disabled:opacity-30 disabled:cursor-not-allowed">
+                  <CheckCircle2 size={12} /> Approve selected
+                </button>
+                <button onClick={handleBulkMarkSent} disabled={selectedIds.size === 0} className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-[#22C55E] font-mono text-[10px] uppercase disabled:opacity-30 disabled:cursor-not-allowed">
+                  <CheckCircle2 size={12} /> Mark selected sent
+                </button>
+              </div>
+            </div>
+          )}
+
           {loadingLeads ? (
             <div className="flex items-center justify-center py-12 text-gray-500"><Loader2 className="animate-spin" /></div>
           ) : leads.length === 0 ? (
@@ -366,19 +443,33 @@ export default function AdminOutreach() {
                 const mailto = mailtoHref(lead);
                 return (
                   <div key={lead.id} className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 overflow-hidden">
-                    <button
-                      onClick={() => setExpandedId(expanded ? null : lead.id)}
-                      className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-semibold text-white text-sm truncate">{lead.businessName || lead.domain}</p>
-                        <p className="text-[10px] font-mono text-gray-500 truncate">{lead.website} {lead.city ? `· ${lead.city}` : ''}</p>
-                      </div>
-                      <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                        <span className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold border ${STATUS_META[lead.status].className}`}>{STATUS_META[lead.status].label}</span>
-                        {expanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
-                      </div>
-                    </button>
+                    <div className="w-full flex items-center gap-3 p-4">
+                      {lead.draftSubject && lead.draftBody && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(lead.id)}
+                          onChange={() => toggleSelect(lead.id)}
+                          className="accent-[#00F0FF] w-3.5 h-3.5 flex-shrink-0"
+                          aria-label={`Select ${lead.businessName || lead.domain}`}
+                        />
+                      )}
+                      <button
+                        onClick={() => setExpandedId(expanded ? null : lead.id)}
+                        className="flex-1 min-w-0 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors rounded"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white text-sm truncate">{lead.businessName || lead.domain}</p>
+                          <p className="text-[10px] font-mono text-gray-500 truncate">{lead.website} {lead.city ? `· ${lead.city}` : ''}</p>
+                          {!expanded && lead.draftSubject && (
+                            <p className="text-[11px] font-mono text-gray-400 truncate mt-1">&ldquo;{lead.draftSubject}&rdquo;</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                          <span className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold border ${STATUS_META[lead.status].className}`}>{STATUS_META[lead.status].label}</span>
+                          {expanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
+                        </div>
+                      </button>
+                    </div>
 
                     {expanded && (
                       <div className="p-4 border-t border-white/8 space-y-4 text-xs">
