@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User } from "lucide-react";
 import { detectPoseFromImage, estimateMeasurements, type EstimatedMeasurements } from "@/lib/atelierfit/measure";
 import { openPaystackCheckout } from "@/lib/atelierfit/paystack";
+import { FlowingBackground } from "@/components/atelierfit/FlowingBackground";
 
 // AtelierFit -- a real tailoring order app, not a portfolio mockup. Lives outside the main site's SSR'd layout
 // (registered as a pure client route, same as /admin) so it can behave like an installable app: full-screen,
@@ -258,7 +259,8 @@ export default function AtelierFit() {
   }, [order, config, customer.email]);
 
   return (
-    <div className="min-h-screen w-full bg-[#0B0A08] text-[#F5F0E6] font-sans flex flex-col items-center px-4 py-8">
+    <div className="relative min-h-screen w-full text-[#F5F0E6] font-sans flex flex-col items-center px-4 py-8">
+      <FlowingBackground />
       <div className="w-full max-w-md">
         <header className="flex items-center gap-3 mb-8">
           {step !== "home" && (
