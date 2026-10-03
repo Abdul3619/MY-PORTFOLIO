@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User } from "lucide-react";
+import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User, Lock } from "lucide-react";
 import { detectPoseFromImage, estimateMeasurements, type EstimatedMeasurements } from "@/lib/atelierfit/measure";
 import { openPaystackCheckout } from "@/lib/atelierfit/paystack";
 import { BackgroundGlow } from "@/components/atelierfit/ui/BackgroundGlow";
@@ -501,12 +501,15 @@ export default function AtelierFit() {
 
         {step === "details" && garment && (
           <section className="space-y-4">
-            <h2 className="text-xl font-display font-semibold mb-2">Your details</h2>
+            <h2 className="text-xl font-serif font-semibold mb-2">Your details</h2>
+
+            <PaymentCardPreview name={customer.name} amountLabel={naira(deposit)} />
+
             <input placeholder="Full name" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none" />
             <input placeholder="Email" type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none" />
             <input placeholder="Phone (optional)" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none" />
             <textarea placeholder="Notes for the tailor (fabric, colour, style references...)" value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} rows={3} className="w-full p-3 rounded-lg bg-white/5 border border-white/10 focus:border-[#D6397D]/60 outline-none resize-none" />
-            <div className="rounded-xl bg-white/5 border border-white/10 p-4 text-sm flex justify-between">
+            <div className="rounded-xl glass-card-subtle p-4 text-sm flex justify-between">
               <span className="text-white/60">Deposit due now (40%)</span>
               <span className="font-semibold">{naira(deposit)}</span>
             </div>
@@ -572,6 +575,58 @@ export default function AtelierFit() {
           </div>
         </nav>
       )}
+    </div>
+  );
+}
+
+// A live, glossy card preview -- fills in with the customer's own name as they type it, like the holographic
+// card mockup in the reference images. It never shows a real card number: this app doesn't collect raw card
+// details itself (Paystack's own secured popup does, for PCI compliance), so the number stays fully masked by
+// design, not because of a missing feature. The shine sweep, metallic edge highlight and embossed chip are
+// what make it read as a real card rather than a flat rectangle.
+function PaymentCardPreview({ name, amountLabel }: { name: string; amountLabel: string }) {
+  const displayName = name.trim() ? name.trim().toUpperCase() : "YOUR NAME HERE";
+  return (
+    <div
+      className="relative w-full aspect-[1.6/1] rounded-2xl overflow-hidden p-5 flex flex-col justify-between text-white select-none"
+      style={{
+        background: "linear-gradient(135deg, #3d0f30 0%, #701a45 28%, #D6397D 55%, #a8277f 75%, #3b0a2e 100%)",
+        boxShadow: "0 20px 45px -12px rgba(0,0,0,0.75), inset 0 1.5px 2px rgba(255,210,240,0.5), inset 0 0 30px rgba(236,72,153,0.25)",
+        border: "1px solid rgba(255,180,220,0.4)",
+      }}
+    >
+      {/* Metallic edge highlight sweeping diagonally across the glass */}
+      <div
+        className="absolute inset-0 opacity-60 mix-blend-overlay pointer-events-none animate-[af-card-shine_5s_ease-in-out_infinite]"
+        style={{ background: "linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.65) 42%, rgba(255,255,255,0.1) 50%, transparent 65%)", backgroundSize: "250% 250%" }}
+      />
+      <style>{`@keyframes af-card-shine { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 60%; } }`}</style>
+
+      <div className="relative z-10 flex items-center justify-between">
+        {/* Embossed chip */}
+        <div className="w-10 h-7 rounded-md bg-gradient-to-br from-[#f3d9a8] via-[#d8b067] to-[#9c7a3c] shadow-inner border border-black/10" />
+        <span className="font-serif text-sm tracking-[0.2em] text-white/90">ATELIERFIT PAY</span>
+      </div>
+
+      <div className="relative z-10 font-mono text-lg tracking-[0.25em] text-white/85">
+        •••• •••• •••• ••••
+      </div>
+
+      <div className="relative z-10 flex items-end justify-between">
+        <div>
+          <div className="text-[9px] uppercase tracking-wider text-white/50">Cardholder</div>
+          <div className="text-xs font-medium tracking-wide truncate max-w-[180px]">{displayName}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[9px] uppercase tracking-wider text-white/50">Due now</div>
+          <div className="text-xs font-semibold">{amountLabel}</div>
+        </div>
+      </div>
+
+      <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur-sm text-[9px] text-emerald-300">
+        <Lock size={9} />
+        <span>Secured by Paystack</span>
+      </div>
     </div>
   );
 }
