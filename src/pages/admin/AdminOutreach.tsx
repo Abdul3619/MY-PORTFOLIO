@@ -229,7 +229,10 @@ export default function AdminOutreach() {
         loadLeads();
       }
     } catch (err: any) {
-      triggerToast('Search failed', err.message || 'Something went wrong', 'warning');
+      const message = err.message || 'Something went wrong';
+      triggerToast('Search failed', message, 'warning');
+      // Also kept on-screen below the button (not just as a toast) -- a toast can disappear before it's read.
+      setSearchResult({ repeat: false, error: message });
     } finally {
       setSearching(false);
     }
@@ -621,7 +624,13 @@ export default function AdminOutreach() {
                 <button onClick={() => handleSearch(true)} className="underline hover:text-amber-200">Run it again anyway</button>
               </div>
             )}
-            {searchResult && !searchResult.repeat && (
+            {searchResult?.error && (
+              <div className="text-[11px] font-mono text-rose-300 bg-rose-500/5 border border-rose-500/20 rounded p-2.5 space-y-2">
+                <p>{searchResult.error}</p>
+                <button onClick={() => handleSearch(false)} className="underline hover:text-rose-200">Try again</button>
+              </div>
+            )}
+            {searchResult && !searchResult.repeat && !searchResult.error && (
               <div className="text-[11px] font-mono text-gray-400 space-y-1">
                 <p>Found {searchResult.found} business(es). See the Review Queue tab.</p>
                 {searchResult.resolvedPlace && (

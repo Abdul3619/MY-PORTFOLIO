@@ -204,17 +204,46 @@ export interface SearchBusinessesResult {
   resolvedPlace: string;
 }
 
+// The public Overpass service has no single point of truth -- several
+// independent mirrors run the same data. overpass-api.de is the default,
+// heaviest-used one, so it's also the one most likely to hand back a 429
+// (rate limited) or 504 (busy) under normal, moderate use. Falling back to
+// a second mirror on either of those turns a transient "someone else was
+// hammering it" moment into a working search instead of a dead end.
+const OVERPASS_ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+
+async function queryOverpass(query: string): Promise<{ elements: any[] }> {
+  let lastError: Error | null = null;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'User-Agent': contactHeader(), 'Content-Type': 'text/plain' },
+        body: query,
+      });
+      if (res.ok) return (await res.json()) as { elements: any[] };
+      if (res.status === 429 || res.status === 504 || res.status === 503) {
+        // Busy/rate-limited -- worth trying the next mirror before giving up.
+        lastError = new Error(`busy (HTTP ${res.status})`);
+        continue;
+      }
+      // Any other status (e.g. a malformed query -> 400) won't be fixed by a different mirror.
+      throw new Error(`HTTP ${res.status}`);
+    } catch (e: any) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+  throw new Error(
+    `Overpass query failed on every mirror tried (${lastError?.message || 'unknown error'}). ` +
+      `OpenStreetMap's free query service is a shared, rate-limited resource -- this usually means it's ` +
+      `temporarily busy or you've searched a few times in quick succession. Wait about a minute and try again.`,
+  );
+}
+
 export async function searchBusinesses(city: string, category: string): Promise<SearchBusinessesResult> {
   const { bbox, resolvedName } = await geocodeCity(city);
   const query = buildOverpassQuery(category, bbox);
-
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { 'User-Agent': contactHeader(), 'Content-Type': 'text/plain' },
-    body: query,
-  });
-  if (!res.ok) throw new Error(`Overpass query failed: HTTP ${res.status}`);
-  const data = (await res.json()) as { elements: any[] };
+  const data = await queryOverpass(query);
 
   const results: OsmBusinessResult[] = [];
   for (const el of data.elements || []) {
