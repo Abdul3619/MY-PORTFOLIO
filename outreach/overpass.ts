@@ -171,6 +171,26 @@ function contactHeader(): string {
   return `AIOutreachBot/1.0 (single-user local tool${email ? `; contact: ${email}` : ''})`;
 }
 
+// A plain fetch() has no timeout of its own -- if a mirror accepts the
+// connection but never finishes responding, the request just hangs. Without
+// this, that hang would run until Vercel's own hard function time limit (60s
+// on this plan) kills the whole request from the outside, which happens
+// before our own try/catch (and Sentry.captureException) ever runs -- so a
+// stuck request looks like total silence: no error, no log, no DB row.
+// Failing fast here turns that into a normal, visible, reportable error.
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error(`timed out after ${timeoutMs}ms`);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export interface GeocodedPlace {
   bbox: BoundingBox;
   /** The full place name OSM actually resolved the input to -- e.g. typing
@@ -183,7 +203,7 @@ export interface GeocodedPlace {
 
 export async function geocodeCity(city: string): Promise<GeocodedPlace> {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`;
-  const res = await fetch(url, { headers: { 'User-Agent': contactHeader() } });
+  const res = await fetchWithTimeout(url, { headers: { 'User-Agent': contactHeader() } }, 15000);
   if (!res.ok) throw new Error(`Nominatim geocoding failed: HTTP ${res.status}`);
   const data = (await res.json()) as any[];
   if (!data.length) throw new Error(`Could not find "${city}" on OpenStreetMap. Try a more specific name (e.g. "Lagos, Nigeria").`);
@@ -221,11 +241,15 @@ async function queryOverpass(query: string): Promise<{ elements: any[] }> {
   let lastError: Error | null = null;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'User-Agent': contactHeader(), 'Content-Type': 'text/plain' },
-        body: query,
-      });
+      const res = await fetchWithTimeout(
+        endpoint,
+        {
+          method: 'POST',
+          headers: { 'User-Agent': contactHeader(), 'Content-Type': 'text/plain' },
+          body: query,
+        },
+        20000,
+      );
       if (res.ok) return (await res.json()) as { elements: any[] };
       if (res.status === 429 || res.status === 504 || res.status === 503) {
         // Busy/rate-limited -- worth trying the next mirror before giving up.
