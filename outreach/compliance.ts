@@ -7,16 +7,24 @@
 export interface SenderProfile {
   businessName: string;
   address: string;
+  // Appended as a plain link in the signature (see buildComplianceFooter) so every recipient gets a real,
+  // working way back to the portfolio -- a link is what a pasted-as-plain-text email or WhatsApp message can
+  // actually carry; a generated graphic "button" wouldn't survive being copied into either. Most mail and
+  // chat clients auto-linkify a bare URL on paste/send, so this reads and acts like a button without needing
+  // one to be rendered. Left out of the footer entirely if not set, rather than showing a placeholder.
+  portfolioUrl?: string;
 }
 
 export function buildComplianceFooter(sender: SenderProfile): string {
   const business = sender.businessName?.trim() || '[Your business name — set SENDER_BUSINESS_NAME in .env]';
   const address = sender.address?.trim() || '[Your mailing address — set SENDER_ADDRESS in .env]';
+  const portfolioUrl = sender.portfolioUrl?.trim();
   return [
     '',
     '--',
     business,
     address,
+    ...(portfolioUrl ? [`See more of my work: ${portfolioUrl}`] : []),
     "If you'd rather not hear from me again, just reply with \"unsubscribe\" and I won't contact you again.",
   ].join('\n');
 }

@@ -20,6 +20,10 @@ export interface SenderProfile {
   services: string[];
   tone?: string;
   address: string;
+  // Not used in the Gemini prompt itself (the signature link is appended deterministically by
+  // compliance.ts, never left for the model to "remember" to include) -- carried on this type only so one
+  // SenderProfile object can be passed to both draftEmail() and appendComplianceFooter() without a mismatch.
+  portfolioUrl?: string;
 }
 
 export interface DraftLeadInput {

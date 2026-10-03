@@ -111,5 +111,6 @@ export function loadSenderProfileFromEnv(): SenderProfile {
     services: (process.env.SENDER_SERVICES || 'Web design, web development, website audits').split(',').map((s) => s.trim()),
     tone: process.env.SENDER_TONE || 'friendly, direct, not salesy',
     address: process.env.SENDER_ADDRESS || '',
+    portfolioUrl: process.env.SENDER_PORTFOLIO_URL || undefined,
   };
 }
