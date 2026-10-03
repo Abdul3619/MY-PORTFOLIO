@@ -85,7 +85,7 @@ const STATUS_META: Record<LeadStatus, { label: string; className: string }> = {
   sent: { label: 'Sent', className: 'bg-emerald-500/10 text-[#22C55E] border-emerald-500/20' },
 };
 
-type Tab = 'queue' | 'add' | 'coverage';
+type Tab = 'queue' | 'add' | 'coverage' | 'inbox';
 
 export default function AdminOutreach() {
   const { triggerToast } = useAdmin();
@@ -151,6 +151,78 @@ export default function AdminOutreach() {
   const [optOutEmail, setOptOutEmail] = useState('');
   const [loadingCoverage, setLoadingCoverage] = useState(false);
 
+  // Inbox tab: a read-only view of the admin's own Gmail (replies / sent-confirmation / unsubscribes for
+  // outreach leads) plus the portfolio's own contact-form messages, side by side in one place.
+  const [gmailStatus, setGmailStatus] = useState<{ configured: boolean; connected: boolean; email?: string | null } | null>(null);
+  const [connectingGmail, setConnectingGmail] = useState(false);
+  const [portfolioMessages, setPortfolioMessages] = useState<any[]>([]);
+  const [loadingPortfolioMessages, setLoadingPortfolioMessages] = useState(false);
+  const [checkingGmail, setCheckingGmail] = useState(false);
+  const [gmailByEmail, setGmailByEmail] = useState<Record<string, { messages: any[]; looksLikeUnsubscribe: boolean }>>({});
+
+  const loadGmailStatus = async () => {
+    try {
+      setGmailStatus(await fetchApi('/api/admin/inbox/status'));
+    } catch {
+      setGmailStatus(null);
+    }
+  };
+
+  const loadPortfolioMessages = async () => {
+    setLoadingPortfolioMessages(true);
+    try {
+      const data = await fetchApi('/api/admin/messages');
+      setPortfolioMessages(Array.isArray(data) ? data : []);
+    } catch {
+      setPortfolioMessages([]);
+    } finally {
+      setLoadingPortfolioMessages(false);
+    }
+  };
+
+  const handleConnectGmail = async () => {
+    setConnectingGmail(true);
+    try {
+      const { url } = await fetchApi('/api/admin/inbox/connect');
+      window.location.href = url;
+    } catch (err: any) {
+      triggerToast('Could not start Gmail connection', err.message || 'Something went wrong', 'warning');
+      setConnectingGmail(false);
+    }
+  };
+
+  const handleDisconnectGmail = async () => {
+    try {
+      await fetchApi('/api/admin/inbox/disconnect', { method: 'POST' });
+      setGmailStatus({ configured: true, connected: false });
+      setGmailByEmail({});
+      triggerToast('Disconnected', 'Gmail is no longer connected.', 'success');
+    } catch (err: any) {
+      triggerToast('Could not disconnect', err.message || 'Something went wrong', 'warning');
+    }
+  };
+
+  // Every lead with a known email, regardless of status -- this is what gets checked against Gmail.
+  const leadEmails = Array.from(new Set(leads.map((l) => l.evidence?.emails?.[0]).filter((e): e is string => Boolean(e))));
+
+  const handleCheckGmail = async () => {
+    if (leadEmails.length === 0) {
+      triggerToast('Nothing to check', 'No leads with a known email yet.', 'info');
+      return;
+    }
+    setCheckingGmail(true);
+    try {
+      const result = await fetchApi('/api/admin/inbox/messages', { method: 'POST', body: JSON.stringify({ emails: leadEmails }) });
+      setGmailByEmail(result.byEmail || {});
+      const repliedCount = Object.values(result.byEmail || {}).filter((v: any) => v.messages.some((m: any) => m.labelIds?.includes('INBOX'))).length;
+      triggerToast('Checked Gmail', `${repliedCount} lead(s) have activity in your inbox or sent folder.`, 'success');
+    } catch (err: any) {
+      triggerToast('Could not check Gmail', err.message || 'Something went wrong', 'warning');
+    } finally {
+      setCheckingGmail(false);
+    }
+  };
+
   const loadLeads = async () => {
     setLoadingLeads(true);
     try {
@@ -194,6 +266,10 @@ export default function AdminOutreach() {
 
   useEffect(() => {
     if (tab === 'coverage') loadCoverage();
+    if (tab === 'inbox') {
+      loadGmailStatus();
+      loadPortfolioMessages();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -568,6 +644,7 @@ export default function AdminOutreach() {
           ['queue', 'Review Queue', Radar],
           ['add', 'Add Leads', Link2],
           ['coverage', 'Coverage', SearchIcon],
+          ['inbox', 'Inbox', Mail],
         ] as const).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -930,6 +1007,113 @@ export default function AdminOutreach() {
           ) : (
             <div className="glass-admin rounded-lg border border-white/8 p-8 text-center text-gray-500 font-mono text-xs">Could not load coverage data.</div>
           )}
+        </div>
+      )}
+
+      {tab === 'inbox' && (
+        <div className="space-y-4">
+          <div className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 p-4 space-y-3">
+            <h3 className="text-[10px] font-mono uppercase text-[#00F0FF] tracking-wider flex items-center gap-1.5"><Mail size={13} /> Gmail connection</h3>
+            {!gmailStatus ? (
+              <p className="text-xs font-mono text-gray-500">Checking...</p>
+            ) : !gmailStatus.configured ? (
+              <p className="text-xs font-mono text-amber-300">
+                Not set up yet -- GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI need to be added to the server's environment first.
+              </p>
+            ) : gmailStatus.connected ? (
+              <div className="flex items-center justify-between text-xs font-mono">
+                <p className="text-[#22C55E] flex items-center gap-1.5"><CheckCircle2 size={13} /> Connected as {gmailStatus.email}</p>
+                <button onClick={handleDisconnectGmail} className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-gray-400 uppercase text-[10px]">
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-xs font-mono">
+                <p className="text-gray-500">Not connected -- replies and sent-confirmation won't show up here until you connect it.</p>
+                <button
+                  onClick={handleConnectGmail}
+                  disabled={connectingGmail}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#00F0FF] text-black font-bold uppercase text-[10px] disabled:opacity-40"
+                >
+                  {connectingGmail ? <Loader2 size={12} className="animate-spin" /> : null} Connect Gmail
+                </button>
+              </div>
+            )}
+          </div>
+
+          {gmailStatus?.connected && (
+            <div className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-mono uppercase text-[#00F0FF] tracking-wider">Outreach activity ({leadEmails.length} known email(s))</h3>
+                <button
+                  onClick={handleCheckGmail}
+                  disabled={checkingGmail}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase disabled:opacity-40"
+                >
+                  {checkingGmail ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Check Gmail
+                </button>
+              </div>
+              {Object.keys(gmailByEmail).length === 0 ? (
+                <p className="text-[11px] font-mono text-gray-500">Click "Check Gmail" to see which leads have replied, been sent to, or asked to unsubscribe.</p>
+              ) : (
+                <div className="space-y-2">
+                  {Object.entries(gmailByEmail).map(([email, info]) => {
+                    const lead = leads.find((l) => l.evidence?.emails?.[0] === email);
+                    const hasReply = info.messages.some((m) => m.labelIds?.includes('INBOX'));
+                    const hasSent = info.messages.some((m) => m.labelIds?.includes('SENT'));
+                    return (
+                      <div key={email} className="border border-white/8 rounded p-3 text-[11px] font-mono space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-semibold">{lead?.businessName || email}</span>
+                          <div className="flex gap-1.5">
+                            {info.looksLikeUnsubscribe && <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">Looks like unsubscribe</span>}
+                            {hasReply && <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-[#22C55E] border border-emerald-500/20">Replied</span>}
+                            {!hasReply && hasSent && <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">Sent, no reply yet</span>}
+                            {info.messages.length === 0 && <span className="px-2 py-0.5 rounded bg-white/4 text-gray-500 border border-white/8">No activity found</span>}
+                          </div>
+                        </div>
+                        <p className="text-gray-500">{email}</p>
+                        {info.messages.slice(0, 3).map((m) => (
+                          <a
+                            key={m.id}
+                            href={`https://mail.google.com/mail/u/0/#all/${m.threadId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-gray-400 hover:text-[#00F0FF] truncate"
+                          >
+                            {m.labelIds?.includes('SENT') ? '-> ' : '<- '}
+                            {m.subject || '(no subject)'} -- {m.snippet}
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="glass-admin rounded-lg border border-white/8 bg-[#111111]/40 p-4 space-y-3">
+            <h3 className="text-[10px] font-mono uppercase text-[#00F0FF] tracking-wider">Portfolio contact-form messages</h3>
+            {loadingPortfolioMessages ? (
+              <div className="flex items-center justify-center py-8 text-gray-500"><Loader2 className="animate-spin" /></div>
+            ) : portfolioMessages.length === 0 ? (
+              <p className="text-[11px] font-mono text-gray-500">No messages through the portfolio's contact form yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {portfolioMessages.slice(0, 20).map((m) => (
+                  <div key={m.id} className="border border-white/8 rounded p-3 text-[11px] font-mono space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white font-semibold">{m.name || m.email || 'Someone'}</span>
+                      <span className="text-gray-500">{m.created_at ? new Date(m.created_at).toLocaleDateString() : ''}</span>
+                    </div>
+                    {m.email && <p className="text-gray-500">{m.email}</p>}
+                    {m.message && <p className="text-gray-400 line-clamp-2">{m.message}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

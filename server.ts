@@ -21,6 +21,7 @@ import { createOutreachRouter } from './outreach/route.js';
 import { createAtelierFitRouter } from './atelierfit/route.js';
 import { createStitchBookRouter } from './stitchbook/route.js';
 import { createGalleryRouter } from './gallery/route.js';
+import { createInboxRouter } from './inbox/route.js';
 
 dotenv.config();
 
@@ -2264,6 +2265,10 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
 // Every route is admin-only (requireAuth), so it's safe to reuse the service-role client here even though the
 // original standalone app only ever held a restricted anon key (it had no login of its own to gate behind).
 app.use('/api/admin/outreach', createOutreachRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
+// Gmail read-only Inbox tab (replies / sent-confirmation / unsubscribe detection for outreach leads). Its
+// OAuth callback route is reached via a direct browser redirect from Google, not requireAuth, but every
+// other route on this router still requires the admin to be logged in -- see inbox/route.ts.
+app.use('/api/admin/inbox', createInboxRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
 // AtelierFit: public order-intake + Paystack verification routes live here too, with the admin list/status routes
 // gated inside the router itself -- see atelierfit/route.ts.
 app.use('/api/atelierfit', createAtelierFitRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
