@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, type Transition } from "motion/react";
-import { PhoneOff, MessageSquareText, X } from "lucide-react";
+import { PhoneOff, MessageSquareText, X, ExternalLink } from "lucide-react";
 import OrbVisual, { type AssistantState } from "./OrbVisual";
 import useOrbWobble from "./useOrbWobble";
 import Waveform from "./Waveform";
@@ -60,6 +60,9 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
   const [unsupported, setUnsupported] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [showTranscript, setShowTranscript] = useState(false);
+  // Set from the show_link voice tool (see chatbot/route.ts) -- a link the model wants to hand the visitor,
+  // shown as a real tappable card instead of being read aloud as speech.
+  const [linkCard, setLinkCard] = useState<{ url: string; label: string } | null>(null);
   const energy = useRef(0);
 
   const activeRef = useRef(false); // true while the overlay is mounted & live, false once closing -- guards async callbacks
@@ -175,6 +178,14 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
         },
         onToolCall: (calls) => {
           for (const call of calls) {
+            if (call.name === "show_link") {
+              const url = typeof call.args?.url === "string" ? call.args.url : "";
+              const label = typeof call.args?.label === "string" && call.args.label ? call.args.label : t("assistant.open_link", "Open");
+              if (url) setLinkCard({ url, label });
+              // Client-handled -- never hits the server, nothing to validate beyond "is there a url".
+              liveRef.current?.sendToolResponse(call.id, call.name, url ? "Shown on the visitor's screen." : "No url given -- nothing was shown.");
+              continue;
+            }
             runVoiceTool(call.name, call.args).then((result) => {
               liveRef.current?.sendToolResponse(call.id, call.name, result);
             });
@@ -247,6 +258,7 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     setYouSaid("");
     setCaption("");
     setShowTranscript(false);
+    setLinkCard(null);
     turnInputRef.current = "";
     turnOutputRef.current = "";
     reconnectAttemptsRef.current = 0;
@@ -363,6 +375,17 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
                 )}
                 {caption && (
                   <p className="font-display text-base sm:text-lg text-white leading-relaxed whitespace-pre-wrap">{caption}</p>
+                )}
+                {linkCard && (
+                  <a
+                    href={linkCard.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ai-glass-btn interactive inline-flex items-center gap-2 rounded-full text-white px-5 py-3 text-sm font-medium"
+                  >
+                    <ExternalLink size={16} aria-hidden="true" />
+                    {linkCard.label}
+                  </a>
                 )}
                 {errorMsg && <p role="alert" className="text-xs text-red-300">{errorMsg}</p>}
               </>

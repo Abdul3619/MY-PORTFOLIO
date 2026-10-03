@@ -429,8 +429,28 @@ const VOICE_TOOL_DECLARATIONS: Array<{ name: string; description: string; parame
   },
 ];
 
+// Voice-only, client-handled -- never routed through /voice/tool or runTool, because it never touches the
+// database or Cal.com. The browser answers it immediately and locally (see VoiceCallOverlay.tsx's onToolCall):
+// this exists purely so a link becomes a tappable card on screen instead of the model reading a URL out loud,
+// which is unreadable/unusable as speech and was the whole problem this tool fixes.
+const SHOW_LINK_DESCRIPTION =
+  'Shows a tappable link card on the visitor\'s screen -- for any project link, live project URL, dashboard link (from get_dashboard_access), or site path (e.g. /projects/<slug>, /contact) you want to hand them. ALWAYS call this instead of saying a URL out loud -- never read a link, "slash", or "dot" as speech. After calling it, just say something natural like "I\'ve put that on your screen" or describe what they\'ll see there, without repeating the address.';
+
+const SHOW_LINK_DECLARATION: { name: string; description: string; parameters: unknown } = {
+  name: 'show_link',
+  description: SHOW_LINK_DESCRIPTION,
+  parameters: {
+    type: 'OBJECT',
+    properties: {
+      url: { type: 'STRING', description: 'The exact URL or site path to open, copied exactly from <projects>/<knowledge> or a get_dashboard_access result -- never invented or guessed.' },
+      label: { type: 'STRING', description: 'Short button text, e.g. the project\'s title or "Open dashboard". A few words, never the raw URL.' },
+    },
+    required: ['url', 'label'],
+  },
+};
+
 function voiceToolDeclarations() {
-  const tools = [VOICE_TOOL_DECLARATIONS[0], VOICE_TOOL_DECLARATIONS[1]];
+  const tools = [VOICE_TOOL_DECLARATIONS[0], VOICE_TOOL_DECLARATIONS[1], SHOW_LINK_DECLARATION];
   return calComConfigured() ? [...tools, VOICE_TOOL_DECLARATIONS[2], VOICE_TOOL_DECLARATIONS[3]] : tools;
 }
 
@@ -708,8 +728,12 @@ const GEMINI_LIVE_MODELS = [
 const VOICE_SESSION_SYSTEM_SUFFIX =
   '\n\nYou are speaking out loud on a live voice call, not typing a chat message. Keep replies short and ' +
   "conversational -- a sentence or two at a time, like a real phone call, never a bulleted list or long " +
-  'paragraph. Spell out things that read oddly aloud (say "fifteen minutes" not "15 min", say a URL as ' +
-  'plain words like "the link in your booking email" rather than reading out slashes and dots).';
+  'paragraph. Spell out things that read oddly aloud (say "fifteen minutes" not "15 min"). Never say a URL, ' +
+  'site path or link out loud, in full or in part -- no "slash", no "dot", no reading out the address. ' +
+  'Whenever you would give a visitor any link -- a project\'s live link, a dashboard link, /contact, anything ' +
+  'from <projects>/<knowledge> -- call the show_link tool with that exact url and a short label instead, then ' +
+  'just say naturally that you\'ve put it on their screen (e.g. "I\'ve put the project on your screen" or ' +
+  '"here\'s the dashboard -- I\'ve shown it on screen"). This is the only way to give a link on a voice call.';
 
 export function createVoiceLiveRouter() {
   const router = express.Router();
