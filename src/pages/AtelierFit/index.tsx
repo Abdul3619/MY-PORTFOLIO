@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User } from "lucide-react";
 import { detectPoseFromImage, estimateMeasurements, type EstimatedMeasurements } from "@/lib/atelierfit/measure";
 import { openPaystackCheckout } from "@/lib/atelierfit/paystack";
-import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 
 // AtelierFit -- a real tailoring order app, not a portfolio mockup. Lives outside the main site's SSR'd layout
 // (registered as a pure client route, same as /admin) so it can behave like an installable app: full-screen,
@@ -16,19 +15,20 @@ import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 type Garment = { id: string; label: string; basePriceNaira: number };
 type Step = "home" | "gallery" | "garment" | "method" | "camera" | "manual" | "review" | "details" | "checkout" | "success";
 
-// Compact gallery -- the same visual world as Atelier Noir, standing in for its real catalog until that
-// gallery is rebuilt (unisex, African + international fashion together). Curated, not browsable in depth:
-// a handful of pieces to prove the aesthetic, not a shop. Falls back to the site's own placeholder graphic
-// if a photo fails to load, so a dead link never breaks the layout.
-const GALLERY: { id: string; title: string; tag: string; img: string }[] = [
-  { id: "g1", title: "Tailored Agbada", tag: "Menswear · West Africa", img: "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=480&q=80&auto=format&fit=crop" },
-  { id: "g2", title: "Structured Blazer", tag: "Womenswear · Tailoring", img: "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=480&q=80&auto=format&fit=crop" },
-  { id: "g3", title: "Draped Kaftan", tag: "Unisex · Modern", img: "https://images.unsplash.com/photo-1583391733956-6c78276477b2?w=480&q=80&auto=format&fit=crop" },
-  { id: "g4", title: "Silk Kimono Coat", tag: "Womenswear · East Asia inspired", img: "https://images.unsplash.com/photo-1600370370825-3c3d5c5a5f4f?w=480&q=80&auto=format&fit=crop" },
-  { id: "g5", title: "Two-Piece Suit", tag: "Menswear · Classic", img: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=480&q=80&auto=format&fit=crop" },
-  { id: "g6", title: "Embroidered Gown", tag: "Womenswear · Occasion", img: "https://images.unsplash.com/photo-1612336307429-8a898d10e223?w=480&q=80&auto=format&fit=crop" },
-  { id: "g7", title: "Street-Tailored Jacket", tag: "Unisex · Contemporary", img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=480&q=80&auto=format&fit=crop" },
-  { id: "g8", title: "Wrapped Dansiki", tag: "Menswear · West Africa", img: "https://images.unsplash.com/photo-1589363460779-cd717b2c0806?w=480&q=80&auto=format&fit=crop" },
+// Compact gallery -- standing in for Atelier Noir's real catalog until that catalog exists. Deliberately NOT
+// photos: an earlier version used stock-photo URLs labeled with specific garment/country names (e.g. "Tailored
+// Agbada") that this sandbox can't actually render to verify, so those names were guesses, not facts -- and
+// guessing a culture's name onto an unseen image is exactly the mistake to avoid. Until there are real photos
+// (the user's own work, or images sent directly in chat, which Claude can actually see), these tiles are
+// honest, unphotographed categories -- organized by garment type, international and not Nigeria-only, each
+// drawn as its own glass-panel pattern so the gallery still has visual variety without faking content.
+const GALLERY: { id: string; title: string; tag: string; pattern: "diagonal" | "grid" | "dots" | "wave" | "chevron" | "arc" }[] = [
+  { id: "g1", title: "Tailored Suits", tag: "International · Menswear & Womenswear", pattern: "diagonal" },
+  { id: "g2", title: "Traditional Wear", tag: "Africa, Asia & beyond", pattern: "wave" },
+  { id: "g3", title: "Dresses & Gowns", tag: "Occasion · Unisex-friendly cuts", pattern: "arc" },
+  { id: "g4", title: "Outerwear & Layers", tag: "Coats, jackets, capes", pattern: "chevron" },
+  { id: "g5", title: "Everyday Tailoring", tag: "Shirts, trousers, skirts", pattern: "grid" },
+  { id: "g6", title: "Streetwear Cuts", tag: "Contemporary · Unisex", pattern: "dots" },
 ];
 
 const emptyMeasurements: EstimatedMeasurements = {
@@ -39,6 +39,59 @@ const FIELD_LABELS: Record<keyof EstimatedMeasurements, string> = {
   heightCm: "Height", shoulderWidthCm: "Shoulder width", chestCm: "Chest / bust", waistCm: "Waist",
   hipCm: "Hip", sleeveLengthCm: "Sleeve length", armLengthCm: "Arm length", legLengthCm: "Leg / inseam length",
 };
+
+// Soft blurred magenta-rose blobs drifting behind glass panels -- the "plasma bleeding through the space"
+// effect: large, heavily-blurred colour fields placed in an overflow-visible wrapper so the glow spills past
+// the panel's own edges rather than being clipped neatly inside it, with a slow drift/pulse so it reads as
+// alive rather than a static background image.
+function PlasmaField({ className = "" }: { className?: string }) {
+  return (
+    <div className={`pointer-events-none absolute inset-0 -z-10 ${className}`} aria-hidden>
+      <div
+        className="absolute w-64 h-64 rounded-full blur-3xl opacity-60 animate-[af-drift-a_9s_ease-in-out_infinite]"
+        style={{ background: "radial-gradient(circle, #F06BA6, transparent 70%)", top: "-20%", left: "-10%" }}
+      />
+      <div
+        className="absolute w-72 h-72 rounded-full blur-3xl opacity-50 animate-[af-drift-b_11s_ease-in-out_infinite]"
+        style={{ background: "radial-gradient(circle, #D6397D, transparent 70%)", bottom: "-25%", right: "-15%" }}
+      />
+      <div
+        className="absolute w-48 h-48 rounded-full blur-3xl opacity-40 animate-[af-drift-a_13s_ease-in-out_infinite]"
+        style={{ background: "radial-gradient(circle, #8a2456, transparent 70%)", top: "30%", right: "5%" }}
+      />
+      <style>{`
+        @keyframes af-drift-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(14px, -10px) scale(1.12); } }
+        @keyframes af-drift-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-12px, 12px) scale(1.08); } }
+      `}</style>
+    </div>
+  );
+}
+
+const PATTERN_BG: Record<string, string> = {
+  diagonal: "repeating-linear-gradient(135deg, rgba(240,107,166,0.22) 0px, rgba(240,107,166,0.22) 2px, transparent 2px, transparent 14px)",
+  grid: "linear-gradient(rgba(240,107,166,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(240,107,166,0.18) 1px, transparent 1px)",
+  dots: "radial-gradient(rgba(240,107,166,0.35) 1.5px, transparent 1.5px)",
+  wave: "repeating-radial-gradient(circle at 0% 50%, rgba(214,57,125,0.22) 0, rgba(214,57,125,0.22) 3px, transparent 3px, transparent 18px)",
+  chevron: "repeating-linear-gradient(45deg, rgba(214,57,125,0.2) 0, rgba(214,57,125,0.2) 2px, transparent 2px, transparent 10px), repeating-linear-gradient(-45deg, rgba(240,107,166,0.15) 0, rgba(240,107,166,0.15) 2px, transparent 2px, transparent 10px)",
+  arc: "radial-gradient(circle at 50% 120%, rgba(240,107,166,0.35), transparent 60%)",
+};
+
+function GalleryTile({ title, tag, pattern }: { title: string; tag: string; pattern: string }) {
+  return (
+    <div className="relative h-36 rounded-xl overflow-hidden border border-white/15 bg-white/[0.06] backdrop-blur-xl flex flex-col justify-end p-3">
+      <div
+        className="absolute inset-0"
+        style={{ backgroundImage: PATTERN_BG[pattern], backgroundSize: pattern === "dots" ? "14px 14px" : pattern === "grid" ? "16px 16px" : "auto" }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0B0A08]/90 via-transparent to-transparent" aria-hidden />
+      <div className="relative z-10">
+        <div className="text-sm font-medium leading-snug">{title}</div>
+        <div className="text-[11px] text-white/50 mt-0.5">{tag}</div>
+      </div>
+    </div>
+  );
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -240,98 +293,94 @@ export default function AtelierFit() {
               </div>
             </div>
 
-            {/* The AI-copilot hero -- a breathing orb rather than a flat banner, carrying the app's own
-                magenta-rose personality while staying in the same dark-editorial family as the website. */}
-            <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] py-10 flex flex-col items-center gap-3 overflow-hidden">
-              <div
-                className="absolute inset-0 opacity-40"
-                style={{ background: "radial-gradient(circle at 50% 35%, rgba(214,57,125,0.35), transparent 60%)" }}
-                aria-hidden
-              />
-              <button
-                onClick={() => setStep("garment")}
-                disabled={!config}
-                aria-label="Begin fitting"
-                className="relative z-10 w-36 h-36 rounded-full flex items-center justify-center group disabled:opacity-50 transition-opacity"
-                style={{ background: "radial-gradient(circle at 35% 30%, #F06BA6, #D6397D 55%, #5a1540 100%)" }}
-              >
-                <span className="absolute inset-0 rounded-full border border-[#D6397D]/40 animate-[af-ring_2.6s_ease-out_infinite]" aria-hidden />
-                <span
-                  className="absolute inset-0 rounded-full border border-[#D6397D]/30 animate-[af-ring_2.6s_ease-out_infinite]"
-                  style={{ animationDelay: "0.9s" }}
-                  aria-hidden
-                />
-                <span className="relative z-10 flex flex-col items-center gap-1 text-black">
-                  <Ruler size={22} />
-                  <span className="font-display font-semibold text-sm tracking-wide">
-                    {config ? "Begin fitting" : "Loading..."}
+            {/* The AI-copilot hero -- a glass panel with plasma glow bleeding past its own edges (overflow
+                visible), rather than a flat banner clipped neatly inside its border. */}
+            <div className="relative py-6">
+              <PlasmaField />
+              <div className="relative rounded-3xl border border-white/15 bg-white/[0.07] backdrop-blur-xl py-10 flex flex-col items-center gap-3 shadow-[0_0_60px_-15px_rgba(214,57,125,0.55)]">
+                <button
+                  onClick={() => setStep("garment")}
+                  disabled={!config}
+                  aria-label="Begin fitting"
+                  className="relative z-10 w-40 h-40 rounded-full flex items-center justify-center group disabled:opacity-50 transition-opacity"
+                  style={{ background: "radial-gradient(circle at 35% 30%, #F8A0C8, #F06BA6 40%, #D6397D 70%, #5a1540 100%)", boxShadow: "0 0 50px 6px rgba(240,107,166,0.55)" }}
+                >
+                  <span className="absolute inset-0 rounded-full border border-[#F06BA6]/50 animate-[af-ring_2.6s_ease-out_infinite]" aria-hidden />
+                  <span
+                    className="absolute inset-0 rounded-full border border-[#F06BA6]/40 animate-[af-ring_2.6s_ease-out_infinite]"
+                    style={{ animationDelay: "0.9s" }}
+                    aria-hidden
+                  />
+                  <span
+                    className="absolute inset-0 rounded-full border border-[#F06BA6]/30 animate-[af-ring_2.6s_ease-out_infinite]"
+                    style={{ animationDelay: "1.8s" }}
+                    aria-hidden
+                  />
+                  <span className="relative z-10 flex flex-col items-center gap-1 text-black">
+                    <Ruler size={24} />
+                    <span className="font-display font-semibold text-sm tracking-wide">
+                      {config ? "Begin fitting" : "Loading..."}
+                    </span>
                   </span>
-                </span>
-              </button>
-              <style>{`@keyframes af-ring { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.55); opacity: 0; } }`}</style>
-              <div className="relative z-10 text-center">
-                <div className="font-display text-sm tracking-wide text-white/80">AtelierFit Copilot</div>
-                <div className="text-[11px] text-white/40">Measuring · Fitting · Creating</div>
+                </button>
+                <style>{`@keyframes af-ring { 0% { transform: scale(0.85); opacity: 0.9; } 100% { transform: scale(1.65); opacity: 0; } }`}</style>
+                <div className="relative z-10 text-center">
+                  <div className="font-display text-sm tracking-wide text-white/80">AtelierFit Copilot</div>
+                  <div className="text-[11px] text-white/40">Measuring · Fitting · Creating</div>
+                </div>
               </div>
             </div>
 
-            {/* Quick actions, echoing the reference's three-card row. */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <button
-                onClick={() => { setMethod("camera_ai"); setStep("garment"); }}
-                className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-[#D6397D]/50 transition-colors text-center"
-              >
-                <Scan size={19} className="text-[#D6397D]" />
-                <span className="text-xs font-medium leading-tight">Scan Body</span>
-                <span className="text-[10px] text-white/40 leading-tight">AI measurements</span>
-              </button>
-              <button
-                onClick={() => setStep("garment")}
-                disabled={!config}
-                className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-[#D6397D]/50 transition-colors text-center disabled:opacity-50"
-              >
-                <Palette size={19} className="text-[#D6397D]" />
-                <span className="text-xs font-medium leading-tight">Start Order</span>
-                <span className="text-[10px] text-white/40 leading-tight">Pick a garment</span>
-              </button>
-              <button
-                onClick={() => setStep("gallery")}
-                className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-[#D6397D]/50 transition-colors text-center"
-              >
-                <Images size={19} className="text-[#D6397D]" />
-                <span className="text-xs font-medium leading-tight">Gallery</span>
-                <span className="text-[10px] text-white/40 leading-tight">See our work</span>
-              </button>
+            {/* Quick actions -- taller glass cards with their own glow, each taking the full width/height the
+                grid gives it rather than being squeezed into a cramped row. */}
+            <div className="relative">
+              <PlasmaField className="opacity-70" />
+              <div className="relative grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => { setMethod("camera_ai"); setStep("garment"); }}
+                  className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/15 hover:border-[#F06BA6]/60 transition-colors text-center shadow-[0_0_30px_-12px_rgba(214,57,125,0.5)]"
+                >
+                  <Scan size={22} className="text-[#F06BA6]" />
+                  <span className="text-xs font-medium leading-tight">Scan Body</span>
+                  <span className="text-[10px] text-white/40 leading-tight">AI measurements</span>
+                </button>
+                <button
+                  onClick={() => setStep("garment")}
+                  disabled={!config}
+                  className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/15 hover:border-[#F06BA6]/60 transition-colors text-center disabled:opacity-50 shadow-[0_0_30px_-12px_rgba(214,57,125,0.5)]"
+                >
+                  <Palette size={22} className="text-[#F06BA6]" />
+                  <span className="text-xs font-medium leading-tight">Start Order</span>
+                  <span className="text-[10px] text-white/40 leading-tight">Pick a garment</span>
+                </button>
+                <button
+                  onClick={() => setStep("gallery")}
+                  className="aspect-square flex flex-col items-center justify-center gap-2 p-2 rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/15 hover:border-[#F06BA6]/60 transition-colors text-center shadow-[0_0_30px_-12px_rgba(214,57,125,0.5)]"
+                >
+                  <Images size={22} className="text-[#F06BA6]" />
+                  <span className="text-xs font-medium leading-tight">Gallery</span>
+                  <span className="text-[10px] text-white/40 leading-tight">See our work</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/60 bg-white/5 rounded-xl p-4 border border-white/10">
-              <ShieldCheck size={18} className="text-[#D6397D] shrink-0 mt-0.5" />
+              <ShieldCheck size={18} className="text-[#F06BA6] shrink-0 mt-0.5" />
               <span>Camera measurements are estimated entirely on your own phone. No photo is ever uploaded or stored -- you confirm every number before anything is charged.</span>
             </div>
 
-            {/* Compact gallery teaser -- the same aesthetic world as the Atelier Noir website, just small here. */}
+            {/* Compact gallery teaser -- categories, not unverified stock photos (see the GALLERY comment above). */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="font-display font-semibold text-sm uppercase tracking-wide text-white/80">What we've made</h2>
-                <button onClick={() => setStep("gallery")} className="text-xs text-[#D6397D] hover:text-[#F06BA6] flex items-center gap-1 transition-colors">
+                <h2 className="font-display font-semibold text-sm uppercase tracking-wide text-white/80">What we make</h2>
+                <button onClick={() => setStep("gallery")} className="text-xs text-[#F06BA6] hover:text-[#F8A0C8] flex items-center gap-1 transition-colors">
                   See all <ArrowRight size={13} />
                 </button>
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory [scrollbar-width:none]">
-                {GALLERY.slice(0, 5).map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setStep("gallery")}
-                    className="shrink-0 w-28 snap-start text-left"
-                  >
-                    <img
-                      src={item.img}
-                      alt={item.title}
-                      loading="lazy"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
-                      className="w-28 h-28 object-cover rounded-xl border border-white/10"
-                    />
-                    <div className="mt-1.5 text-[11px] text-white/60 leading-snug">{item.title}</div>
+              <div className="grid grid-cols-2 gap-3">
+                {GALLERY.slice(0, 4).map((item) => (
+                  <button key={item.id} onClick={() => setStep("gallery")} className="text-left">
+                    <GalleryTile title={item.title} tag={item.tag} pattern={item.pattern} />
                   </button>
                 ))}
               </div>
@@ -342,24 +391,12 @@ export default function AtelierFit() {
         {step === "gallery" && (
           <section className="space-y-5 pb-20">
             <div>
-              <h2 className="text-xl font-display font-semibold mb-1">What we've made</h2>
-              <p className="text-sm text-white/60">A small selection -- unisex, African and international fashion together, the same gallery Atelier Noir shows on the web.</p>
+              <h2 className="text-xl font-display font-semibold mb-1">What we make</h2>
+              <p className="text-sm text-white/60">Unisex, international and traditional fashion together -- the same categories Atelier Noir organizes on the web. Real pieces are on their way; these stand in for the catalog until then.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {GALLERY.map((item) => (
-                <div key={item.id} className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
-                  <img
-                    src={item.img}
-                    alt={item.title}
-                    loading="lazy"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
-                    className="w-full h-36 object-cover"
-                  />
-                  <div className="p-2.5">
-                    <div className="text-sm font-medium leading-snug">{item.title}</div>
-                    <div className="text-[11px] text-white/50 mt-0.5">{item.tag}</div>
-                  </div>
-                </div>
+                <GalleryTile key={item.id} title={item.title} tag={item.tag} pattern={item.pattern} />
               ))}
             </div>
             <button
