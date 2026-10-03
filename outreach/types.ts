@@ -47,11 +47,21 @@ export interface DraftResult {
   observations?: string[];
 }
 
+// How a business can be reached. 'website' is the original, richest path
+// (its homepage gets crawled for real evidence). The other four cover
+// businesses with no website at all -- common for small, local, WhatsApp- or
+// social-only businesses -- where there's nothing to crawl, so drafting is
+// grounded only in the bare facts: name, category, city, and that this is
+// how they're reachable.
+export type ContactChannel = 'website' | 'whatsapp' | 'facebook' | 'instagram' | 'phone';
+
 export interface Business {
   id: number;
   domain: string;
   name: string | null;
-  website: string;
+  website: string | null;
+  contactChannel: ContactChannel;
+  contactValue: string | null;
   city: string | null;
   country: string | null;
   createdAt: string;
@@ -61,7 +71,9 @@ export interface Lead {
   id: number;
   businessId: number;
   domain: string;
-  website: string;
+  website: string | null;
+  contactChannel: ContactChannel;
+  contactValue: string | null;
   businessName: string | null;
   city: string | null;
   country: string | null;

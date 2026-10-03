@@ -9,7 +9,7 @@
 // test/fakeRpcClient.ts) without needing a real Supabase project, a
 // network connection, or the @supabase/supabase-js package installed.
 
-import type { Business, Lead, LeadSource, LeadStatus, RegistryEntry, SearchRecord, CrawlEvidence } from './types.js';
+import type { Business, ContactChannel, Lead, LeadSource, LeadStatus, RegistryEntry, SearchRecord, CrawlEvidence } from './types.js';
 
 export interface RpcResult<T> {
   data: T | null;
@@ -32,13 +32,23 @@ export class Store {
 
   // ---- businesses ------------------------------------------------
 
-  async upsertBusiness(input: { domain: string; website: string; name?: string | null; city?: string | null; country?: string | null }): Promise<Business> {
+  async upsertBusiness(input: {
+    domain: string;
+    website?: string | null;
+    name?: string | null;
+    city?: string | null;
+    country?: string | null;
+    contactChannel?: ContactChannel;
+    contactValue?: string | null;
+  }): Promise<Business> {
     const result = await this.client.rpc<any>('ai_outreach_upsert_business', {
       p_domain: input.domain,
-      p_website: input.website,
+      p_website: input.website ?? null,
       p_name: input.name ?? null,
       p_city: input.city ?? null,
       p_country: input.country ?? null,
+      p_contact_channel: input.contactChannel ?? 'website',
+      p_contact_value: input.contactValue ?? null,
     });
     const row = unwrap(result, 'upsertBusiness');
     return {
@@ -46,6 +56,8 @@ export class Store {
       domain: row.domain,
       name: row.name,
       website: row.website,
+      contactChannel: row.contactChannel,
+      contactValue: row.contactValue,
       city: row.city,
       country: row.country,
       createdAt: row.createdAt,
@@ -182,6 +194,8 @@ function rowToLead(row: any): Lead {
     businessId: row.businessId,
     domain: row.domain,
     website: row.website,
+    contactChannel: row.contactChannel ?? 'website',
+    contactValue: row.contactValue ?? null,
     businessName: row.businessName,
     city: row.city,
     country: row.country,

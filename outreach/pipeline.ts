@@ -5,9 +5,9 @@
 
 import { Store } from './store.js';
 import { crawlHomepage } from './crawler.js';
-import { draftEmail, type SenderProfile } from './gemini.js';
+import { draftEmail, draftNoWebsiteEmail, type SenderProfile } from './gemini.js';
 import { appendComplianceFooter } from './compliance.js';
-import { domainKey, normalizeUrl } from './domain.js';
+import { domainKey, normalizeUrl, contactKey } from './domain.js';
 import type { Lead, LeadSource } from './types.js';
 
 export interface PipelineInput {
@@ -23,6 +23,7 @@ export interface PipelineDeps {
   sender: SenderProfile;
   crawl?: typeof crawlHomepage;
   draft?: typeof draftEmail;
+  draftNoWebsite?: typeof draftNoWebsiteEmail;
 }
 
 export type PipelineOutcome =
@@ -103,6 +104,94 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
   await store.recordRegistryAction({ domain, businessName: input.businessName || business.name, status: 'drafted', city: input.city, country: input.country });
 
   return { kind: 'drafted', leadId, domain };
+}
+
+export interface NoWebsitePipelineInput {
+  businessName: string;
+  category: string;
+  city?: string | null;
+  country?: string | null;
+  contactChannel: 'whatsapp' | 'facebook' | 'instagram' | 'phone';
+  contactValue: string;
+  source: LeadSource;
+}
+
+/** The equivalent of runLeadPipeline for a business that has no website --
+ * no homepage to crawl, so this skips straight to drafting, grounded only
+ * in the bare facts (name, category, city, how they're reachable). Still
+ * goes through the same permanent coverage registry first, keyed on the
+ * contact info itself (see contactKey) instead of a domain. */
+export async function runNoWebsiteLeadPipeline(input: NoWebsitePipelineInput, deps: PipelineDeps): Promise<PipelineOutcome> {
+  const { store } = deps;
+  const draft = deps.draftNoWebsite ?? draftNoWebsiteEmail;
+
+  let key: string;
+  try {
+    key = contactKey(input.contactChannel, input.contactValue);
+  } catch (e: any) {
+    throw new Error(`Invalid ${input.contactChannel} contact "${input.contactValue}": ${e.message || e}`);
+  }
+
+  const alreadyCovered = await store.isAlreadyCovered(key);
+  if (alreadyCovered) {
+    return { kind: 'duplicate', leadId: null, domain: key, existingStatus: alreadyCovered.status };
+  }
+
+  const business = await store.upsertBusiness({
+    domain: key,
+    website: null,
+    name: input.businessName ?? null,
+    city: input.city ?? null,
+    country: input.country ?? null,
+    contactChannel: input.contactChannel,
+    contactValue: input.contactValue,
+  });
+
+  const leadId = await store.createLead(business.id, input.source, 'drafting');
+  await store.recordRegistryAction({ domain: key, businessName: input.businessName, status: 'drafting', city: input.city, country: input.country });
+
+  // No email address exists for these channels, so the opt-out list (keyed
+  // on email) doesn't apply here -- there's no email to check against.
+
+  const draftResult = await draft({
+    businessName: input.businessName || business.name || key,
+    category: input.category,
+    city: input.city ?? null,
+    contactChannel: input.contactChannel,
+    sender: deps.sender,
+  });
+
+  if (!draftResult.ok || !draftResult.subject || !draftResult.body) {
+    const error = draftResult.error || 'Unknown drafting error';
+    await store.updateLead(leadId, { status: 'draft_error', error });
+    return { kind: 'draft_error', leadId, domain: key, error };
+  }
+
+  const finalBody = appendComplianceFooter(draftResult.body, deps.sender);
+  await store.updateLead(leadId, { status: 'drafted', draftSubject: draftResult.subject, draftBody: finalBody, error: null });
+  await store.recordRegistryAction({ domain: key, businessName: input.businessName || business.name, status: 'drafted', city: input.city, country: input.country });
+
+  return { kind: 'drafted', leadId, domain: key };
+}
+
+/** Runs several async jobs with at most `limit` running at once. Crawling
+ * and drafting are both network-bound (waiting on someone else's server,
+ * then on Gemini), so running a handful in parallel instead of one at a
+ * time lets a single auto-search request get through several times as
+ * many businesses before the platform's request time limit cuts it off --
+ * without this, a 60-second budget only fits 5-10 businesses processed
+ * one after another; with 5-way concurrency it fits several times that. */
+export async function runWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function runNext(): Promise<void> {
+    const i = next++;
+    if (i >= items.length) return;
+    results[i] = await worker(items[i]);
+    return runNext();
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
+  return results;
 }
 
 export function loadSenderProfileFromEnv(): SenderProfile {

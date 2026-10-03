@@ -1,15 +1,28 @@
 // Auto-search: given "plumbers in Lagos", geocodes the city with Nominatim
-// and queries Overpass for matching businesses that have a listed website.
-// Both are free OpenStreetMap services with no API key — but both ask
-// callers to identify themselves and to keep request volume low, per:
+// and queries Overpass for matching businesses. Both are free OpenStreetMap
+// services with no API key — but both ask callers to identify themselves
+// and to keep request volume low, per:
 //   https://operations.osmfoundation.org/policies/nominatim/
 //   https://operations.osmfoundation.org/policies/overpass/
 // so every request here carries a real contact (OSM_CONTACT_EMAIL) and
 // this module makes at most one request per call, sequentially.
+//
+// IMPORTANT: this used to require every result to already have a `website`
+// (or `contact:website`) tag -- which meant it could only ever find
+// businesses that already had a website, and silently threw away every
+// WhatsApp-only, Instagram-only, or phone-only business (the majority of
+// small local businesses in a lot of places). It no longer requires that:
+// it now also accepts OSM's own `contact:whatsapp`, `contact:facebook`,
+// `contact:instagram` and phone tags as valid ways to reach a business.
 
 export interface OsmBusinessResult {
   name: string;
-  website: string;
+  /** Present only when this business has a real website. */
+  website: string | null;
+  /** How to reach this business when it has no website. */
+  contactChannel: 'website' | 'whatsapp' | 'facebook' | 'instagram' | 'phone';
+  /** The raw value for a non-website channel (a phone number or a social handle/URL). Null for website leads. */
+  contactValue: string | null;
   lat: number;
   lon: number;
   osmTags: Record<string, string>;
@@ -33,7 +46,21 @@ const CATEGORY_TAGS: Record<string, [string, string][]> = {
   'hair salon': [['shop', 'hairdresser']],
   'hair salons': [['shop', 'hairdresser']],
   hairdresser: [['shop', 'hairdresser']],
+  hairdressers: [['shop', 'hairdresser']],
+  barber: [['shop', 'hairdresser'], ['shop', 'barber']],
+  barbers: [['shop', 'hairdresser'], ['shop', 'barber']],
+  barbershop: [['shop', 'hairdresser'], ['shop', 'barber']],
+  barbershops: [['shop', 'hairdresser'], ['shop', 'barber']],
   salon: [['shop', 'hairdresser'], ['shop', 'beauty']],
+  salons: [['shop', 'hairdresser'], ['shop', 'beauty']],
+  'beauty salon': [['shop', 'beauty'], ['shop', 'hairdresser']],
+  'beauty salons': [['shop', 'beauty'], ['shop', 'hairdresser']],
+  beautician: [['shop', 'beauty']],
+  beauticians: [['shop', 'beauty']],
+  spa: [['shop', 'beauty'], ['leisure', 'spa']],
+  spas: [['shop', 'beauty'], ['leisure', 'spa']],
+  'nail salon': [['shop', 'beauty']],
+  'nail salons': [['shop', 'beauty']],
   dentist: [['amenity', 'dentist']],
   dentists: [['amenity', 'dentist']],
   lawyer: [['office', 'lawyer']],
@@ -48,6 +75,10 @@ const CATEGORY_TAGS: Record<string, [string, string][]> = {
   clinics: [['amenity', 'clinic']],
   tailor: [['shop', 'tailor']],
   tailors: [['shop', 'tailor']],
+  'fashion designer': [['shop', 'tailor'], ['shop', 'boutique']],
+  'fashion designers': [['shop', 'tailor'], ['shop', 'boutique']],
+  boutique: [['shop', 'boutique'], ['shop', 'clothes']],
+  boutiques: [['shop', 'boutique'], ['shop', 'clothes']],
   photographer: [['craft', 'photographer']],
   photographers: [['craft', 'photographer']],
   florist: [['shop', 'florist']],
@@ -57,6 +88,22 @@ const CATEGORY_TAGS: Record<string, [string, string][]> = {
   mechanics: [['shop', 'car_repair']],
 };
 
+/** Finds the best category match for free-typed input: an exact key, then
+ * a plural/singular variant, then a substring match against known keys
+ * (so "beauty salon services" or "salon" both land on the right tags)
+ * before giving up and falling back to a generic name search. */
+function resolveCategory(input: string): [string, string][] | null {
+  const key = input.trim().toLowerCase();
+  if (CATEGORY_TAGS[key]) return CATEGORY_TAGS[key];
+
+  const singular = key.endsWith('s') ? key.slice(0, -1) : `${key}s`;
+  if (CATEGORY_TAGS[singular]) return CATEGORY_TAGS[singular];
+
+  const knownKeys = Object.keys(CATEGORY_TAGS);
+  const contains = knownKeys.find((k) => key.includes(k) || k.includes(key));
+  return contains ? CATEGORY_TAGS[contains] : null;
+}
+
 export interface BoundingBox {
   south: number;
   west: number;
@@ -65,34 +112,56 @@ export interface BoundingBox {
 }
 
 /** Builds an Overpass QL query for the given category within a bounding
- * box, restricted to nodes/ways that have a `website` (or `contact:website`)
- * tag — anything without one can't be fed into the crawl pipeline anyway. */
+ * box. No longer requires a website/contact tag at the query level — that
+ * would exclude every business without one before we even see them. All
+ * matching businesses come back; `extractContact` below decides, per
+ * result, whether there's any real way to reach them at all. */
 export function buildOverpassQuery(category: string, bbox: BoundingBox): string {
-  const key = category.trim().toLowerCase();
-  const tagPairs = CATEGORY_TAGS[key];
-
+  const tagPairs = resolveCategory(category);
   const bboxStr = `${bbox.south},${bbox.west},${bbox.north},${bbox.east}`;
   const filters: string[] = [];
 
   if (tagPairs) {
     for (const [k, v] of tagPairs) {
-      filters.push(`node["${k}"="${v}"]["website"](${bboxStr});`);
-      filters.push(`way["${k}"="${v}"]["website"](${bboxStr});`);
-      filters.push(`node["${k}"="${v}"]["contact:website"](${bboxStr});`);
-      filters.push(`way["${k}"="${v}"]["contact:website"](${bboxStr});`);
+      filters.push(`node["${k}"="${v}"](${bboxStr});`);
+      filters.push(`way["${k}"="${v}"](${bboxStr});`);
     }
   } else {
-    // Generic fallback: name-contains match, still requiring a website tag.
-    const escaped = key.replace(/"/g, '\\"');
-    filters.push(`node["name"~"${escaped}",i]["website"](${bboxStr});`);
-    filters.push(`way["name"~"${escaped}",i]["website"](${bboxStr});`);
+    // Generic fallback: name-contains match.
+    const escaped = category.trim().toLowerCase().replace(/"/g, '\\"');
+    filters.push(`node["name"~"${escaped}",i](${bboxStr});`);
+    filters.push(`way["name"~"${escaped}",i](${bboxStr});`);
   }
 
-  return `[out:json][timeout:25];(${filters.join('')});out center 50;`;
+  return `[out:json][timeout:25];(${filters.join('')});out center 80;`;
 }
 
 export function knownCategories(): string[] {
   return Object.keys(CATEGORY_TAGS);
+}
+
+/** Picks the best available way to reach a business from its OSM tags,
+ * preferring a real website (richest evidence to crawl), then WhatsApp,
+ * then a phone number, then Facebook, then Instagram. Returns null if none
+ * of these are present -- that business genuinely can't be reached from
+ * what OSM has on file, and gets dropped. */
+function extractContact(tags: Record<string, string>): { channel: OsmBusinessResult['contactChannel']; website: string | null; value: string | null } | null {
+  const website = tags.website || tags['contact:website'];
+  if (website) return { channel: 'website', website, value: null };
+
+  const whatsapp = tags['contact:whatsapp'] || tags.whatsapp;
+  if (whatsapp) return { channel: 'whatsapp', website: null, value: whatsapp };
+
+  const phone = tags['contact:phone'] || tags.phone;
+  if (phone) return { channel: 'phone', website: null, value: phone };
+
+  const facebook = tags['contact:facebook'] || tags.facebook;
+  if (facebook) return { channel: 'facebook', website: null, value: facebook };
+
+  const instagram = tags['contact:instagram'] || tags.instagram;
+  if (instagram) return { channel: 'instagram', website: null, value: instagram };
+
+  return null;
 }
 
 // ---- Network calls ------------------------------------------------------
@@ -132,13 +201,15 @@ export async function searchBusinesses(city: string, category: string): Promise<
   const results: OsmBusinessResult[] = [];
   for (const el of data.elements || []) {
     const tags = el.tags || {};
-    const website = tags.website || tags['contact:website'];
-    if (!website) continue;
+    const contact = extractContact(tags);
+    if (!contact) continue; // no website, WhatsApp, phone, Facebook, or Instagram -- genuinely unreachable from OSM alone
     const lat = el.lat ?? el.center?.lat;
     const lon = el.lon ?? el.center?.lon;
     results.push({
       name: tags.name || 'Unnamed business',
-      website,
+      website: contact.website,
+      contactChannel: contact.channel,
+      contactValue: contact.value,
       lat: typeof lat === 'number' ? lat : 0,
       lon: typeof lon === 'number' ? lon : 0,
       osmTags: tags,

@@ -83,7 +83,7 @@ function extractJson(text: string): any {
   return JSON.parse(jsonText);
 }
 
-export async function draftEmail(input: DraftLeadInput): Promise<DraftResult> {
+async function callGemini(prompt: string): Promise<DraftResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return { ok: false, error: 'GEMINI_API_KEY is not set. Add it to your .env file (see .env.example) — no draft can be generated without it.' };
@@ -105,7 +105,7 @@ export async function draftEmail(input: DraftLeadInput): Promise<DraftResult> {
     const client = new GoogleGenAI({ apiKey });
     const response = await client.models.generateContent({
       model,
-      contents: buildPrompt(input),
+      contents: prompt,
       config: {
         systemInstruction:
           'You write short, honest, specific cold outreach emails. You never invent facts, statistics, client names, or results that were not given to you. You return only valid JSON matching the requested shape.',
@@ -139,4 +139,69 @@ export async function draftEmail(input: DraftLeadInput): Promise<DraftResult> {
     const message = e?.message || String(e);
     return { ok: false, error: `Gemini API call failed (model "${model}"): ${message}` };
   }
+}
+
+export async function draftEmail(input: DraftLeadInput): Promise<DraftResult> {
+  return callGemini(buildPrompt(input));
+}
+
+export interface DraftNoWebsiteLeadInput {
+  businessName: string;
+  category: string;
+  city: string | null;
+  contactChannel: 'whatsapp' | 'facebook' | 'instagram' | 'phone';
+  sender: SenderProfile;
+}
+
+function buildNoWebsitePrompt(input: DraftNoWebsiteLeadInput): string {
+  const { businessName, category, city, contactChannel, sender } = input;
+  const channelLabel: Record<DraftNoWebsiteLeadInput['contactChannel'], string> = {
+    whatsapp: 'WhatsApp',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    phone: 'phone',
+  };
+  return `
+You are drafting a short, honest outreach message from a freelance web
+developer to a real local business, based ONLY on the facts below. This
+business does NOT appear to have a website -- there is nothing to crawl and
+nothing to say about an existing site. Do not invent any detail about their
+current online presence, their size, their customers, or anything else not
+given to you below.
+
+Recipient business: ${businessName}
+Business category: ${category}
+${city ? `Location: ${city}` : ''}
+How they're reachable: ${channelLabel[contactChannel]} (no website found)
+
+Sender (who this message is from):
+- Name/business: ${sender.businessName}
+- Services offered: ${sender.services.join(', ') || 'web design and development'}
+- Requested tone: ${sender.tone || 'friendly, direct, not salesy'}
+
+Write:
+1. A complete message body (not a template with placeholders) that:
+   - opens by noting, plainly and respectfully, that you noticed their
+     business doesn't seem to have a website yet (do not guess why, and do
+     not claim to have seen anything about their business beyond its name
+     and category)
+   - briefly explains one or two concrete, generic benefits a simple
+     website/online presence would bring a ${category} business reachable
+     mainly by ${channelLabel[contactChannel]} (e.g. being findable by new
+     customers who search online, having a page to share instead of just a
+     phone/social handle) -- phrased as general, honest reasoning, never as
+     a specific claim about THIS business's results
+   - offers a low-pressure next step (a short call or a quick reply)
+   - signs off as ${sender.businessName}
+   - is under 160 words
+2. A short subject line (under 60 characters, no clickbait, no ALL CAPS).
+
+Return strict JSON with this shape and nothing else:
+{"subject": string, "body": string, "observations": string[]}
+(leave "observations" as an empty array -- there's no site evidence to list)
+`.trim();
+}
+
+export async function draftNoWebsiteEmail(input: DraftNoWebsiteLeadInput): Promise<DraftResult> {
+  return callGemini(buildNoWebsitePrompt(input));
 }

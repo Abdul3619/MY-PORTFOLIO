@@ -18,9 +18,9 @@
 import express from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Store, type RpcClient } from './store.js';
-import { runLeadPipeline, loadSenderProfileFromEnv, type PipelineDeps } from './pipeline.js';
+import { runLeadPipeline, runNoWebsiteLeadPipeline, runWithConcurrency, loadSenderProfileFromEnv, type PipelineDeps } from './pipeline.js';
 import { parseCsv } from './csv.js';
-import { searchBusinesses, knownCategories } from './overpass.js';
+import { searchBusinesses, knownCategories, type OsmBusinessResult } from './overpass.js';
 import type { LeadStatus } from './types.js';
 
 export function createOutreachRouter(deps: { requireAuth: express.RequestHandler; supabaseUrl: string; supabaseServiceKey: string }) {
@@ -106,15 +106,14 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
       const text: string | undefined = typeof req.body === 'string' ? req.body : req.body?.csv;
       if (!text) return void res.status(400).json({ error: 'Send CSV text as { "csv": "..." }.' });
       const { rows, skipped } = parseCsv(text);
-      const outcomes: any[] = [];
-      for (const row of rows) {
+      const outcomes = await runWithConcurrency(rows, 5, async (row) => {
         try {
           const outcome = await runLeadPipeline({ website: row.website, businessName: row.businessName, city: row.city, country: row.country, source: 'csv' }, pipelineDeps);
-          outcomes.push({ row: row.website, ...outcome });
+          return { row: row.website, ...outcome };
         } catch (e: any) {
-          outcomes.push({ row: row.website, kind: 'invalid', error: e.message || String(e) });
+          return { row: row.website, kind: 'invalid', error: e.message || String(e) };
         }
-      }
+      });
       res.json({ imported: rows.length, skipped, outcomes });
     }),
   );
@@ -178,15 +177,23 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
         return void res.status(502).json({ error: `OpenStreetMap search failed: ${e.message || e}` });
       }
 
-      const outcomes: any[] = [];
-      for (const b of businesses) {
+      // Each business is crawled (if it has a website) and drafted via Gemini -- both network calls, so
+      // running several at once instead of one-at-a-time lets this request get through far more businesses
+      // before the platform's request time limit cuts it off (see runWithConcurrency's own comment).
+      const outcomes = await runWithConcurrency(businesses, 5, async (b: OsmBusinessResult) => {
         try {
-          const outcome = await runLeadPipeline({ website: b.website, businessName: b.name, city, source: 'auto_search' }, pipelineDeps);
-          outcomes.push({ business: b.name, website: b.website, ...outcome });
+          const outcome =
+            b.contactChannel === 'website'
+              ? await runLeadPipeline({ website: b.website!, businessName: b.name, city, source: 'auto_search' }, pipelineDeps)
+              : await runNoWebsiteLeadPipeline(
+                  { businessName: b.name, category, city, contactChannel: b.contactChannel, contactValue: b.contactValue!, source: 'auto_search' },
+                  pipelineDeps,
+                );
+          return { business: b.name, website: b.website, contactChannel: b.contactChannel, ...outcome };
         } catch (e: any) {
-          outcomes.push({ business: b.name, website: b.website, kind: 'invalid', error: e.message || String(e) });
+          return { business: b.name, website: b.website, contactChannel: b.contactChannel, kind: 'invalid', error: e.message || String(e) };
         }
-      }
+      });
 
       await store.recordSearch(city, category, businesses.length);
       res.json({ repeat: false, found: businesses.length, outcomes });

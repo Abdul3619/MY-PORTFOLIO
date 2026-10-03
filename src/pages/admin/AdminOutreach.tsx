@@ -42,11 +42,15 @@ interface CrawlEvidence {
   usesHttps: boolean;
 }
 
+type ContactChannel = 'website' | 'whatsapp' | 'facebook' | 'instagram' | 'phone';
+
 interface Lead {
   id: number;
   businessId: number;
   domain: string;
-  website: string;
+  website: string | null;
+  contactChannel: ContactChannel;
+  contactValue: string | null;
   businessName: string | null;
   city: string | null;
   country: string | null;
@@ -282,6 +286,24 @@ export default function AdminOutreach() {
     return `mailto:${email}?subject=${encodeURIComponent(lead.draftSubject)}&body=${encodeURIComponent(lead.draftBody)}`;
   };
 
+  // For a no-website lead found via WhatsApp, this opens a chat with the drafted message pre-filled --
+  // the closest thing to "send" that exists for a channel with no login/API of its own here.
+  const whatsappHref = (lead: Lead) => {
+    if (lead.contactChannel !== 'whatsapp' || !lead.contactValue || !lead.draftBody) return undefined;
+    const digits = lead.contactValue.replace(/[^\d]/g, '');
+    if (!digits) return undefined;
+    const text = lead.draftSubject ? `${lead.draftSubject}\n\n${lead.draftBody}` : lead.draftBody;
+    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  };
+
+  const CHANNEL_LABEL: Record<ContactChannel, string> = {
+    website: 'Website',
+    whatsapp: 'WhatsApp',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    phone: 'Phone',
+  };
+
   const copyDraft = (lead: Lead) => {
     const text = `Subject: ${lead.draftSubject}\n\n${lead.draftBody}`;
     navigator.clipboard?.writeText(text).then(
@@ -342,7 +364,10 @@ export default function AdminOutreach() {
       return;
     }
     const text = withDrafts
-      .map((l) => `===== ${l.businessName || l.domain} <${l.evidence?.emails?.[0] || 'no email found'}> =====\nSubject: ${l.draftSubject}\n\n${l.draftBody}`)
+      .map((l) => {
+        const contact = l.contactChannel === 'website' ? (l.evidence?.emails?.[0] || 'no email found') : `${CHANNEL_LABEL[l.contactChannel]}: ${l.contactValue}`;
+        return `===== ${l.businessName || l.domain} <${contact}> =====\nSubject: ${l.draftSubject}\n\n${l.draftBody}`;
+      })
       .join('\n\n\n');
     navigator.clipboard?.writeText(text).then(
       () => triggerToast('Copied', `${withDrafts.length} draft(s) copied -- paste them wherever you send from.`, 'success'),
@@ -459,7 +484,10 @@ export default function AdminOutreach() {
                       >
                         <div className="min-w-0">
                           <p className="font-semibold text-white text-sm truncate">{lead.businessName || lead.domain}</p>
-                          <p className="text-[10px] font-mono text-gray-500 truncate">{lead.website} {lead.city ? `· ${lead.city}` : ''}</p>
+                          <p className="text-[10px] font-mono text-gray-500 truncate">
+                            {lead.contactChannel === 'website' ? lead.website : `${CHANNEL_LABEL[lead.contactChannel]}: ${lead.contactValue}`}
+                            {lead.city ? ` · ${lead.city}` : ''}
+                          </p>
                           {!expanded && lead.draftSubject && (
                             <p className="text-[11px] font-mono text-gray-400 truncate mt-1">&ldquo;{lead.draftSubject}&rdquo;</p>
                           )}
@@ -512,6 +540,16 @@ export default function AdminOutreach() {
                                 <a href={mailto} className="flex items-center gap-1 px-3 py-1.5 rounded bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 border border-[#00F0FF]/20 text-[#00F0FF] font-mono text-[10px] uppercase">
                                   <Mail size={12} /> Open in mail client
                                 </a>
+                              )}
+                              {whatsappHref(lead) && (
+                                <a href={whatsappHref(lead)} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-[#22C55E] font-mono text-[10px] uppercase">
+                                  <Mail size={12} /> Open in WhatsApp
+                                </a>
+                              )}
+                              {!mailto && !whatsappHref(lead) && lead.contactChannel !== 'website' && (
+                                <span className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/2 border border-white/8 text-gray-500 font-mono text-[10px] uppercase">
+                                  No direct link for {CHANNEL_LABEL[lead.contactChannel]} -- use Copy text, then message them there
+                                </span>
                               )}
                               <button onClick={() => copyDraft(lead)} className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase">
                                 <Copy size={12} /> Copy text
