@@ -103,3 +103,14 @@ html.lenis, html.lenis body {
 .lenis.lenis-smooth iframe {
   pointer-events: none;
 }
+
+/* Used by the realistic PhoneFrame mockup (src/components/project/PhoneFrame.tsx) for its subtle OLED
+   refresh-sweep overlay. */
+@keyframes oled-refresh-sweep {
+  0% { transform: translateY(-100%); opacity: 0.02; }
+  50% { opacity: 0.05; }
+  100% { transform: translateY(100%); opacity: 0.02; }
+}
+.animate-oled-sweep {
+  animation: oled-refresh-sweep 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

@@ -1,15 +1,24 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Smartphone, Tablet, Monitor } from "lucide-react";
+import { COLOR_SCHEMES, WifiIcon, CellularIcon, BatteryIcon } from "./PhoneFrame";
 
-// A device-frame preview for a project that's a real, running app rather than screenshots. Hand-built in CSS
-// rather than pulled from an npm device-mockup library: a quick evaluation of the available packages turned
-// up real reliability risk for a live, deployed build (one broke the production bundle outright), so this
-// draws its own photorealistic bezels instead -- notch, speaker slit and camera dot on the phone, a thicker
-// tablet bezel, and a laptop hinge + base on the desktop view -- with zero extra dependency risk. All three
-// views share the SAME <iframe>, so switching between them never reloads the live app or loses its state.
-// The QR code hands the same URL to the visitor's own phone, where "Add to Home Screen" makes it behave like
-// an installed app.
+// A device-frame preview for a project that's a real, running app rather than screenshots.
+//
+// IMPORTANT sizing technique -- this is what fixes the "squished/nested" look the real device preview used to
+// have on a visitor's own phone: the <iframe> is ALWAYS given its true native viewport size (390x843 for the
+// phone view, matching a real iPhone, similarly sized for tablet/desktop) so the live app inside it lays
+// itself out exactly as it does when opened directly -- nothing inside ever has to reflow into an undersized
+// box. The whole native-size box (bezel + iframe together) is then visually shrunk as ONE unit with a single
+// CSS transform: scale(), wrapped in a container sized to the already-scaled dimensions so it still fits
+// neatly in the preview card. The app is always rendered at its real, normal size; only the final picture of
+// it is smaller -- never double-shrunk or reflowed small.
+//
+// The phone view uses a realistic PhoneFrame mockup (rose-gold metallic bezel, dynamic island with a glowing
+// camera lens, live status bar, home indicator) built from a reference image via Google AI Studio. Tablet and
+// desktop keep a simpler hand-built CSS bezel. All views share the SAME <iframe>, so switching between them
+// never reloads the live app or loses its state. The QR code hands the same URL to the visitor's own phone,
+// where "Add to Home Screen" makes it behave like an installed app.
 
 type DeviceView = "phone" | "tablet" | "desktop";
 
@@ -19,11 +28,13 @@ const DEVICE_OPTIONS: { id: DeviceView; label: string; icon: typeof Smartphone }
   { id: "desktop", label: "Desktop", icon: Monitor },
 ];
 
-// Per-view sizing for the outer bezel; the iframe itself always fills the inner screen area.
-const FRAME_SIZE: Record<DeviceView, { width: number; height: number; radius: string; border: string }> = {
-  phone: { width: 260, height: 540, radius: "2.75rem", border: "14px" },
-  tablet: { width: 420, height: 560, radius: "1.75rem", border: "18px" },
-  desktop: { width: 760, height: 480, radius: "0.9rem", border: "14px" },
+// Native (real) resolution the iframe renders at for each view, and the final on-page display width it's
+// scaled down to. The displayed box is always nativeWidth * (displayWidth / nativeWidth) tall too, so nothing
+// gets stretched or squashed -- only uniformly scaled.
+const DEVICE_SIZE: Record<DeviceView, { nativeWidth: number; nativeHeight: number; displayWidth: number }> = {
+  phone: { nativeWidth: 390, nativeHeight: 844, displayWidth: 240 },
+  tablet: { nativeWidth: 820, nativeHeight: 1060, displayWidth: 320 },
+  desktop: { nativeWidth: 1280, nativeHeight: 800, displayWidth: 560 },
 };
 
 export function MobilePreviewBlock({
@@ -39,7 +50,11 @@ export function MobilePreviewBlock({
 }) {
   const [view, setView] = useState<DeviceView>(defaultView);
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&color=212-175-55&bgcolor=11-10-8&data=${encodeURIComponent(url)}`;
-  const size = FRAME_SIZE[view];
+  const d = DEVICE_SIZE[view];
+  const displayScale = d.displayWidth / d.nativeWidth;
+  const displayHeight = Math.round(d.nativeHeight * displayScale);
+  const isPhone = view === "phone";
+  const rose = COLOR_SCHEMES["rose-gold"];
 
   return (
     <motion.section
@@ -73,42 +88,73 @@ export function MobilePreviewBlock({
 
       <div className="flex flex-col sm:flex-row items-center gap-8 bg-white/[0.03] border border-white/10 rounded-2xl p-6 overflow-x-auto">
         <div className="shrink-0 flex flex-col items-center">
-          {/* The bezel. Sizing is per-view; the iframe inside is identical across views, so toggling never
-              remounts it. */}
-          <div
-            className="relative bg-[#161616] shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
-            style={{
-              width: size.width,
-              height: size.height,
-              borderRadius: size.radius,
-              border: `${size.border} solid #161616`,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(255,255,255,0.04)",
-            }}
-          >
-            {view === "phone" && (
-              <>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-[#161616] rounded-b-2xl z-20 flex items-center justify-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2a2a2a]" />
-                  <span className="w-8 h-1 rounded-full bg-[#2a2a2a]" />
-                </div>
-                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-28 h-1 rounded-full bg-white/25 z-20" />
-              </>
-            )}
-            {view === "tablet" && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#2a2a2a] z-20" />
-            )}
-            {view === "desktop" && (
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#2a2a2a] z-20" />
-            )}
+          {/* The on-page footprint: exactly the final, scaled-down size -- nothing bigger, nothing overflowing. */}
+          <div className="relative" style={{ width: d.displayWidth, height: displayHeight }}>
+            {/* The real device, rendered at its TRUE native resolution (390x844 for phone, etc.) so the live
+                app inside lays itself out exactly as it does when opened directly -- then this whole box is
+                shrunk as one unit with a single transform: scale(). Nothing inside is ever reflowed into an
+                undersized viewport; only the final picture of it is smaller. */}
+            <div
+              className="absolute top-0 left-0 origin-top-left"
+              style={{ width: d.nativeWidth, height: d.nativeHeight, transform: `scale(${displayScale})` }}
+            >
+              <div
+                className="relative overflow-hidden"
+                style={{
+                  width: d.nativeWidth,
+                  height: d.nativeHeight,
+                  borderRadius: isPhone ? 56 : view === "tablet" ? 36 : 18,
+                  padding: isPhone ? 10 : view === "tablet" ? 20 : 14,
+                  background: isPhone ? rose.bezelGradient : "#161616",
+                  boxShadow: isPhone
+                    ? `0 0 0 1px ${rose.outerRing}, 0 24px 60px -12px rgba(0,0,0,0.65), 0 8px 24px -6px rgba(0,0,0,0.45)`
+                    : "0 20px 60px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(255,255,255,0.04)",
+                }}
+              >
+                <div className="relative w-full h-full rounded-[inherit] bg-black overflow-hidden [&_iframe]:border-0">
+                  {/* Realistic phone chrome: dynamic island with a glowing camera lens, live status bar, home
+                      indicator -- ported from the AI-Studio-generated PhoneFrame reference. Pure overlay, so it
+                      never touches the iframe underneath. */}
+                  {isPhone && (
+                    <>
+                      <div className="absolute top-[11px] left-1/2 -translate-x-1/2 z-30 w-[114px] h-[30px] bg-black rounded-full flex items-center justify-between px-3 pointer-events-none">
+                        <div className="w-[10px] h-[10px] rounded-full bg-[#0a0a0c] border border-white/5" />
+                        <div className="relative flex items-center justify-center">
+                          <div
+                            className="absolute w-6 h-6 rounded-full"
+                            style={{ background: "radial-gradient(circle, #F06BA655 0%, #F06BA622 55%, transparent 75%)", boxShadow: "0 0 10px 2px #F06BA666, 0 0 18px 4px #F06BA633" }}
+                          />
+                          <div className="relative w-[11px] h-[11px] rounded-full" style={{ background: "radial-gradient(circle, #08101e 30%, #030712 100%)" }} />
+                        </div>
+                      </div>
+                      <div className="absolute top-0 left-0 right-0 h-[44px] px-6 pt-3 flex items-center justify-between text-white z-20 pointer-events-none">
+                        <span className="text-[13px] font-semibold tabular-nums">9:41</span>
+                        <div className="flex items-center gap-1.5">
+                          <CellularIcon level={4} />
+                          <WifiIcon />
+                          <BatteryIcon level={88} />
+                        </div>
+                      </div>
+                      <div className="absolute bottom-[8px] left-1/2 -translate-x-1/2 w-[120px] h-[4px] rounded-full bg-white/70 z-30 pointer-events-none" />
+                    </>
+                  )}
+                  {view === "tablet" && (
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#2a2a2a] z-20 pointer-events-none" />
+                  )}
+                  {view === "desktop" && (
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#2a2a2a] z-20 pointer-events-none" />
+                  )}
 
-            <div className="absolute inset-0 rounded-[inherit] overflow-hidden bg-black [&_iframe]:border-0">
-              <iframe
-                key="device-preview-iframe"
-                src={url}
-                title={`${appName} live preview`}
-                className="w-full h-full"
-                loading="lazy"
-              />
+                  <iframe
+                    key="device-preview-iframe"
+                    src={url}
+                    title={`${appName} live preview`}
+                    className="w-full h-full"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -116,7 +162,7 @@ export function MobilePreviewBlock({
           {view === "desktop" && (
             <div
               className="bg-gradient-to-b from-[#2a2a2a] to-[#161616] rounded-b-[0.6rem]"
-              style={{ width: size.width + 40, height: 14, marginTop: -2 }}
+              style={{ width: d.displayWidth + 40, height: 14, marginTop: -2 }}
             >
               <div className="w-20 h-1.5 bg-black/40 rounded-full mx-auto mt-1.5" />
             </div>
