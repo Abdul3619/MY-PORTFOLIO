@@ -35,8 +35,8 @@ function CallOrb({ state, size, energy, reduceMotion }: { state: AssistantState;
   const wobbleRef = useOrbWobble(energy, state, size, reduceMotion, 1.7);
   return (
     <div ref={wobbleRef} style={{ display: "inline-flex" }}>
-      <Suspense fallback={<OrbVisual size={size} />}>
-        <AssistantOrb state={state} size={size} />
+      <Suspense fallback={<OrbVisual size={size} energy={energy} reduceMotion={reduceMotion} />}>
+        <AssistantOrb state={state} size={size} energy={energy} reduceMotion={reduceMotion} />
       </Suspense>
     </div>
   );
@@ -334,6 +334,7 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
           transition={transition}
           style={{ transformOrigin: "bottom right" }}
         >
+          <div className="ai-call-backdrop" aria-hidden="true" />
           <div className="w-full flex items-center justify-center font-mono text-xs text-gray-400 tracking-wide uppercase">
             {stateLabel[state]}
           </div>
@@ -361,7 +362,7 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
                   <p className="text-sm text-gray-400 italic">&ldquo;{youSaid}&rdquo;</p>
                 )}
                 {caption && (
-                  <p className="text-base sm:text-lg text-white leading-relaxed whitespace-pre-wrap">{caption}</p>
+                  <p className="font-display text-base sm:text-lg text-white leading-relaxed whitespace-pre-wrap">{caption}</p>
                 )}
                 {errorMsg && <p role="alert" className="text-xs text-red-300">{errorMsg}</p>}
               </>
@@ -373,7 +374,7 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
                   onClick={() => setShowTranscript((v) => !v)}
                   aria-label={t("assistant.call_transcript", "Conversation transcript")}
                   aria-pressed={showTranscript}
-                  className="interactive inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/15 text-white px-4 py-3 text-sm font-medium transition-colors"
+                  className="ai-glass-btn interactive inline-flex items-center gap-2 rounded-full text-white px-4 py-3 text-sm font-medium"
                 >
                   <MessageSquareText size={16} aria-hidden="true" />
                   {t("assistant.call_transcript", "Transcript")}

@@ -62,8 +62,8 @@ export const CopilotOrb: React.FC<CopilotOrbProps> = ({
       style={{ width: orbPx, height: orbPx }}
     >
       <div ref={wobbleRef} style={{ display: 'inline-flex' }}>
-        <Suspense fallback={<OrbVisual size={orbPx} />}>
-          <AssistantOrb state={state} size={orbPx} />
+        <Suspense fallback={<OrbVisual size={orbPx} energy={energy} reduceMotion={reduceMotion} />}>
+          <AssistantOrb state={state} size={orbPx} energy={energy} reduceMotion={reduceMotion} />
         </Suspense>
       </div>
     </div>

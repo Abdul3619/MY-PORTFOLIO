@@ -293,8 +293,8 @@ function Orb({ state, size, energy, reduceMotion }: { state: AssistantState; siz
   const wobbleRef = useOrbWobble(energy, state, size, reduceMotion);
   return (
     <div ref={wobbleRef} style={{ display: "inline-flex" }}>
-      <Suspense fallback={<OrbVisual size={size} />}>
-        <AssistantOrb state={state} size={size} />
+      <Suspense fallback={<OrbVisual size={size} energy={energy} reduceMotion={reduceMotion} />}>
+        <AssistantOrb state={state} size={size} energy={energy} reduceMotion={reduceMotion} />
       </Suspense>
     </div>
   );
@@ -716,7 +716,7 @@ export default function ChatWidget() {
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.96 }}
             transition={{ ...transition, width: { duration: 0 }, height: { duration: 0 } }}
             style={{ transformOrigin: "bottom right" }}
-            className="ai-panel bg-bg-darker/85 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.55)] rounded-3xl flex flex-col overflow-hidden"
+            className="ai-panel ai-glow-edge bg-bg-darker/85 backdrop-blur-2xl border rounded-3xl flex flex-col overflow-hidden"
           >
             <header className="px-4 pt-4 pb-3 border-b border-white/5">
               <div className="flex items-center gap-3">
@@ -949,7 +949,7 @@ export default function ChatWidget() {
               animate={{ opacity: 1, scale: 1 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
               transition={transition}
-              className="interactive group relative flex items-center gap-3 rounded-full bg-bg-darker/70 backdrop-blur-xl border border-white/10 hover:border-gold/40 p-1.5 pr-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)] transition-colors"
+              className="ai-glow-edge interactive group relative flex items-center gap-3 rounded-full bg-bg-darker/70 backdrop-blur-xl border p-1.5 pr-5"
             >
               {hasUnseenCue && (
                 <span
