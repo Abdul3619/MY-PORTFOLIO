@@ -1,6 +1,7 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { ExternalLink, ArrowRight } from "lucide-react";
+import { ExternalLink, ArrowRight, Search, X } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -30,6 +31,31 @@ const itemVariants = {
 export default function Projects() {
   const { t } = useTranslation();
   const { data: projectsData, isLoading, error } = useProjects();
+  const [query, setQuery] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    (projectsData || []).forEach((p: any) => {
+      (p.tags || []).forEach((tag: string) => set.add(tag));
+      (p.tech_stack || p.techStack || []).forEach((tech: string) => set.add(tech));
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [projectsData]);
+
+  const filteredProjects = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (projectsData || []).filter((p: any) => {
+      const tagsAndStack = [...(p.tags || []), ...(p.tech_stack || p.techStack || [])];
+      if (activeTag && !tagsAndStack.includes(activeTag)) return false;
+      if (!q) return true;
+      return (
+        p.title?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q) ||
+        tagsAndStack.some((v: string) => v.toLowerCase().includes(q))
+      );
+    });
+  }, [projectsData, query, activeTag]);
 
   if (isLoading) {
     return (
@@ -109,13 +135,61 @@ export default function Projects() {
           </p>
         </motion.div>
 
-        <motion.div 
+        {/* Search + tag filter */}
+        <div className="mb-10 space-y-4">
+          <div className="relative max-w-md mx-auto">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("projects.search_placeholder", "Search projects...")}
+              className="w-full pl-11 pr-10 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-gray-500 focus:border-gold/50 focus:outline-none transition-colors"
+            />
+            {query && (
+              <button onClick={() => setQuery("")} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white interactive">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => setActiveTag(null)}
+                className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-full border transition-colors interactive ${
+                  activeTag === null ? "bg-gold text-black border-gold" : "bg-white/5 text-gray-400 border-white/10 hover:border-gold/40 hover:text-white"
+                }`}
+              >
+                {t("projects.filter_all", "All")}
+              </button>
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                  className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-full border transition-colors interactive ${
+                    activeTag === tag ? "bg-gold text-black border-gold" : "bg-white/5 text-gray-400 border-white/10 hover:border-gold/40 hover:text-white"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {filteredProjects.length === 0 && (
+          <div className="text-center py-20 text-gray-500">
+            {t("projects.no_matches", "No projects match that search -- try a different term or clear the filter.")}
+          </div>
+        )}
+
+        <motion.div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          {projectsData.map((project: any) => (
+          {filteredProjects.map((project: any) => (
             <motion.div key={project.id || project.slug} variants={itemVariants} className="h-full">
               <GlassCard className="h-full flex flex-col group" glowOnHover>
                 

@@ -1,12 +1,31 @@
+import { useState } from "react";
 import { motion } from "motion/react";
-import { Smartphone } from "lucide-react";
+import { Smartphone, Tablet, Monitor } from "lucide-react";
 
-// A persistent-iframe phone-frame preview + scannable QR code for a project that's actually live and usable,
-// not just screenshots. The iframe is the real deployed app running inside the device bezel -- visitors on
-// desktop can click around right here, and the QR code hands the same URL to their own phone where it can be
-// added to the home screen like any other app (see public/atelierfit-manifest.webmanifest).
+// A device-frame preview for a project that's a real, running app rather than screenshots. One <iframe>, loading
+// the live app exactly once, stays mounted across every toggle -- only the surrounding frame's CSS (width/height/
+// radius/bezel) changes between phone/tablet/desktop, so switching views never reloads the page or loses
+// whatever state the visitor built up inside it (a half-filled form, a scroll position, anything). The QR code
+// hands the same URL to the visitor's own phone, where "Add to Home Screen" makes it behave like an installed app.
+
+type DeviceView = "phone" | "tablet" | "desktop";
+
+const FRAME_STYLES: Record<DeviceView, { wrapper: string; bezel: string; notch?: boolean }> = {
+  phone: { wrapper: "w-[220px] h-[460px] rounded-[2.5rem]", bezel: "border-[8px]", notch: true },
+  tablet: { wrapper: "w-[320px] h-[420px] rounded-[1.5rem]", bezel: "border-[10px]" },
+  desktop: { wrapper: "w-full max-w-[560px] h-[360px] rounded-lg", bezel: "border-[10px] border-b-[28px]" },
+};
+
+const DEVICE_OPTIONS: { id: DeviceView; label: string; icon: typeof Smartphone }[] = [
+  { id: "phone", label: "Phone", icon: Smartphone },
+  { id: "tablet", label: "Tablet", icon: Tablet },
+  { id: "desktop", label: "Desktop", icon: Monitor },
+];
+
 export function MobilePreviewBlock({ url, appName }: { url: string; appName: string }) {
+  const [view, setView] = useState<DeviceView>("phone");
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&color=212-175-55&bgcolor=11-10-8&data=${encodeURIComponent(url)}`;
+  const frame = FRAME_STYLES[view];
 
   return (
     <motion.section
@@ -15,14 +34,36 @@ export function MobilePreviewBlock({ url, appName }: { url: string; appName: str
       transition={{ delay: 0.45 }}
       className="space-y-6"
     >
-      <h2 className="text-2xl font-display font-semibold text-gold tracking-wide uppercase border-b border-white/5 pb-2 flex items-center gap-2">
-        <Smartphone size={20} className="text-gold" />
-        <span>Live Preview</span>
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/5 pb-2">
+        <h2 className="text-2xl font-display font-semibold text-gold tracking-wide uppercase flex items-center gap-2">
+          <Smartphone size={20} className="text-gold" />
+          <span>Live Preview</span>
+        </h2>
+        <div className="flex gap-1 bg-white/5 border border-white/10 rounded-full p-1">
+          {DEVICE_OPTIONS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              aria-label={`Preview as ${label}`}
+              aria-pressed={view === id}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider transition-colors interactive ${
+                view === id ? "bg-gold text-black" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Icon size={14} />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-col sm:flex-row items-center gap-8 bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-        {/* Phone bezel around a real, interactive iframe of the deployed app */}
-        <div className="relative shrink-0 w-[220px] h-[460px] rounded-[2.5rem] border-[8px] border-[#1c1c1c] bg-black shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-[#1c1c1c] rounded-b-xl z-10" />
+        {/* Device bezel around a real, interactive iframe of the deployed app -- the iframe itself never remounts
+            when `view` changes, only the wrapper classes below do, so in-page state survives the toggle. */}
+        <div
+          className={`relative shrink-0 ${frame.wrapper} ${frame.bezel} border-[#1c1c1c] bg-black shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300`}
+        >
+          {frame.notch && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-[#1c1c1c] rounded-b-xl z-10" />}
           <iframe
             src={url}
             title={`${appName} live preview`}
