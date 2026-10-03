@@ -19,6 +19,7 @@ import { buildDigest, sendDigestEmail, digestConfigured, STALE_LEAD_DAYS, type D
 import { createOutreachRouter } from './outreach/route.js';
 import { createAtelierFitRouter } from './atelierfit/route.js';
 import { createStitchBookRouter } from './stitchbook/route.js';
+import { createGalleryRouter } from './gallery/route.js';
 
 dotenv.config();
 
@@ -2252,6 +2253,9 @@ app.use('/api/atelierfit', createAtelierFitRouter({ requireAuth, supabaseUrl, su
 // StitchBook: the desktop-app project -- a live, public tailor-shop management demo. Every route is
 // intentionally public (no requireAuth); see stitchbook/route.ts for why.
 app.use('/api/stitchbook', createStitchBookRouter({ supabaseUrl, supabaseServiceKey }));
+// Gallery: read-only bridge onto the Atelier Noir / Agbada Luxe product catalog (a separate app's table in this
+// same Supabase project). No writes happen here -- see gallery/route.ts for why.
+app.use('/api/gallery', createGalleryRouter({ supabaseUrl, supabaseServiceKey }));
 
 // --- PUBLIC CONTENT LOADERS ---
 // Shared by the JSON API routes above and by the server-side renderer below.
