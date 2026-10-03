@@ -202,6 +202,11 @@ export async function geocodeCity(city: string): Promise<GeocodedPlace> {
 export interface SearchBusinessesResult {
   businesses: OsmBusinessResult[];
   resolvedPlace: string;
+  /** How many matching nodes/ways OSM returned for this category+area BEFORE filtering for contact info. Lets
+   * the caller tell apart two very different situations that both look like "0 found" otherwise: OSM has
+   * nothing mapped under this category here at all (rawCount 0), vs. it has businesses mapped but none of
+   * them have a website/WhatsApp/phone/Facebook/Instagram on file (rawCount > 0, businesses.length 0). */
+  rawCount: number;
 }
 
 // The public Overpass service has no single point of truth -- several
@@ -262,5 +267,5 @@ export async function searchBusinesses(city: string, category: string): Promise<
       osmTags: tags,
     });
   }
-  return { businesses: results, resolvedPlace: resolvedName };
+  return { businesses: results, resolvedPlace: resolvedName, rawCount: (data.elements || []).length };
 }

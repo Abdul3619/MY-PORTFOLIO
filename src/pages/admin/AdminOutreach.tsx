@@ -225,7 +225,8 @@ export default function AdminOutreach() {
       if (!result.repeat) {
         const draftedCount = (result.outcomes || []).filter((o: any) => o.kind === 'drafted').length;
         const place = result.resolvedPlace ? ` (searched: ${result.resolvedPlace})` : '';
-        triggerToast('Search complete', `Found ${result.found} business(es), ${draftedCount} drafted.${place}`, 'success');
+        const rawNote = result.found === 0 && result.rawCount > 0 ? ` ${result.rawCount} matched but had no usable contact info.` : '';
+        triggerToast('Search complete', `Found ${result.found} business(es), ${draftedCount} drafted.${place}${rawNote}`, 'success');
         loadLeads();
       }
     } catch (err: any) {
@@ -636,6 +637,13 @@ export default function AdminOutreach() {
                 {searchResult.resolvedPlace && (
                   <p className="text-gray-500">
                     Searched around: <span className="text-gray-300">{searchResult.resolvedPlace}</span> -- check this matches where you meant.
+                  </p>
+                )}
+                {searchResult.found === 0 && typeof searchResult.rawCount === 'number' && (
+                  <p className="text-gray-500">
+                    {searchResult.rawCount === 0
+                      ? "OpenStreetMap has nothing mapped under this category in this area at all -- not a filtering issue, there's simply nothing there to find yet."
+                      : `OpenStreetMap has ${searchResult.rawCount} matching business(es) here, but none of them have a website, WhatsApp, phone, Facebook, or Instagram on file to reach them by.`}
                   </p>
                 )}
               </div>

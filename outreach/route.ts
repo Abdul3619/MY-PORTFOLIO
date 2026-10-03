@@ -172,11 +172,12 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
         });
       }
 
-      let businesses, resolvedPlace: string;
+      let businesses, resolvedPlace: string, rawCount: number;
       try {
         const result = await searchBusinesses(city, category);
         businesses = result.businesses;
         resolvedPlace = result.resolvedPlace;
+        rawCount = result.rawCount;
       } catch (e: any) {
         Sentry.captureException(e, { tags: { route: '/search' }, extra: { city, category } });
         return void res.status(502).json({ error: `OpenStreetMap search failed: ${e.message || e}` });
@@ -206,7 +207,9 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
       await store.recordSearch(city, category, businesses.length);
       // resolvedPlace tells the user exactly where OSM actually searched -- so a wrong-place geocode
       // (e.g. "Saki" matching Şəki, Azerbaijan instead of Saki, Nigeria) is visible, not a silent zero.
-      res.json({ repeat: false, found: businesses.length, resolvedPlace, outcomes });
+      // rawCount tells apart "OSM has nothing mapped here" from "OSM has businesses here, just none with
+      // any contact info on file" -- both would otherwise show up as the same unexplained found: 0.
+      res.json({ repeat: false, found: businesses.length, rawCount, resolvedPlace, outcomes });
     }),
   );
 
