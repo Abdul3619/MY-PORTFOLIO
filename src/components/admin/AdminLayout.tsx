@@ -1,5 +1,5 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { Navigate, Outlet, Link, useLocation, useOutlet } from 'react-router-dom';
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
+import { Navigate, Outlet, Link, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getAuthRedirectUrl } from '../../lib/siteUrl';
@@ -51,6 +51,18 @@ interface AdminContextType {
   triggerToast: (title: string, message: string, type?: Toast['type']) => void;
   notifications: Array<{ id: string; title: string; desc: string; read: boolean; date: Date }>;
   setNotifications: React.Dispatch<React.SetStateAction<Array<{ id: string; title: string; desc: string; read: boolean; date: Date }>>>;
+  // Set by the global search dropdown when the admin clicks a specific project suggestion -- AdminProjects
+  // watches this and opens that project's edit drawer directly, then clears it.
+  openProjectSlug: string | null;
+  setOpenProjectSlug: (slug: string | null) => void;
+}
+
+// Minimal shape the global search dropdown needs for one suggestion row.
+interface SearchableProject {
+  id: string;
+  slug: string;
+  title: string;
+  category?: string;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -90,13 +102,18 @@ export const ProtectedRoute: React.FC = () => {
 
 export const AdminLayout: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const outlet = useOutlet();
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
-  
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [openProjectSlug, setOpenProjectSlug] = useState<string | null>(null);
+  const [searchableProjects, setSearchableProjects] = useState<SearchableProject[]>([]);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; desc: string; read: boolean; date: Date }>>([
@@ -110,6 +127,48 @@ export const AdminLayout: React.FC = () => {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
+  };
+
+  // Lightweight project list for the global search dropdown -- fetched once so typing in the sidebar search
+  // can suggest matching projects from any admin page, not just while already on the Projects Manager.
+  useEffect(() => {
+    fetchApi('/api/projects')
+      .then((data: any[]) => {
+        setSearchableProjects(
+          (data || []).map((p) => ({ id: p.id, slug: p.slug, title: p.title, category: p.category })),
+        );
+      })
+      .catch(() => {
+        // Non-fatal -- the search box just won't suggest projects until the next successful load.
+      });
+  }, []);
+
+  // Close the search dropdown on an outside click, so it behaves like a normal autocomplete popover.
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const searchSuggestions = searchQuery.trim()
+    ? searchableProjects
+        .filter(
+          (p) =>
+            p.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.category?.toLowerCase().includes(searchQuery.toLowerCase()),
+        )
+        .slice(0, 6)
+    : [];
+
+  const goToProject = (project: SearchableProject) => {
+    setOpenProjectSlug(project.slug);
+    setSearchQuery('');
+    setIsSearchFocused(false);
+    navigate('/admin/projects');
   };
 
   const [isPublishing, setIsPublishing] = useState(false);
@@ -285,7 +344,7 @@ export const AdminLayout: React.FC = () => {
   };
 
   return (
-    <AdminContext.Provider value={{ searchQuery, setSearchQuery, triggerToast, notifications, setNotifications }}>
+    <AdminContext.Provider value={{ searchQuery, setSearchQuery, triggerToast, notifications, setNotifications, openProjectSlug, setOpenProjectSlug }}>
       <div className="flex min-h-screen bg-[#0A0A0A] text-gray-200 font-sans selection:bg-[#00F0FF] selection:text-black antialiased">
         
         {/* Desktop Sidebar */}
@@ -411,21 +470,61 @@ export const AdminLayout: React.FC = () => {
               </div>
             </div>
 
-            {/* Global Search Bar */}
-            <div className="hidden sm:flex items-center max-w-sm w-full mx-4 bg-white/4 border border-white/8 rounded-md px-3 py-1 text-gray-400 hover:border-white/12 focus-within:border-[#00F0FF]/50 focus-within:shadow-[0_0_8px_rgba(0,240,255,0.1)] transition-all duration-200">
-              <Search size={14} className="text-gray-500 mr-2 shrink-0" />
-              <input 
-                type="text" 
-                placeholder="Search database entries..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs text-white w-full placeholder:text-gray-500 font-sans"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="p-0.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white">
-                  <X size={10} />
-                </button>
-              )}
+            {/* Global Search Bar -- typing shows a floating dropdown of matching projects (not just an inline
+                list on whichever page happens to read searchQuery), so search works the same from any screen
+                and clicking a result jumps straight to that project's editor. */}
+            <div ref={searchBoxRef} className="hidden sm:block relative max-w-sm w-full mx-4">
+              <div className="flex items-center bg-white/4 border border-white/8 rounded-md px-3 py-1 text-gray-400 hover:border-white/12 focus-within:border-[#00F0FF]/50 focus-within:shadow-[0_0_8px_rgba(0,240,255,0.1)] transition-all duration-200">
+                <Search size={14} className="text-gray-500 mr-2 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  className="bg-transparent border-none outline-none text-xs text-white w-full placeholder:text-gray-500 font-sans"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} className="p-0.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white">
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+
+              <AnimatePresence>
+                {isSearchFocused && searchQuery.trim() && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute left-0 right-0 top-[calc(100%+6px)] rounded-lg border border-white/10 bg-[#111111]/98 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] overflow-hidden z-50"
+                  >
+                    {searchSuggestions.length > 0 ? (
+                      <ul className="max-h-72 overflow-y-auto divide-y divide-white/4">
+                        {searchSuggestions.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              onClick={() => goToProject(p)}
+                              className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <FolderKanban size={13} className="text-[#00F0FF]/70 shrink-0" />
+                                <span className="text-xs text-white truncate">{p.title}</span>
+                              </span>
+                              {p.category && (
+                                <span className="text-[10px] font-mono text-gray-500 shrink-0">{p.category}</span>
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="px-3 py-3 text-xs text-gray-500">No projects match "{searchQuery}"</div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Global Update & Publish Action */}

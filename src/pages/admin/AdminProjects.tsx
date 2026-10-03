@@ -34,7 +34,7 @@ interface ProjectMetadata {
 }
 
 export default function AdminProjects() {
-  const { searchQuery, triggerToast } = useAdmin();
+  const { searchQuery, triggerToast, openProjectSlug, setOpenProjectSlug } = useAdmin();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'All' | 'Published' | 'Draft' | 'Archived'>('All');
@@ -177,6 +177,15 @@ export default function AdminProjects() {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  // A click on a result in the sidebar's global search dropdown sets this to the chosen project's slug --
+  // open that project's edit drawer directly once the list has loaded, then clear it so it doesn't re-fire.
+  useEffect(() => {
+    if (!openProjectSlug || projects.length === 0) return;
+    const match = projects.find((p) => p.slug === openProjectSlug);
+    if (match) openDrawer(match);
+    setOpenProjectSlug(null);
+  }, [openProjectSlug, projects]);
 
   const openDrawer = (project: any | null = null) => {
     if (project) {
