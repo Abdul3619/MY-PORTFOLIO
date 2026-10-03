@@ -170,9 +170,11 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
         });
       }
 
-      let businesses;
+      let businesses, resolvedPlace: string;
       try {
-        businesses = await searchBusinesses(city, category);
+        const result = await searchBusinesses(city, category);
+        businesses = result.businesses;
+        resolvedPlace = result.resolvedPlace;
       } catch (e: any) {
         return void res.status(502).json({ error: `OpenStreetMap search failed: ${e.message || e}` });
       }
@@ -196,7 +198,9 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
       });
 
       await store.recordSearch(city, category, businesses.length);
-      res.json({ repeat: false, found: businesses.length, outcomes });
+      // resolvedPlace tells the user exactly where OSM actually searched -- so a wrong-place geocode
+      // (e.g. "Saki" matching Şəki, Azerbaijan instead of Saki, Nigeria) is visible, not a silent zero.
+      res.json({ repeat: false, found: businesses.length, resolvedPlace, outcomes });
     }),
   );
 

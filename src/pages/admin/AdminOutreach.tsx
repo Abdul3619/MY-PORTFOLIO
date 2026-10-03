@@ -224,7 +224,8 @@ export default function AdminOutreach() {
       setSearchResult(result);
       if (!result.repeat) {
         const draftedCount = (result.outcomes || []).filter((o: any) => o.kind === 'drafted').length;
-        triggerToast('Search complete', `Found ${result.found} business(es), ${draftedCount} drafted.`, 'success');
+        const place = result.resolvedPlace ? ` (searched: ${result.resolvedPlace})` : '';
+        triggerToast('Search complete', `Found ${result.found} business(es), ${draftedCount} drafted.${place}`, 'success');
         loadLeads();
       }
     } catch (err: any) {
@@ -621,7 +622,14 @@ export default function AdminOutreach() {
               </div>
             )}
             {searchResult && !searchResult.repeat && (
-              <p className="text-[11px] font-mono text-gray-400">Found {searchResult.found} business(es). See the Review Queue tab.</p>
+              <div className="text-[11px] font-mono text-gray-400 space-y-1">
+                <p>Found {searchResult.found} business(es). See the Review Queue tab.</p>
+                {searchResult.resolvedPlace && (
+                  <p className="text-gray-500">
+                    Searched around: <span className="text-gray-300">{searchResult.resolvedPlace}</span> -- check this matches where you meant.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>

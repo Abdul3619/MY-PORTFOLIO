@@ -171,7 +171,17 @@ function contactHeader(): string {
   return `AIOutreachBot/1.0 (single-user local tool${email ? `; contact: ${email}` : ''})`;
 }
 
-export async function geocodeCity(city: string): Promise<BoundingBox> {
+export interface GeocodedPlace {
+  bbox: BoundingBox;
+  /** The full place name OSM actually resolved the input to -- e.g. typing
+   * "Saki, Nigeria" could silently resolve to Şəki, Azerbaijan (a same-
+   * named, much more heavily-mapped city) if that's what Nominatim's free-
+   * text search ranks higher. Surfacing this lets the caller notice a
+   * wrong-place match instead of just seeing an unexplained zero results. */
+  resolvedName: string;
+}
+
+export async function geocodeCity(city: string): Promise<GeocodedPlace> {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`;
   const res = await fetch(url, { headers: { 'User-Agent': contactHeader() } });
   if (!res.ok) throw new Error(`Nominatim geocoding failed: HTTP ${res.status}`);
@@ -179,15 +189,23 @@ export async function geocodeCity(city: string): Promise<BoundingBox> {
   if (!data.length) throw new Error(`Could not find "${city}" on OpenStreetMap. Try a more specific name (e.g. "Lagos, Nigeria").`);
   const bb = data[0].boundingbox as [string, string, string, string]; // [south, north, west, east]
   return {
-    south: Number(bb[0]),
-    north: Number(bb[1]),
-    west: Number(bb[2]),
-    east: Number(bb[3]),
+    bbox: {
+      south: Number(bb[0]),
+      north: Number(bb[1]),
+      west: Number(bb[2]),
+      east: Number(bb[3]),
+    },
+    resolvedName: data[0].display_name || city,
   };
 }
 
-export async function searchBusinesses(city: string, category: string): Promise<OsmBusinessResult[]> {
-  const bbox = await geocodeCity(city);
+export interface SearchBusinessesResult {
+  businesses: OsmBusinessResult[];
+  resolvedPlace: string;
+}
+
+export async function searchBusinesses(city: string, category: string): Promise<SearchBusinessesResult> {
+  const { bbox, resolvedName } = await geocodeCity(city);
   const query = buildOverpassQuery(category, bbox);
 
   const res = await fetch('https://overpass-api.de/api/interpreter', {
@@ -215,5 +233,5 @@ export async function searchBusinesses(city: string, category: string): Promise<
       osmTags: tags,
     });
   }
-  return results;
+  return { businesses: results, resolvedPlace: resolvedName };
 }
