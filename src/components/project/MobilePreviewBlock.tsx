@@ -1,19 +1,22 @@
 import { useState } from "react";
 import { motion } from "motion/react";
+import Device from "react-device-frame";
 import { Smartphone, Tablet, Monitor } from "lucide-react";
 
-// A device-frame preview for a project that's a real, running app rather than screenshots. One <iframe>, loading
-// the live app exactly once, stays mounted across every toggle -- only the surrounding frame's CSS (width/height/
-// radius/bezel) changes between phone/tablet/desktop, so switching views never reloads the page or loses
-// whatever state the visitor built up inside it (a half-filled form, a scroll position, anything). The QR code
-// hands the same URL to the visitor's own phone, where "Add to Home Screen" makes it behave like an installed app.
+// A device-frame preview for a project that's a real, running app rather than screenshots. `react-device-frame`
+// (built on the well-known Devices.css) draws genuinely photorealistic bezels -- this is the "application you'd
+// download instead of building from scratch" version, rather than a hand-drawn CSS box. Each device renders its
+// own real <iframe> of the live app pointed at `url`; switching between phone/tablet/desktop swaps which frame
+// is mounted (a deliberate trade-off for visual realism -- the app reloads on switch, same as opening it fresh).
+// The QR code hands the same URL to the visitor's own phone, where "Add to Home Screen" makes it behave like an
+// installed app.
 
 type DeviceView = "phone" | "tablet" | "desktop";
 
-const FRAME_STYLES: Record<DeviceView, { wrapper: string; bezel: string; notch?: boolean }> = {
-  phone: { wrapper: "w-[220px] h-[460px] rounded-[2.5rem]", bezel: "border-[8px]", notch: true },
-  tablet: { wrapper: "w-[320px] h-[420px] rounded-[1.5rem]", bezel: "border-[10px]" },
-  desktop: { wrapper: "w-full max-w-[560px] h-[360px] rounded-lg", bezel: "border-[10px] border-b-[28px]" },
+const DEVICE_NAME: Record<DeviceView, string> = {
+  phone: "iphone-x",
+  tablet: "ipad-mini",
+  desktop: "macbook-pro",
 };
 
 const DEVICE_OPTIONS: { id: DeviceView; label: string; icon: typeof Smartphone }[] = [
@@ -22,10 +25,19 @@ const DEVICE_OPTIONS: { id: DeviceView; label: string; icon: typeof Smartphone }
   { id: "desktop", label: "Desktop", icon: Monitor },
 ];
 
-export function MobilePreviewBlock({ url, appName }: { url: string; appName: string }) {
-  const [view, setView] = useState<DeviceView>("phone");
+export function MobilePreviewBlock({
+  url,
+  appName,
+  defaultView = "phone",
+  showQr = true,
+}: {
+  url: string;
+  appName: string;
+  defaultView?: DeviceView;
+  showQr?: boolean;
+}) {
+  const [view, setView] = useState<DeviceView>(defaultView);
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&color=212-175-55&bgcolor=11-10-8&data=${encodeURIComponent(url)}`;
-  const frame = FRAME_STYLES[view];
 
   return (
     <motion.section
@@ -57,33 +69,25 @@ export function MobilePreviewBlock({ url, appName }: { url: string; appName: str
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-8 bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-        {/* Device bezel around a real, interactive iframe of the deployed app -- the iframe itself never remounts
-            when `view` changes, only the wrapper classes below do, so in-page state survives the toggle. */}
-        <div
-          className={`relative shrink-0 ${frame.wrapper} ${frame.bezel} border-[#1c1c1c] bg-black shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300`}
-        >
-          {frame.notch && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-[#1c1c1c] rounded-b-xl z-10" />}
-          <iframe
-            src={url}
-            title={`${appName} live preview`}
-            className="w-full h-full border-0"
-            loading="lazy"
-          />
+      <div className="flex flex-col sm:flex-row items-center gap-8 bg-white/[0.03] border border-white/10 rounded-2xl p-6 overflow-x-auto">
+        <div className="shrink-0 [&_iframe]:border-0">
+          <Device name={DEVICE_NAME[view]} url={url} />
         </div>
 
-        <div className="flex flex-col items-center sm:items-start gap-4 text-center sm:text-left">
-          <div className="bg-white rounded-xl p-3">
-            <img src={qrSrc} alt={`QR code linking to ${appName}`} width={160} height={160} className="block" />
+        {showQr && (
+          <div className="flex flex-col items-center sm:items-start gap-4 text-center sm:text-left">
+            <div className="bg-white rounded-xl p-3">
+              <img src={qrSrc} alt={`QR code linking to ${appName}`} width={160} height={160} className="block" />
+            </div>
+            <div className="max-w-xs">
+              <p className="text-white font-medium mb-1">Scan to try it on your own phone</p>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Opens straight in your mobile browser -- no app-store install needed. Once it's open, use your
+                browser's "Add to Home Screen" option and it behaves like any other installed app from then on.
+              </p>
+            </div>
           </div>
-          <div className="max-w-xs">
-            <p className="text-white font-medium mb-1">Scan to try it on your own phone</p>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Opens straight in your mobile browser -- no app-store install needed. Once it's open, use your
-              browser's "Add to Home Screen" option and it behaves like any other installed app from then on.
-            </p>
-          </div>
-        </div>
+        )}
       </div>
     </motion.section>
   );

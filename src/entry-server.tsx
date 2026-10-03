@@ -55,6 +55,11 @@ export function getRoutePlan(pathname: string): RoutePlan {
     return { kind: 'client', queries: [], knownRoute: true };
   }
 
+  // StitchBook is a client-rendered desktop app (live CRUD demo) -- nothing worth server-rendering either.
+  if (path === '/stitchbook' || path.startsWith('/stitchbook/')) {
+    return { kind: 'client', queries: [], knownRoute: true };
+  }
+
   const queries = [...globalQueries];
   if (path === '/about') {
     queries.push({ key: ['about', LANG], resource: { type: 'about' } });

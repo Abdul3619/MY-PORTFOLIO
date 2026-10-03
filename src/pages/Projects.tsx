@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { ExternalLink, ArrowRight, Search, X } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
@@ -30,9 +30,12 @@ const itemVariants = {
 
 export default function Projects() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: projectsData, isLoading, error } = useProjects();
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -56,6 +59,34 @@ export default function Projects() {
       );
     });
   }, [projectsData, query, activeTag]);
+
+  // Type-ahead suggestions: as the visitor types, surface the *matching word* (title, tag, or
+  // tech-stack term) alongside the project it belongs to -- so a visitor who doesn't recall a
+  // project's exact title can still spot a familiar word and jump straight to it. Deduped by
+  // word+project and capped so the dropdown stays short and scannable.
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [] as { word: string; title: string; slug: string }[];
+    const seen = new Set<string>();
+    const results: { word: string; title: string; slug: string }[] = [];
+    for (const p of projectsData || []) {
+      if (results.length >= 6) break;
+      const words = [
+        p.title,
+        ...(p.tags || []),
+        ...(p.tech_stack || p.techStack || []),
+      ].filter(Boolean) as string[];
+      const match = words.find((w) => w.toLowerCase().includes(q));
+      if (match) {
+        const key = `${match.toLowerCase()}::${p.slug}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({ word: match, title: p.title, slug: p.slug });
+        }
+      }
+    }
+    return results;
+  }, [projectsData, query]);
 
   if (isLoading) {
     return (
@@ -142,14 +173,56 @@ export default function Projects() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => {
+                // Delay so a click on a suggestion registers before the list unmounts.
+                blurTimeout.current = setTimeout(() => setShowSuggestions(false), 150);
+              }}
               placeholder={t("projects.search_placeholder", "Search projects...")}
               className="w-full pl-11 pr-10 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-gray-500 focus:border-gold/50 focus:outline-none transition-colors"
             />
             {query && (
-              <button onClick={() => setQuery("")} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white interactive">
+              <button
+                onClick={() => {
+                  setQuery("");
+                  setShowSuggestions(false);
+                }}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white interactive"
+              >
                 <X size={16} />
               </button>
+            )}
+
+            {showSuggestions && query.trim() && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-[#0d0c0a] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                {suggestions.map((s) => (
+                  <button
+                    key={`${s.slug}-${s.word}`}
+                    onMouseDown={(e) => {
+                      // mousedown fires before the input's blur, so the navigation always wins the race.
+                      e.preventDefault();
+                      if (blurTimeout.current) clearTimeout(blurTimeout.current);
+                      setShowSuggestions(false);
+                      setQuery("");
+                      navigate(`/projects/${s.slug}`);
+                    }}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-gold/10 interactive transition-colors border-b border-white/5 last:border-b-0"
+                  >
+                    <span className="text-white text-sm">
+                      <span className="text-gold font-medium">{s.word}</span>
+                      {s.word.toLowerCase() !== s.title.toLowerCase() && (
+                        <span className="text-gray-400"> &middot; {s.title}</span>
+                      )}
+                    </span>
+                    <ArrowRight size={14} className="text-gray-500 shrink-0" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
           {allTags.length > 0 && (

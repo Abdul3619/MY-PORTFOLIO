@@ -18,6 +18,7 @@ import { createChatRouter, createVoiceLiveRouter } from './chatbot/route.js';
 import { buildDigest, sendDigestEmail, digestConfigured, STALE_LEAD_DAYS, type DigestLead } from './digest.js';
 import { createOutreachRouter } from './outreach/route.js';
 import { createAtelierFitRouter } from './atelierfit/route.js';
+import { createStitchBookRouter } from './stitchbook/route.js';
 
 dotenv.config();
 
@@ -2248,6 +2249,9 @@ app.use('/api/admin/outreach', createOutreachRouter({ requireAuth, supabaseUrl, 
 // AtelierFit: public order-intake + Paystack verification routes live here too, with the admin list/status routes
 // gated inside the router itself -- see atelierfit/route.ts.
 app.use('/api/atelierfit', createAtelierFitRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
+// StitchBook: the desktop-app project -- a live, public tailor-shop management demo. Every route is
+// intentionally public (no requireAuth); see stitchbook/route.ts for why.
+app.use('/api/stitchbook', createStitchBookRouter({ supabaseUrl, supabaseServiceKey }));
 
 // --- PUBLIC CONTENT LOADERS ---
 // Shared by the JSON API routes above and by the server-side renderer below.

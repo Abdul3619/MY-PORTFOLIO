@@ -211,6 +211,9 @@ export default function ProjectDetail() {
             {project?.slug === "atelierfit" && project?.live_url && (
               <MobilePreviewBlock url={project.live_url} appName={title} />
             )}
+            {project?.slug === "stitchbook" && project?.live_url && (
+              <MobilePreviewBlock url={project.live_url} appName={title} defaultView="desktop" />
+            )}
 
             {/* In-Depth Story Details (Dynamic long description column) */}
             {longDescription && (
