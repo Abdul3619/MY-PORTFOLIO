@@ -31,6 +31,12 @@ export interface CrawlEvidence {
   wordCount: number;
   usesHttps: boolean;
   rawBytes: number;
+  // Design-age / credibility signals -- not whether the site has a technical bug, but whether it visibly
+  // looks like it hasn't been touched in years or gives a visitor nothing to actually click.
+  usesOutdatedMarkup: boolean; // <center>, <font>, <marquee>, bgcolor=, table-based layout scaffolding
+  oldCopyrightYear: number | null; // a "© 20XX" footer year, when it's stale enough to be telling
+  hasClearCallToAction: boolean; // any button/link whose text is an action verb (book, call, order, contact...)
+  hasOnlinePayment: boolean; // any sign of checkout/cart/online booking/payment on the page
 }
 
 export interface CrawlResult {

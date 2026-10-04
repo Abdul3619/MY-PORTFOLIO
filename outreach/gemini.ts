@@ -48,8 +48,21 @@ function translateEvidence(evidence: CrawlEvidence): string[] {
   if (evidence.imagesMissingAlt > 0 && evidence.imageCount > 0 && evidence.imagesMissingAlt === evidence.imageCount) {
     facts.push('None of the images on the page would show up in Google Image search or work for anyone using a screen reader.');
   }
+  if (evidence.usesOutdatedMarkup) facts.push('The site is built with page-layout techniques that stopped being used well over a decade ago -- to anyone who opens it, it visibly looks like an old site, not an outdated-but-modern one.');
+  if (evidence.oldCopyrightYear !== null && evidence.oldCopyrightYear <= new Date().getFullYear() - 3) {
+    facts.push(`The footer still shows a copyright year of ${evidence.oldCopyrightYear}, which quietly tells every visitor the site has not been updated since then.`);
+  }
+  if (!evidence.hasClearCallToAction) facts.push('Nothing on the page actually tells a visitor what to do next -- there is no obvious button or line that says to call, book, or get in touch.');
+  if (!evidence.hasOnlinePayment) facts.push('There is no way to pay, book, or check out online -- anything like that has to happen off the site entirely, usually by phone.');
   return facts;
 }
+
+// When enough of the plain-language facts point at the SITE ITSELF looking old or unfinished (as opposed to
+// one isolated technical gap), the email should offer a concrete next step -- "let me show you what this
+// could look like" -- rather than just listing what's wrong. This is what turns a list of flaws into
+// something the business owner can actually say yes to.
+const DESIGN_AGE_SIGNAL_COUNT = (evidence: CrawlEvidence): number =>
+  [evidence.usesOutdatedMarkup, evidence.oldCopyrightYear !== null, !evidence.hasClearCallToAction, evidence.wordCount < 150].filter(Boolean).length;
 
 const STYLE_RULES = `
 Write the way a direct, honest person writes when they actually mean what they're saying, not the way an AI
@@ -73,6 +86,7 @@ assistant writes a sales email. Concretely:
 function buildPrompt(input: DraftLeadInput): string {
   const { businessName, website, evidence, sender } = input;
   const plainFacts = translateEvidence(evidence);
+  const siteLooksOld = DESIGN_AGE_SIGNAL_COUNT(evidence) >= 2;
   return `
 You are drafting a short, honest cold outreach email from a freelance web
 developer to a real local business, based ONLY on the evidence below. Do not
@@ -108,7 +122,9 @@ Write:
    - briefly explains one concrete improvement and the real benefit it has
      for THIS business (more bookings, fewer lost customers, looking
      trustworthy) -- not a vague claim
-   - offers a low-pressure next step (a short call or a quick reply)
+${siteLooksOld
+    ? '   - since several signs point at the whole site looking old rather than one small gap, offer to put together a free quick mockup/preview of what an updated version could look like, no obligation, rather than just naming the problem'
+    : '   - offers a low-pressure next step (a short call or a quick reply)'}
    - signs off as ${sender.businessName}
    - is under 180 words, in short paragraphs (2-4 sentences each)
 3. A short subject line (under 60 characters, no clickbait, no ALL CAPS, no hashtags).

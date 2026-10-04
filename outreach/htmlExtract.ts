@@ -151,6 +151,52 @@ function detectCms(html: string): string | null {
   return null;
 }
 
+// Markup that strongly suggests a site hasn't been rebuilt since the early-2000s/2010s era -- these tags and
+// attributes have been obsolete for over a decade, so their presence (not just old-looking colors, which we
+// can't judge from HTML alone) is a genuinely reliable "this is old" signal rather than a guess.
+function detectOutdatedMarkup(html: string): boolean {
+  const lower = html.toLowerCase();
+  if (/<center\b|<font\b|<marquee\b|<blink\b/.test(lower)) return true;
+  if (/bgcolor\s*=|background\s*=\s*["'][^"']*\.(gif|jpg)/.test(lower)) return true;
+  // Heavy table-based layout scaffolding (as opposed to a single data table): many nested/adjacent <table>
+  // tags used purely for structure is a classic pre-CSS-layout pattern.
+  const tableCount = (lower.match(/<table\b/g) || []).length;
+  if (tableCount >= 4) return true;
+  return false;
+}
+
+// A "© 2014 Acme Plumbing" style footer notice that's several years stale is one of the few honest, visible
+// "this hasn't been updated" signals a business owner would recognize immediately if pointed out.
+function detectOldCopyrightYear(html: string): number | null {
+  const text = blockSeparatedText(html);
+  const re = /(?:copyright|©|\(c\))\s*[:\-]?\s*(19|20)(\d{2})/i;
+  const m = text.match(re);
+  if (!m) return null;
+  const year = parseInt(m[1] + m[2], 10);
+  const currentYear = new Date().getFullYear();
+  if (year < 1998 || year > currentYear) return null; // implausible, likely a false match
+  return year;
+}
+
+const CTA_VERBS = /\b(book|call|order|contact|shop|buy|schedule|reserve|request|get a quote|get started|sign up|subscribe|checkout|apply|donate|email us|message us|chat with us)\b/i;
+
+function detectCallToAction(html: string): boolean {
+  const linkTextRe = /<a\b[^>]*>([\s\S]*?)<\/a>/gi;
+  const buttonTextRe = /<button\b[^>]*>([\s\S]*?)<\/button>/gi;
+  for (const re of [linkTextRe, buttonTextRe]) {
+    for (const m of html.matchAll(re)) {
+      const text = decodeEntities(m[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+      if (text && CTA_VERBS.test(text)) return true;
+    }
+  }
+  return false;
+}
+
+function detectOnlinePayment(html: string): boolean {
+  const lower = html.toLowerCase();
+  return /add[-\s]?to[-\s]?cart|checkout|buy now|book now|book online|paystack|stripe\.com|\bpaypal\b|flutterwave|razorpay|square\s*up|woocommerce/.test(lower);
+}
+
 function extractHeadings(html: string): string[] {
   const headings: string[] = [];
   const re = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -184,6 +230,11 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
   const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
   const usesHttps = finalUrl.startsWith('https://');
 
+  const usesOutdatedMarkup = detectOutdatedMarkup(html);
+  const oldCopyrightYear = detectOldCopyrightYear(html);
+  const hasClearCallToAction = detectCallToAction(html);
+  const hasOnlinePayment = detectOnlinePayment(html);
+
   const issues: string[] = [];
   if (!title) issues.push('Missing <title> tag');
   if (!metaDescription) issues.push('Missing meta description');
@@ -197,6 +248,12 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
   if (emails.length === 0 && phones.length === 0) issues.push('No email address or phone number found on the homepage');
   if (Object.keys(socialLinks).length === 0) issues.push('No social media links found');
   if (wordCount < 150) issues.push(`Very little text content on the homepage (${wordCount} words)`);
+  if (usesOutdatedMarkup) issues.push('Page uses obsolete HTML techniques (table-based layout, <font>/<center> tags) typical of a site built well over a decade ago');
+  if (oldCopyrightYear !== null && oldCopyrightYear <= new Date().getFullYear() - 3) {
+    issues.push(`Footer copyright notice still says ${oldCopyrightYear}, suggesting the site hasn't been touched since then`);
+  }
+  if (!hasClearCallToAction) issues.push('No button or link anywhere on the page tells a visitor what to do next (book, call, order, contact)');
+  if (!hasOnlinePayment) issues.push('No online payment, booking, or checkout flow detected on the site');
 
   return {
     finalUrl,
@@ -214,6 +271,10 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
     wordCount,
     usesHttps,
     rawBytes: Buffer.byteLength(html, 'utf8'),
+    usesOutdatedMarkup,
+    oldCopyrightYear,
+    hasClearCallToAction,
+    hasOnlinePayment,
   };
 }
 
