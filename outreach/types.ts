@@ -45,6 +45,7 @@ export interface CrawlEvidence {
   hasMenuMention: boolean;
   hasBookingMention: boolean;
   hasPortfolioMention: boolean;
+  hasTestimonials: boolean;
 }
 
 export interface CrawlResult {

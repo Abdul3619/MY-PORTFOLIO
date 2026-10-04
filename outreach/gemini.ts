@@ -58,6 +58,7 @@ function translateEvidence(evidence: CrawlEvidence): string[] {
   }
   if (!evidence.hasClearCallToAction) facts.push('Nothing on the page actually tells a visitor what to do next -- there is no obvious button or line that says to call, book, or get in touch.');
   if (!evidence.hasOnlinePayment) facts.push('There is no way to pay, book, or check out online -- anything like that has to happen off the site entirely, usually by phone.');
+  if (!evidence.hasTestimonials) facts.push('There is nothing on the site showing what past customers think -- no reviews or testimonials, so a new visitor has nothing to reassure them.');
   return facts;
 }
 

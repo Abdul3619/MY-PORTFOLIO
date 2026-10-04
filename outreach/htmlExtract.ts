@@ -251,6 +251,10 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
   const hasMenuMention = detectKeywordPresence(bodyText, /\bmenu\b/i);
   const hasBookingMention = detectKeywordPresence(bodyText, /\b(book now|booking|reserve|reservation|appointment|schedule a|book an? appointment)\b/i);
   const hasPortfolioMention = detectKeywordPresence(bodyText, /\b(portfolio|gallery|our work|past work|previous work|case studies)\b/i);
+  // Customer testimonials/reviews are called out as one of the standard "every small business site needs
+  // this" items (https://fireart.studio/brief-checklist-10-key-things-every-small-business-website-needs/)
+  // -- it's the one social-proof signal that applies across nearly every category, not just a few.
+  const hasTestimonials = detectKeywordPresence(bodyText, /\b(testimonial|customer review|client review|what (our )?(clients?|customers?) say|\d(\.\d)?\s*(out of|\/)\s*5\b|★{3,}|★{3,})/i);
 
   const issues: string[] = [];
   if (!title) issues.push('Missing <title> tag');
@@ -271,6 +275,7 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
   }
   if (!hasClearCallToAction) issues.push('No button or link anywhere on the page tells a visitor what to do next (book, call, order, contact)');
   if (!hasOnlinePayment) issues.push('No online payment, booking, or checkout flow detected on the site');
+  if (!hasTestimonials) issues.push('No customer testimonials or reviews shown on the site');
 
   return {
     finalUrl,
@@ -298,6 +303,7 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
     hasMenuMention,
     hasBookingMention,
     hasPortfolioMention,
+    hasTestimonials,
   };
 }
 
