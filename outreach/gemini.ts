@@ -31,6 +31,10 @@ export interface DraftLeadInput {
   website: string;
   evidence: CrawlEvidence;
   sender: SenderProfile;
+  /** Plain-language things that are genuinely expected for this type of business but missing from the
+   * site (e.g. "a visible menu" for a restaurant) -- see businessRequirements.ts. Empty when the business's
+   * category wasn't known or recognized. */
+  compulsoryMissing?: string[];
 }
 
 // Technical crawl findings are real, but a business owner has never heard of a "meta description" and
@@ -87,6 +91,7 @@ function buildPrompt(input: DraftLeadInput): string {
   const { businessName, website, evidence, sender } = input;
   const plainFacts = translateEvidence(evidence);
   const siteLooksOld = DESIGN_AGE_SIGNAL_COUNT(evidence) >= 2;
+  const compulsoryMissing = input.compulsoryMissing || [];
   return `
 You are drafting a short, honest cold outreach email from a freelance web
 developer to a real local business, based ONLY on the evidence below. Do not
@@ -99,6 +104,8 @@ Recipient website: ${website}
 Plain-language facts about their site (already translated from technical signals -- use these as the
 substance of the email, not the raw jargon):
 ${plainFacts.length > 0 ? plainFacts.map((f) => `- ${f}`).join('\n') : '- No major issues were detected -- the site looks reasonably solid technically; focus the email on offering a second opinion or a small improvement rather than inventing a problem.'}
+
+${compulsoryMissing.length > 0 ? `Things customers specifically expect from this TYPE of business, that this site does not have (these are not generic nice-to-haves -- treat the most important one or two as the lead observation if nothing else stands out more):\n${compulsoryMissing.map((m) => `- ${m}`).join('\n')}\n` : ''}
 
 Raw technical evidence, for your own reference only (do not quote these terms in the email itself):
 - Page title: ${evidence.title || '(none found)'}

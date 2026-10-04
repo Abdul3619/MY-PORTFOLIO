@@ -8,6 +8,7 @@ import { crawlHomepage } from './crawler.js';
 import { draftEmail, draftNoWebsiteEmail, type SenderProfile } from './gemini.js';
 import { appendComplianceFooter } from './compliance.js';
 import { domainKey, normalizeUrl, contactKey } from './domain.js';
+import { getMissingCompulsoryItems } from './businessRequirements.js';
 import type { Lead, LeadSource } from './types.js';
 
 export interface PipelineInput {
@@ -20,6 +21,10 @@ export interface PipelineInput {
    * overpass.ts's extractContact). Carried onto the business record as a bonus contact method, never
    * overwriting whatever the crawler itself finds on the site. */
   osmPhone?: string | null;
+  /** The search category this lead came from (e.g. "hair salon", "plumber"), when known -- used to check
+   * business-type-specific requirements (see businessRequirements.ts). Leads added manually or via CSV
+   * won't have one, which just means those checks are skipped for them. */
+  category?: string | null;
 }
 
 export interface PipelineDeps {
@@ -78,6 +83,17 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     return { kind: 'crawl_error', leadId, domain, error };
   }
 
+  // Fold in business-type-specific "this is compulsory and it's missing" findings before the evidence is
+  // saved, so the review queue's issues line shows them alongside the generic technical ones, and the draft
+  // (below) can speak to them directly rather than treating every site the same regardless of what it sells.
+  const missingCompulsory = getMissingCompulsoryItems(input.category, crawlResult.evidence);
+  if (missingCompulsory.length > 0) {
+    crawlResult.evidence.issues = [
+      ...crawlResult.evidence.issues,
+      ...missingCompulsory.map((m) => `Missing (expected for this type of business): ${m}`),
+    ];
+  }
+
   await store.updateLead(leadId, { evidence: crawlResult.evidence, status: 'drafting' });
 
   // Opt-out check happens after crawling (we still want the evidence saved
@@ -94,6 +110,7 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     website: business.website,
     evidence: crawlResult.evidence,
     sender: deps.sender,
+    compulsoryMissing: missingCompulsory,
   });
 
   if (!draftResult.ok || !draftResult.subject || !draftResult.body) {

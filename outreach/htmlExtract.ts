@@ -197,6 +197,14 @@ function detectOnlinePayment(html: string): boolean {
   return /add[-\s]?to[-\s]?cart|checkout|buy now|book now|book online|paystack|stripe\.com|\bpaypal\b|flutterwave|razorpay|square\s*up|woocommerce/.test(lower);
 }
 
+// Generic, reusable "does the page mention X at all" detectors. These are deliberately coarse (a keyword
+// hit, not a verified feature) -- they exist so business-type-specific requirements (see
+// businessRequirements.ts) can ask "does a restaurant site at least mention a menu" without each category
+// needing its own bespoke extraction logic.
+function detectKeywordPresence(bodyText: string, pattern: RegExp): boolean {
+  return pattern.test(bodyText);
+}
+
 function extractHeadings(html: string): string[] {
   const headings: string[] = [];
   const re = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -234,6 +242,15 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
   const oldCopyrightYear = detectOldCopyrightYear(html);
   const hasClearCallToAction = detectCallToAction(html);
   const hasOnlinePayment = detectOnlinePayment(html);
+
+  const hasPricingInfo = detectKeywordPresence(bodyText, /\b(price|pricing|rates?|from\s*[₦$£€]|\b[₦$£€]\s*\d)/i);
+  const hasHoursInfo = detectKeywordPresence(bodyText, /\b(monday|mon)\b.{0,20}\b(friday|fri)\b|\bopening hours\b|\bhours of operation\b|\bopen\s*(daily|24)/i)
+    || detectKeywordPresence(bodyText, /\b\d{1,2}(:\d{2})?\s*(am|pm)\s*[-–]\s*\d{1,2}(:\d{2})?\s*(am|pm)\b/i);
+  const hasAddressInfo = detectKeywordPresence(bodyText, /\b\d+\s+[a-z0-9.'\s]{2,40}\b(street|st\.?|road|rd\.?|avenue|ave\.?|drive|dr\.?|close|crescent|boulevard|way)\b/i)
+    || /google\.com\/maps|maps\.google|openstreetmap\.org/i.test(html);
+  const hasMenuMention = detectKeywordPresence(bodyText, /\bmenu\b/i);
+  const hasBookingMention = detectKeywordPresence(bodyText, /\b(book now|booking|reserve|reservation|appointment|schedule a|book an? appointment)\b/i);
+  const hasPortfolioMention = detectKeywordPresence(bodyText, /\b(portfolio|gallery|our work|past work|previous work|case studies)\b/i);
 
   const issues: string[] = [];
   if (!title) issues.push('Missing <title> tag');
@@ -275,6 +292,12 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
     oldCopyrightYear,
     hasClearCallToAction,
     hasOnlinePayment,
+    hasPricingInfo,
+    hasHoursInfo,
+    hasAddressInfo,
+    hasMenuMention,
+    hasBookingMention,
+    hasPortfolioMention,
   };
 }
 

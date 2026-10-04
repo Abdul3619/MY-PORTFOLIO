@@ -621,6 +621,57 @@ export default function AdminOutreach() {
     triggerToast('Exported', `${inRange.length} lead(s) exported to a CSV file.`, 'success');
   };
 
+  // vCard special characters (comma, semicolon, backslash, newline) have to be backslash-escaped inside a
+  // field value, or they get parsed as a field separator by the phone's contacts app instead of literal text.
+  const vcardEscape = (value: string): string => value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+
+  // One .vcf file holding every lead that has a usable phone number, built as a sequence of standard VCARD
+  // blocks (the same format a phone's own "export contact" produces). Opening a .vcf with more than one
+  // VCARD in it is exactly what both iOS and Android treat as "import all of these" -- so this is a single
+  // tap to add every number to the real phone contacts app, rather than saving each lead one at a time.
+  const handleExportVCard = (rangeDays: number | null) => {
+    const cutoff = rangeDays === null ? null : Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+    const inRange = leads.filter((l) => cutoff === null || new Date(l.createdAt).getTime() >= cutoff);
+
+    const cards: string[] = [];
+    for (const l of inRange) {
+      const opts = getContactOptions(l);
+      const phoneOpt = opts.find((o) => o.key === 'phone');
+      const email = l.contactChannel === 'website' ? l.evidence?.emails?.[0] : undefined;
+      if (!phoneOpt && !email) continue; // nothing a phone contacts app can actually store for this lead
+
+      const name = l.businessName || l.domain;
+      const lines = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${vcardEscape(name)}`, `ORG:${vcardEscape(name)}`];
+      if (phoneOpt) {
+        const digits = phoneOpt.display.replace(/[^\d+]/g, '');
+        lines.push(`TEL;TYPE=WORK,VOICE:${vcardEscape(digits || phoneOpt.display)}`);
+      }
+      if (email) lines.push(`EMAIL;TYPE=WORK:${vcardEscape(email)}`);
+      if (l.city || l.country) lines.push(`ADR;TYPE=WORK:;;;${vcardEscape(l.city || '')};;;${vcardEscape(l.country || '')}`);
+      lines.push(`NOTE:${vcardEscape(`Outreach lead${l.city ? ` -- ${l.city}` : ''}`)}`);
+      lines.push('END:VCARD');
+      cards.push(lines.join('\r\n'));
+    }
+
+    if (cards.length === 0) {
+      triggerToast('Nothing to export', 'No leads in that range have a phone number or email to save.', 'info');
+      return;
+    }
+
+    const vcf = cards.join('\r\n') + '\r\n';
+    const blob = new Blob([vcf], { type: 'text/vcard;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const label = rangeDays === null ? 'all-time' : `last-${rangeDays}d`;
+    a.href = url;
+    a.download = `outreach-contacts-${label}-${new Date().toISOString().slice(0, 10)}.vcf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    triggerToast('Ready to import', `${cards.length} contact(s) in the file -- open it on your phone and choose "Import all" / "Add all contacts".`, 'success');
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -692,6 +743,28 @@ export default function AdminOutreach() {
                 >
                   <option value="" disabled>
                     contacts as CSV...
+                  </option>
+                  <option value="1">Today</option>
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="all">All time</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-1.5 text-gray-500">
+                Save to phone
+                <select
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    handleExportVCard(v === 'all' ? null : Number(v));
+                    e.target.value = '';
+                  }}
+                  defaultValue=""
+                  title="Downloads a .vcf file -- open it on your phone and it offers to add every contact at once."
+                  className="bg-[#161616] border border-white/8 rounded px-2 py-1 text-gray-300 outline-none focus:border-[#00F0FF]/40"
+                >
+                  <option value="" disabled>
+                    contacts as .vcf...
                   </option>
                   <option value="1">Today</option>
                   <option value="7">Last 7 days</option>

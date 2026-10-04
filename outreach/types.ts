@@ -37,6 +37,14 @@ export interface CrawlEvidence {
   oldCopyrightYear: number | null; // a "© 20XX" footer year, when it's stale enough to be telling
   hasClearCallToAction: boolean; // any button/link whose text is an action verb (book, call, order, contact...)
   hasOnlinePayment: boolean; // any sign of checkout/cart/online booking/payment on the page
+  // Generic keyword-presence signals, reused across business-type-specific "compulsory item" checks (see
+  // businessRequirements.ts) -- a coarse "is this mentioned anywhere" rather than a verified feature.
+  hasPricingInfo: boolean;
+  hasHoursInfo: boolean;
+  hasAddressInfo: boolean;
+  hasMenuMention: boolean;
+  hasBookingMention: boolean;
+  hasPortfolioMention: boolean;
 }
 
 export interface CrawlResult {
