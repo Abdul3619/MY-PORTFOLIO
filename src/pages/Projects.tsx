@@ -5,7 +5,7 @@ import { ExternalLink, ArrowRight, Search, X } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { CardSkeleton } from "@/components/Skeleton";
-import { useProjects } from "@/hooks/useApi";
+import { useProjects, trackEvent } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 
@@ -304,7 +304,14 @@ export default function Projects() {
                     </Link>
                     
                     {project.live_url && !project.has_dashboard && (
-                      <a href={project.live_url} target="_blank" rel="noopener noreferrer" aria-label={`Open live site for ${project.title}`} className="p-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-gold hover:border-gold/50 transition-all duration-300 interactive">
+                      <a
+                        href={project.live_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open live site for ${project.title}`}
+                        onClick={() => trackEvent('project_live_click', '/projects', { slug: project.slug, title: project.title })}
+                        className="p-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-gold hover:border-gold/50 transition-all duration-300 interactive"
+                      >
                         <ExternalLink size={20} />
                       </a>
                     )}

@@ -346,6 +346,26 @@ function formatZodError(error: any): string {
   return error?.message || 'Validation failed';
 }
 
+// Small, dependency-free parse of a browser's User-Agent string into something human-readable for the
+// analytics dashboard -- no need for a full UA-parsing library just to answer "what are people visiting from."
+function classifyUserAgent(ua: string | null | undefined): { browser: string; device: string } {
+  const s = (ua || '').toLowerCase();
+  if (!s) return { browser: 'Unknown', device: 'Unknown' };
+
+  let browser = 'Other';
+  if (s.includes('edg/')) browser = 'Edge';
+  else if (s.includes('opr/') || s.includes('opera')) browser = 'Opera';
+  else if (s.includes('crios') || (s.includes('chrome') && !s.includes('edg/'))) browser = 'Chrome';
+  else if (s.includes('fxios') || s.includes('firefox')) browser = 'Firefox';
+  else if (s.includes('safari') && !s.includes('chrome')) browser = 'Safari';
+
+  let device = 'Desktop';
+  if (s.includes('ipad') || s.includes('tablet')) device = 'Tablet';
+  else if (s.includes('iphone') || s.includes('android') || s.includes('mobile')) device = 'Mobile';
+
+  return { browser, device };
+}
+
 // Initialize Google GenAI
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || 'placeholder_key',
@@ -2172,8 +2192,13 @@ app.post('/api/analytics/event', async (req, res) => {
     const { session_id, event_type, page_url, metadata } = req.body;
     if (!session_id || !event_type) return res.status(400).json({ error: 'Missing session_id or event_type' });
     try {
+      // Capture the real browser/device and IP on every event, not just the first one -- a session upsert only
+      // writes these the first time otherwise, and a returning visitor's device can legitimately change (phone vs
+      // laptop) across a session that spans days via the same localStorage id.
+      const ip_address = (req.ip || (req.headers['x-forwarded-for'] as string) || '').toString().split(',')[0].trim() || null;
+      const user_agent = (req.headers['user-agent'] || '').toString() || null;
       const { data: visitor } = await supabaseAdmin.from('visitors')
-        .upsert({ session_id, last_visit_at: new Date().toISOString() }, { onConflict: 'session_id' })
+        .upsert({ session_id, last_visit_at: new Date().toISOString(), user_agent, ip_address }, { onConflict: 'session_id' })
         .select('id').single();
       if (visitor) {
         await supabaseAdmin.from('analytics_events').insert([{
@@ -2202,24 +2227,47 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
   try {
     const period = (req.query.period as string) || '30d';
     const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365;
-    
+
     const daysAgo = new Date();
     daysAgo.setDate(daysAgo.getDate() - days);
     const daysAgoString = daysAgo.toISOString();
 
     const [recentVisitorsRes, recentEventsRes] = await Promise.all([
-      supabaseAdmin.from('visitors').select('created_at').gte('created_at', daysAgoString),
-      supabaseAdmin.from('analytics_events').select('created_at, event_type, metadata').gte('created_at', daysAgoString)
+      supabaseAdmin.from('visitors').select('id, created_at, user_agent').gte('created_at', daysAgoString),
+      supabaseAdmin.from('analytics_events').select('visitor_id, created_at, event_type, page_url, metadata').gte('created_at', daysAgoString)
     ]);
 
     const recentVisitors = recentVisitorsRes.data || [];
     const recentEvents = recentEventsRes.data || [];
 
+    // A "bounce" is a visitor whose whole visit was a single page_view with nothing else recorded after it --
+    // the closest honest proxy to Plausible's definition available from this schema without a client-side timer.
+    const eventsByVisitor = new Map<string, typeof recentEvents>();
+    for (const e of recentEvents) {
+      if (!e.visitor_id) continue;
+      if (!eventsByVisitor.has(e.visitor_id)) eventsByVisitor.set(e.visitor_id, []);
+      eventsByVisitor.get(e.visitor_id)!.push(e);
+    }
+    let bounced = 0;
+    let sessionsWithEvents = 0;
+    let totalDurationSeconds = 0;
+    for (const [, evs] of eventsByVisitor) {
+      sessionsWithEvents++;
+      const pageViews = evs.filter((e) => e.event_type === 'page_view');
+      if (evs.length <= 1 && pageViews.length <= 1) bounced++;
+      if (evs.length > 1) {
+        const times = evs.map((e) => new Date(e.created_at).getTime()).sort((a, b) => a - b);
+        totalDurationSeconds += (times[times.length - 1] - times[0]) / 1000;
+      }
+    }
+    const bounceRate = sessionsWithEvents > 0 ? Math.round((bounced / sessionsWithEvents) * 100) : 0;
+    const avgDuration = sessionsWithEvents > 0 ? Math.round(totalDurationSeconds / sessionsWithEvents) : 0;
+
     const aggregate = {
       visitors: { value: recentVisitors.length },
-      pageviews: { value: recentEvents.length },
-      bounce_rate: { value: 0 },
-      visit_duration: { value: 0 }
+      pageviews: { value: recentEvents.filter((e) => e.event_type === 'page_view').length },
+      bounce_rate: { value: bounceRate },
+      visit_duration: { value: avgDuration }
     };
 
     const timeseries = [];
@@ -2237,15 +2285,42 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
       });
     }
 
-    // Attempt to compute sources from recentEvents if possible
-    const sourcesMap = new Map();
+    // Real traffic sources, from whatever referrer each session's first event carried.
+    const sourcesMap = new Map<string, number>();
     recentEvents.forEach(e => {
-        const ref = e.metadata?.referrer || 'Direct / None';
+        const ref = (e.metadata as any)?.referrer || 'Direct / None';
         sourcesMap.set(ref, (sourcesMap.get(ref) || 0) + 1);
     });
     const sources = Array.from(sourcesMap.entries()).map(([source, visitors]) => ({ source, visitors })).sort((a,b) => b.visitors - a.visitors).slice(0, 5);
 
-    const browsers = [{browser: 'Chrome', visitors: recentVisitors.length}]; // Simple mock for browsers
+    // Real browser breakdown, parsed from each visitor's own stored User-Agent -- replaces the old hardcoded
+    // "everyone is on Chrome" placeholder.
+    const browserMap = new Map<string, number>();
+    const deviceMap = new Map<string, number>();
+    for (const v of recentVisitors) {
+      const { browser, device } = classifyUserAgent((v as any).user_agent);
+      browserMap.set(browser, (browserMap.get(browser) || 0) + 1);
+      deviceMap.set(device, (deviceMap.get(device) || 0) + 1);
+    }
+    const browsers = Array.from(browserMap.entries()).map(([browser, visitors]) => ({ browser, visitors })).sort((a, b) => b.visitors - a.visitors);
+    const devices = Array.from(deviceMap.entries()).map(([device, visitors]) => ({ device, visitors })).sort((a, b) => b.visitors - a.visitors);
+
+    // Which portfolio projects are actually getting looked at -- a page_view whose path is /projects/<slug>.
+    const projectCounts = new Map<string, number>();
+    for (const e of recentEvents) {
+      if (e.event_type !== 'page_view' || !e.page_url) continue;
+      const match = e.page_url.match(/^\/projects\/([^/?]+)/);
+      if (match) projectCounts.set(match[1], (projectCounts.get(match[1]) || 0) + 1);
+    }
+    let topProjects: { slug: string; title: string; views: number }[] = [];
+    if (projectCounts.size > 0) {
+      const { data: projectRows } = await supabaseAdmin.from('projects').select('slug, title').in('slug', Array.from(projectCounts.keys()));
+      const titleBySlug = new Map((projectRows || []).map((p: any) => [p.slug, p.title]));
+      topProjects = Array.from(projectCounts.entries())
+        .map(([slug, views]) => ({ slug, title: titleBySlug.get(slug) || slug, views }))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 8);
+    }
 
     res.json({
       connected: true,
@@ -2254,8 +2329,65 @@ app.get('/api/admin/plausible-stats', requireAuth, async (req, res) => {
       aggregate,
       timeseries,
       sources,
-      browsers
+      browsers,
+      devices,
+      topProjects
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Live-ish feed of recent individual visits for the admin dashboard: "who came today, and what did they do."
+// No identity is ever known or stored here (just an anonymous per-browser session id, IP and User-Agent), so this
+// answers "how many distinct visits, from what kind of device, via what referrer, through which pages" -- not
+// "which named person." That's the honest ceiling of what a cookie-based session id can tell you.
+app.get('/api/admin/visitor-feed', requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt((req.query.limit as string) || '40', 10) || 40, 100);
+
+    const { data: visitors, error: visitorsErr } = await supabaseAdmin
+      .from('visitors')
+      .select('id, session_id, user_agent, ip_address, created_at, last_visit_at')
+      .order('last_visit_at', { ascending: false })
+      .limit(limit);
+    if (visitorsErr) throw new Error(visitorsErr.message);
+
+    const visitorIds = (visitors || []).map((v: any) => v.id);
+    const { data: events, error: eventsErr } = visitorIds.length
+      ? await supabaseAdmin
+          .from('analytics_events')
+          .select('visitor_id, event_type, page_url, metadata, created_at')
+          .in('visitor_id', visitorIds)
+          .order('created_at', { ascending: true })
+      : { data: [], error: null };
+    if (eventsErr) throw new Error(eventsErr.message);
+
+    const eventsByVisitor = new Map<string, any[]>();
+    for (const e of events || []) {
+      if (!eventsByVisitor.has(e.visitor_id)) eventsByVisitor.set(e.visitor_id, []);
+      eventsByVisitor.get(e.visitor_id)!.push(e);
+    }
+
+    const feed = (visitors || []).map((v: any) => {
+      const evs = eventsByVisitor.get(v.id) || [];
+      const pageViews = evs.filter((e) => e.event_type === 'page_view');
+      const { browser, device } = classifyUserAgent(v.user_agent);
+      const referrer = evs.find((e) => e.metadata?.referrer)?.metadata?.referrer || null;
+      return {
+        session_id: v.session_id,
+        first_seen: v.created_at,
+        last_seen: v.last_visit_at,
+        browser,
+        device,
+        referrer,
+        page_count: pageViews.length,
+        pages: pageViews.map((e) => ({ path: e.page_url, at: e.created_at })),
+        other_events: evs.filter((e) => e.event_type !== 'page_view').map((e) => ({ type: e.event_type, at: e.created_at, meta: e.metadata || null })),
+      };
+    });
+
+    res.json({ feed });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

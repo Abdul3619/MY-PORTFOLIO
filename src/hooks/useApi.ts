@@ -224,13 +224,26 @@ export const trackEvent = async (eventType: string, pageUrl: string, metadata: a
       }
     }
 
+    // Only the FIRST page view of a browser session carries a real document.referrer (how they arrived);
+    // every page after that would otherwise overwrite it with the portfolio's own previous page, which would
+    // make "where did this visit come from" collapse to "from itself" for anyone who clicked past page one.
+    let referrer: string | undefined;
+    try {
+      if (eventType === 'page_view' && !sessionStorage.getItem('referrer_captured')) {
+        referrer = document.referrer || 'Direct / None';
+        sessionStorage.setItem('referrer_captured', '1');
+      }
+    } catch {
+      // Storage unavailable; just skip the referrer this time
+    }
+
     await fetch('/api/analytics/event', { credentials: 'include', method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         session_id: sessionId,
         event_type: eventType,
         page_url: pageUrl,
-        metadata
+        metadata: referrer ? { ...metadata, referrer } : metadata
       })
     });
   } catch (e) {
