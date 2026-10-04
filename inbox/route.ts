@@ -160,7 +160,30 @@ export function createInboxRouter(deps: { requireAuth: express.RequestHandler; s
         byEmail[email].messages.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       }
 
-      res.json({ byEmail });
+      // GDPR/UK-PECR expect an opt-out to be honored right away, not just noticed on a later manual check
+      // (CAN-SPAM is more lenient -- a 10-business-day window -- but there's no reason to rely on the looser
+      // rule when this can just be immediate). So any reply that looks like an unsubscribe request gets added
+      // to the permanent do-not-contact list automatically, the moment this scan sees it, rather than waiting
+      // for the admin to notice the badge in the Inbox tab and add it by hand.
+      const newlyOptedOut: string[] = [];
+      for (const [email, info] of Object.entries(byEmail)) {
+        if (!info.looksLikeUnsubscribe) continue;
+        try {
+          const { data: alreadyOptedOut, error: checkErr } = await db.rpc('ai_outreach_check_optout', { p_email: email });
+          if (checkErr) throw new Error(checkErr.message);
+          if (!alreadyOptedOut) {
+            const { error: addErr } = await db.rpc('ai_outreach_add_optout', { p_email: email });
+            if (addErr) throw new Error(addErr.message);
+            newlyOptedOut.push(email);
+          }
+        } catch (optOutErr: any) {
+          // Never let a failure to record one opt-out break the rest of this response -- the badge still
+          // shows "looks like unsubscribe" either way, so nothing is silently lost.
+          console.warn('Failed to auto-record opt-out for', email, optOutErr.message || optOutErr);
+        }
+      }
+
+      res.json({ byEmail, newlyOptedOut });
     } catch (e: any) {
       res.status(502).json({ error: e.message || String(e) });
     }

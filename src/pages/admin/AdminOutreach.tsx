@@ -215,7 +215,16 @@ export default function AdminOutreach() {
       const result = await fetchApi('/api/admin/inbox/messages', { method: 'POST', body: JSON.stringify({ emails: leadEmails }) });
       setGmailByEmail(result.byEmail || {});
       const repliedCount = Object.values(result.byEmail || {}).filter((v: any) => v.messages.some((m: any) => m.labelIds?.includes('INBOX'))).length;
-      triggerToast('Checked Gmail', `${repliedCount} lead(s) have activity in your inbox or sent folder.`, 'success');
+      const newlyOptedOut: string[] = result.newlyOptedOut || [];
+      if (newlyOptedOut.length > 0) {
+        triggerToast(
+          'Unsubscribe requests honored',
+          `${newlyOptedOut.length} contact(s) asked not to be emailed again and were added to the do-not-contact list automatically: ${newlyOptedOut.join(', ')}`,
+          'warning',
+        );
+      } else {
+        triggerToast('Checked Gmail', `${repliedCount} lead(s) have activity in your inbox or sent folder.`, 'success');
+      }
     } catch (err: any) {
       triggerToast('Could not check Gmail', err.message || 'Something went wrong', 'warning');
     } finally {
