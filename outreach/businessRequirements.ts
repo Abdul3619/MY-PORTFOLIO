@@ -58,6 +58,10 @@ const GROUPS: Record<string, RequirementCheck[]> = {
     { label: 'class schedule, membership info, or pricing', satisfied: (e) => e.hasPricingInfo || e.hasHoursInfo },
     { label: 'a way to join or inquire', satisfied: (e) => e.hasClearCallToAction || e.emails.length > 0 || e.phones.length > 0 },
   ],
+  real_estate: [
+    { label: 'listings shown with photos and prices', satisfied: (e) => e.hasPricingInfo && e.imageCount >= 4 },
+    { label: 'a direct way to contact an agent', satisfied: (e) => e.emails.length > 0 || e.phones.length > 0 || e.hasClearCallToAction },
+  ],
 };
 
 // Maps the exact category strings the search tool already resolves against OSM (see overpass.ts's
@@ -78,7 +82,13 @@ const CATEGORY_TO_GROUP: Record<string, keyof typeof GROUPS> = {
   tailor: 'fashion_creative', tailors: 'fashion_creative', 'fashion designer': 'fashion_creative', 'fashion designers': 'fashion_creative',
   photographer: 'fashion_creative', photographers: 'fashion_creative',
   boutique: 'retail', boutiques: 'retail', florist: 'retail', florists: 'retail',
+  'car dealer': 'retail', 'car dealers': 'retail', 'car dealership': 'retail', 'auto dealer': 'retail',
   gym: 'fitness', gyms: 'fitness',
+  'real estate agent': 'real_estate', 'real estate agents': 'real_estate', 'real estate agency': 'real_estate',
+  veterinary: 'medical', vet: 'medical', vets: 'medical',
+  'it company': 'professional_services', 'it companies': 'professional_services',
+  'marketing agency': 'professional_services', 'marketing agencies': 'professional_services', 'web design agency': 'professional_services',
+  'driving school': 'professional_services', 'driving schools': 'professional_services',
 };
 
 /** Finds the requirement group for a free-typed category, same substring-matching leniency as the search

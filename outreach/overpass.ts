@@ -91,6 +91,23 @@ const CATEGORY_TAGS: Record<string, [string, string][]> = {
   'car repair': [['shop', 'car_repair']],
   mechanic: [['shop', 'car_repair']],
   mechanics: [['shop', 'car_repair']],
+  'real estate agent': [['office', 'estate_agent']],
+  'real estate agents': [['office', 'estate_agent']],
+  'real estate agency': [['office', 'estate_agent']],
+  'car dealer': [['shop', 'car']],
+  'car dealers': [['shop', 'car']],
+  'car dealership': [['shop', 'car']],
+  'auto dealer': [['shop', 'car']],
+  veterinary: [['amenity', 'veterinary']],
+  vet: [['amenity', 'veterinary']],
+  vets: [['amenity', 'veterinary']],
+  'it company': [['office', 'it']],
+  'it companies': [['office', 'it']],
+  'marketing agency': [['office', 'advertising_agency']],
+  'marketing agencies': [['office', 'advertising_agency']],
+  'web design agency': [['office', 'it']],
+  'driving school': [['amenity', 'driving_school']],
+  'driving schools': [['amenity', 'driving_school']],
 };
 
 /** Finds the best category match for free-typed input: an exact key, then
