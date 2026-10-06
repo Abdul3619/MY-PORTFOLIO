@@ -443,15 +443,14 @@ export default function SolarEstimator() {
         {/* PROPOSAL MODAL COMPLETED FORM */}
         <AnimatePresence>
           {isModalOpen && (
-            <>
-              {/* Overlay Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsModalOpen(false)}
-                className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
-              >
+            <motion.div
+              key="proposal-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            >
                 {/* Modal Container */}
                 <motion.div
                   initial={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -587,7 +586,6 @@ export default function SolarEstimator() {
 
                 </motion.div>
               </motion.div>
-            </>
           )}
         </AnimatePresence>
 

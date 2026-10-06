@@ -25,7 +25,10 @@ export function AtelierFitPreview({
   appName: string;
   showQr?: boolean;
 }) {
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&color=212-175-55&bgcolor=11-10-8&data=${encodeURIComponent(url)}`;
+  // Use relative route /atelierfit for the iframe preview to avoid cross-origin framing blocks
+  const iframeSrc = (!url || url.includes("abdulwahab-portfolio-tau.vercel.app") || url.includes("/atelierfit")) ? "/atelierfit" : url;
+  const qrTarget = typeof window !== "undefined" ? `${window.location.origin}/atelierfit` : (url || "https://abdulwahab-portfolio-tau.vercel.app/atelierfit");
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&color=212-175-55&bgcolor=11-10-8&data=${encodeURIComponent(qrTarget)}`;
 
   return (
     <motion.section
@@ -54,7 +57,7 @@ export function AtelierFitPreview({
             <PhoneFrame width={NATIVE_WIDTH} scale={SCALE} color="rose-gold">
               <iframe
                 key="atelierfit-device-preview-iframe"
-                src={url}
+                src={iframeSrc}
                 title={`${appName} live preview`}
                 style={{ width: "100%", height: "100%", border: 0 }}
                 loading="lazy"

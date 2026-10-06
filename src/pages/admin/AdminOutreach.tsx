@@ -87,6 +87,32 @@ const STATUS_META: Record<LeadStatus, { label: string; className: string }> = {
 
 type Tab = 'queue' | 'add' | 'coverage' | 'inbox';
 
+function normalizeWhatsAppUrl(raw: string, text?: string): string | undefined {
+  if (!raw) return undefined;
+  // If raw is already a wa.me or api.whatsapp.com URL:
+  if (/wa\.me\/|whatsapp\.com/i.test(raw)) {
+    const phoneMatch = raw.match(/(?:wa\.me\/|phone=)(\+?\d+)/i);
+    if (phoneMatch) raw = phoneMatch[1];
+    else {
+      if (!text) return raw;
+      const sep = raw.includes('?') ? '&' : '?';
+      return `${raw}${sep}text=${encodeURIComponent(text)}`;
+    }
+  }
+  let digits = raw.replace(/\D/g, '');
+  if (!digits) return undefined;
+  // Handle Nigerian mobile format (080..., 081..., 070..., 090..., 091...): strip leading 0 and prepend 234
+  if (digits.startsWith('0') && digits.length === 11) {
+    digits = '234' + digits.slice(1);
+  } else if (digits.startsWith('0') && (digits.length === 10 || digits.length === 12)) {
+    digits = '234' + digits.slice(1);
+  } else if (digits.length === 10 && !digits.startsWith('234')) {
+    digits = '234' + digits;
+  }
+  const query = text ? `?text=${encodeURIComponent(text)}` : '';
+  return `https://wa.me/${digits}${query}`;
+}
+
 export default function AdminOutreach() {
   const { triggerToast } = useAdmin();
   const [tab, setTab] = useState<Tab>('queue');
@@ -451,12 +477,13 @@ export default function AdminOutreach() {
         const digits = phone.replace(/[^\d+]/g, '');
         if (digits) {
           opts.push({ key: 'phone', label: 'Phone', display: phone, href: `tel:${digits}` });
-          if (draftText) {
+          const waUrl = normalizeWhatsAppUrl(phone, draftText);
+          if (waUrl) {
             opts.push({
               key: 'whatsapp-guess',
               label: 'Try WhatsApp',
               display: phone,
-              href: `https://wa.me/${digits.replace(/^\+/, '')}?text=${encodeURIComponent(draftText)}`,
+              href: waUrl,
               external: true,
               unconfirmed: true,
             });
@@ -466,16 +493,23 @@ export default function AdminOutreach() {
 
       for (const [platform, url] of Object.entries(lead.evidence?.socialLinks || {})) {
         if (!url) continue;
+        if (platform === 'whatsapp') {
+          const waUrl = normalizeWhatsAppUrl(url, draftText);
+          if (waUrl) {
+            opts.push({ key: 'whatsapp-site', label: 'WhatsApp (from site)', display: url, href: waUrl, external: true });
+            continue;
+          }
+        }
         opts.push({ key: `social-${platform}`, label: platform.charAt(0).toUpperCase() + platform.slice(1), display: url, href: url, external: true });
       }
     } else if (lead.contactValue) {
       if (lead.contactChannel === 'whatsapp') {
-        const digits = lead.contactValue.replace(/[^\d]/g, '');
+        const waUrl = normalizeWhatsAppUrl(lead.contactValue, draftText);
         opts.push({
           key: 'whatsapp',
           label: 'WhatsApp',
           display: lead.contactValue,
-          href: digits && draftText ? `https://wa.me/${digits}?text=${encodeURIComponent(draftText)}` : undefined,
+          href: waUrl,
           external: true,
         });
       } else if (lead.contactChannel === 'phone') {
@@ -484,11 +518,19 @@ export default function AdminOutreach() {
       } else {
         // facebook / instagram -- OSM sometimes tags these as a full URL, sometimes just a handle.
         const isUrl = /^https?:\/\//i.test(lead.contactValue);
+        let href: string | undefined = undefined;
+        if (isUrl) {
+          href = lead.contactValue;
+        } else if (lead.contactChannel === 'instagram') {
+          href = `https://instagram.com/${lead.contactValue.replace(/^@/, '')}`;
+        } else if (lead.contactChannel === 'facebook') {
+          href = `https://facebook.com/${lead.contactValue.replace(/^@/, '')}`;
+        }
         opts.push({
           key: lead.contactChannel,
           label: CHANNEL_LABEL[lead.contactChannel],
           display: lead.contactValue,
-          href: isUrl ? lead.contactValue : undefined,
+          href,
           external: true,
         });
       }
@@ -839,10 +881,32 @@ export default function AdminOutreach() {
                           <p className="text-[10px] font-mono text-gray-500 truncate">
                             {lead.contactChannel === 'website' ? lead.website : `${CHANNEL_LABEL[lead.contactChannel]}: ${lead.contactValue}`}
                             {lead.city ? ` · ${lead.city}` : ''}
-                            {contactOptions.length === 0 && <span className="text-amber-400"> · no contact info found</span>}
                           </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            {contactOptions.map((opt) => (
+                              <span
+                                key={opt.key}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono border ${
+                                  opt.key.includes('whatsapp')
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : opt.key === 'email'
+                                    ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                                    : opt.key.includes('instagram')
+                                    ? 'bg-pink-500/10 text-pink-400 border-pink-500/20'
+                                    : 'bg-white/5 text-gray-400 border-white/10'
+                                }`}
+                              >
+                                {opt.label}: {opt.display}
+                              </span>
+                            ))}
+                            {contactOptions.length === 0 && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                No contact metadata found
+                              </span>
+                            )}
+                          </div>
                           {!expanded && lead.draftSubject && (
-                            <p className="text-[11px] font-mono text-gray-400 truncate mt-1">&ldquo;{lead.draftSubject}&rdquo;</p>
+                            <p className="text-[11px] font-mono text-gray-400 truncate mt-1.5">&ldquo;{lead.draftSubject}&rdquo;</p>
                           )}
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0 ml-3">

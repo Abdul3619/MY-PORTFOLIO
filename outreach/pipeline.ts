@@ -94,6 +94,24 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     ];
   }
 
+  // Contact Metadata Verification: ensure we have at least one valid, contactable method
+  // (verified email, phone / WhatsApp, or active Instagram/social profile) rather than creating an empty draft.
+  const hasEmail = crawlResult.evidence.emails.length > 0;
+  const hasPhone = crawlResult.evidence.phones.length > 0 || Boolean(input.osmPhone) || Boolean(business.contactValue);
+  const hasSocial = Boolean(
+    crawlResult.evidence.socialLinks.instagram ||
+    crawlResult.evidence.socialLinks.whatsapp ||
+    crawlResult.evidence.socialLinks.facebook
+  );
+  const hasValidContact = hasEmail || hasPhone || hasSocial;
+
+  if (!hasValidContact) {
+    const error = 'No valid contact metadata found on site (no verified email, working WhatsApp/phone, or active Instagram/social profile)';
+    await store.updateLead(leadId, { evidence: crawlResult.evidence, status: 'crawl_error', error });
+    await store.recordRegistryAction({ domain, status: 'crawl_error' });
+    return { kind: 'crawl_error', leadId, domain, error };
+  }
+
   await store.updateLead(leadId, { evidence: crawlResult.evidence, status: 'drafting' });
 
   // Opt-out check happens after crawling (we still want the evidence saved

@@ -47,7 +47,7 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
   const pipelineDeps: PipelineDeps = { store, sender: loadSenderProfileFromEnv() };
 
   const asyncHandler =
-    (fn: (req: express.Request, res: express.Response) => Promise<void>) =>
+    (fn: (req: express.Request, res: express.Response) => Promise<unknown>) =>
     (req: express.Request, res: express.Response) => {
       fn(req, res).catch((err: any) => {
         console.error('Outreach route error:', err?.message);

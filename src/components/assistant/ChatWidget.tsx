@@ -455,13 +455,10 @@ export default function ChatWidget() {
       setPageSuggestion(suggestion);
       setHasUnseenCue(false);
     } else {
-      // Widget is closed: the launcher gets a quiet pulse right away, and after a short beat (so a visitor just
-      // passing through the section isn't interrupted mid-scroll) a small dismissable bubble steps up next to it
-      // with the actual suggestion -- visible on its own, never blocking anything else on the page. This effect
-      // reruns on every section/path change, so leaving and coming back re-triggers the same beat and bubble.
-      setHasUnseenCue(true);
+      // Do not pop up uninvited mockup suggestion bubbles on the screen
+      setHasUnseenCue(false);
+      setBubble(null);
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
-      bubbleTimerRef.current = setTimeout(() => setBubble(suggestion), 900);
     }
     return () => {
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
@@ -902,7 +899,7 @@ export default function ChatWidget() {
             </form>
           </motion.section>
         ) : (
-          <>
+          <motion.div key="launcher-group" className="flex flex-col items-end">
             {bubble && (
               <motion.div
                 key="bubble"
@@ -963,7 +960,7 @@ export default function ChatWidget() {
                 <span className="block font-mono text-[10px] text-gray-400">{t("assistant.launcher_hint", "About my work")}</span>
               </span>
             </motion.button>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
       </div>

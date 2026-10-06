@@ -170,22 +170,22 @@ export function knownCategories(): string[] {
 function extractContact(
   tags: Record<string, string>,
 ): { channel: OsmBusinessResult['contactChannel']; website: string | null; value: string | null; osmPhone: string | null } | null {
-  const phone = tags['contact:phone'] || tags.phone || null;
+  const phone = tags['contact:phone'] || tags.phone || tags['contact:mobile'] || tags.mobile || tags.telephone || tags['contact:telephone'] || tags['operator:phone'] || tags['operator:mobile'] || null;
 
-  const website = tags.website || tags['contact:website'];
+  const website = tags.website || tags['contact:website'] || tags.url || null;
   // A phone tag riding alongside a website isn't the "best" channel, but it's a real, independently
   // confirmed way to reach them -- worth keeping rather than discarding just because website won.
   if (website) return { channel: 'website', website, value: null, osmPhone: phone };
 
-  const whatsapp = tags['contact:whatsapp'] || tags.whatsapp;
+  const whatsapp = tags['contact:whatsapp'] || tags.whatsapp || null;
   if (whatsapp) return { channel: 'whatsapp', website: null, value: whatsapp, osmPhone: null };
 
   if (phone) return { channel: 'phone', website: null, value: phone, osmPhone: null };
 
-  const facebook = tags['contact:facebook'] || tags.facebook;
+  const facebook = tags['contact:facebook'] || tags.facebook || tags['social:facebook'] || null;
   if (facebook) return { channel: 'facebook', website: null, value: facebook, osmPhone: null };
 
-  const instagram = tags['contact:instagram'] || tags.instagram;
+  const instagram = tags['contact:instagram'] || tags.instagram || tags['social:instagram'] || null;
   if (instagram) return { channel: 'instagram', website: null, value: instagram, osmPhone: null };
 
   return null;

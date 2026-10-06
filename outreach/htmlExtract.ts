@@ -100,6 +100,21 @@ function isPlausibleEmail(email: string): boolean {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
   if (email.length > 254) return false;
   if (/\.(png|jpg|jpeg|gif|svg|webp|css|js)$/i.test(email)) return false;
+  const lower = email.toLowerCase();
+  if (
+    lower.includes('example.com') ||
+    lower.includes('domain.com') ||
+    lower.includes('email.com') ||
+    lower.includes('yoursite.com') ||
+    lower.includes('sentry.io') ||
+    lower.includes('wixpress.com') ||
+    lower.includes('wordpress.org') ||
+    lower.includes('bootstrap') ||
+    lower.startsWith('test@') ||
+    lower.startsWith('user@')
+  ) {
+    return false;
+  }
   const tld = email.split('.').pop() || '';
   return KNOWN_TLDS.has(tld) || (tld.length >= 2 && tld.length <= 6 && /^[a-z]+$/.test(tld));
 }
@@ -110,9 +125,15 @@ function extractPhones(html: string): string[] {
   for (const m of html.matchAll(telRe)) {
     found.add(m[1].trim());
   }
+  // WhatsApp links often carry the real phone number on local business sites:
+  const waRe = /(?:wa\.me\/|api\.whatsapp\.com\/send\?(?:[^"' >]*&)?phone=)(\+?\d{8,16})/gi;
+  for (const m of html.matchAll(waRe)) {
+    found.add(m[1].trim());
+  }
   if (found.size === 0) {
     const text = blockSeparatedText(html);
-    const phoneRe = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+    // Support Nigerian mobile formats (080..., 070..., 090..., +234...) and international formats:
+    const phoneRe = /(?:\+?234|0)[789][01]\d{8}|\+?\d{1,4}[-.\s]?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/g;
     for (const m of text.match(phoneRe) || []) {
       found.add(m.trim());
       if (found.size >= 5) break;
@@ -131,6 +152,14 @@ function extractSocialLinks(html: string): Record<string, string> {
     else if (href.includes('instagram.com')) links.instagram = href;
     else if (href.includes('twitter.com') || href.includes('x.com')) links.x = href;
     else if (href.includes('youtube.com') || href.includes('youtu.be')) links.youtube = href;
+    else if (href.includes('wa.me/') || href.includes('whatsapp.com')) links.whatsapp = href;
+  }
+  // Also detect raw Instagram links if not enclosed in standard href:
+  if (!links.instagram) {
+    const igMatch = html.match(/(?:https?:\/\/)?(?:www\.)?(?:instagram\.com\/|instagr\.am\/)([\w.-]+)/i);
+    if (igMatch && !['p', 'reel', 'tv', 'explore', 'about', 'developer'].includes(igMatch[1].toLowerCase())) {
+      links.instagram = `https://instagram.com/${igMatch[1]}`;
+    }
   }
   return links;
 }

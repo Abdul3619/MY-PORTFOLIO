@@ -80,6 +80,25 @@ async function fetchRobotsRules(pageUrl: string, deps: CrawlerDeps) {
   }
 }
 
+function findContactPageUrl(html: string, baseUrl: string): string | null {
+  const linkRe = /href=["']([^"']+)["']/gi;
+  for (const m of html.matchAll(linkRe)) {
+    const href = m[1].trim();
+    if (/(?:contact|about-us|about|reach-us|get-in-touch)/i.test(href)) {
+      try {
+        const resolved = new URL(href, baseUrl);
+        const base = new URL(baseUrl);
+        if (resolved.hostname === base.hostname && resolved.pathname !== base.pathname && !resolved.pathname.endsWith('.pdf')) {
+          return resolved.toString();
+        }
+      } catch {
+        // ignore invalid URL
+      }
+    }
+  }
+  return null;
+}
+
 export async function crawlHomepage(targetUrl: string, deps: CrawlerDeps = defaultDeps): Promise<CrawlResult> {
   let url: string;
   try {
@@ -110,6 +129,32 @@ export async function crawlHomepage(targetUrl: string, deps: CrawlerDeps = defau
     const html = await res.text();
     const finalUrl = res.url || url;
     const evidence = extractSignals(html, finalUrl);
+
+    // If the homepage has no contact info at all, check the linked contact or about page:
+    if (evidence.emails.length === 0 && evidence.phones.length === 0 && Object.keys(evidence.socialLinks).length === 0) {
+      const contactUrl = findContactPageUrl(html, finalUrl);
+      if (contactUrl) {
+        try {
+          const contactRes = await safeFetchFollowingRedirects(contactUrl, deps);
+          if (contactRes.ok && (contactRes.headers.get('content-type') || '').includes('html')) {
+            const contactHtml = await contactRes.text();
+            const contactSignals = extractSignals(contactHtml, contactRes.url || contactUrl);
+            if (contactSignals.emails.length > 0) {
+              evidence.emails = Array.from(new Set([...evidence.emails, ...contactSignals.emails]));
+            }
+            if (contactSignals.phones.length > 0) {
+              evidence.phones = Array.from(new Set([...evidence.phones, ...contactSignals.phones]));
+            }
+            for (const [k, v] of Object.entries(contactSignals.socialLinks)) {
+              if (!evidence.socialLinks[k]) evidence.socialLinks[k] = v;
+            }
+          }
+        } catch {
+          // Best effort subpage check
+        }
+      }
+    }
+
     return { ok: true, evidence };
   } catch (e: any) {
     return { ok: false, error: e.message || 'Unknown crawl error' };

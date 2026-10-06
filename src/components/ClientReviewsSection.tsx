@@ -398,7 +398,7 @@ export function ClientReviewsSection() {
       {/* Leave Review Form Modal Overlay */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div key="leave-review-modal-container" className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }}

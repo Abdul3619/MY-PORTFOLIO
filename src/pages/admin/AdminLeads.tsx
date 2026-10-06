@@ -387,23 +387,24 @@ export default function AdminLeads() {
       {/* Slider Drawer Sheet overlay */}
       <AnimatePresence>
         {isDrawerOpen && selectedLead && (
-          <>
-            {/* Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsDrawerOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-            />
-            {/* Sliding Panel */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 bottom-0 right-0 w-full max-w-lg bg-[#111111]/98 border-l border-white/8 z-50 shadow-2xl flex flex-col h-screen"
-            >
+          <motion.div 
+            key="lead-drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsDrawerOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          />
+        )}
+        {isDrawerOpen && selectedLead && (
+          <motion.div
+            key="lead-drawer-panel"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed top-0 bottom-0 right-0 w-full max-w-lg bg-[#111111]/98 border-l border-white/8 z-50 shadow-2xl flex flex-col h-screen"
+          >
               {/* Drawer Header */}
               <div className="p-6 border-b border-white/8 flex items-center justify-between bg-white/[0.01]">
                 <div>
@@ -539,7 +540,6 @@ export default function AdminLeads() {
 
               </div>
             </motion.div>
-          </>
         )}
       </AnimatePresence>
 

@@ -237,6 +237,13 @@ export const trackEvent = async (eventType: string, pageUrl: string, metadata: a
       // Storage unavailable; just skip the referrer this time
     }
 
+    if (typeof (window as any).gtag === 'function') {
+      (window as any).gtag('event', eventType, {
+        page_location: pageUrl,
+        ...(referrer ? { ...metadata, referrer } : metadata),
+      });
+    }
+
     await fetch('/api/analytics/event', { credentials: 'include', method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

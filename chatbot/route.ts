@@ -353,10 +353,10 @@ const DASHBOARD_LINK_RESULT_TEXT: Record<string, string> = {
 async function runGetDashboardAccess(input: { slug?: unknown }): Promise<string> {
   const slug = typeof input.slug === 'string' ? input.slug : '';
   const result = await createDashboardLink(slug);
-  if (result.ok) {
-    return `Here is a one-time dashboard login link, valid for the next 10 minutes and usable once: ${result.url}\nGive this to the visitor exactly as given so it becomes a button, and mention it's a one-time link just for them.`;
+  if (!result.ok) {
+    return DASHBOARD_LINK_RESULT_TEXT[(result as { error: string }).error] ?? DASHBOARD_LINK_RESULT_TEXT.unknown;
   }
-  return DASHBOARD_LINK_RESULT_TEXT[result.error] ?? DASHBOARD_LINK_RESULT_TEXT.unknown;
+  return `Here is a one-time dashboard login link, valid for the next 10 minutes and usable once: ${result.url}\nGive this to the visitor exactly as given so it becomes a button, and mention it's a one-time link just for them.`;
 }
 
 const TOOL_NAMES = ['submit_lead', 'check_availability', 'book_call', 'get_dashboard_access'] as const;

@@ -17,6 +17,11 @@ export function Layout() {
 
   useEffect(() => {
     trackEvent('page_view', location.pathname);
+    if (typeof (window as any).gtag === 'function' && (window as any).__GA_MEASUREMENT_ID__) {
+      (window as any).gtag('config', (window as any).__GA_MEASUREMENT_ID__, {
+        page_path: location.pathname,
+      });
+    }
   }, [location.pathname]);
 
   useEffect(() => {

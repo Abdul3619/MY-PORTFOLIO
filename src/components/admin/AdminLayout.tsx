@@ -554,16 +554,18 @@ export const AdminLayout: React.FC = () => {
               </button>
 
               {/* Notification Dropdown Panel */}
+              {showNotificationsDropdown && (
+                <div className="fixed inset-0 z-30" onClick={() => setShowNotificationsDropdown(false)} />
+              )}
               <AnimatePresence>
                 {showNotificationsDropdown && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setShowNotificationsDropdown(false)} />
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute right-0 mt-2 w-80 glass-admin rounded-lg shadow-xl z-40 overflow-hidden border border-white/10 bg-[#111111]/95"
-                    >
+                  <motion.div 
+                    key="notifications-dropdown-menu"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-2 w-80 glass-admin rounded-lg shadow-xl z-40 overflow-hidden border border-white/10 bg-[#111111]/95"
+                  >
                       <div className="p-3 border-b border-white/8 flex items-center justify-between bg-white/2">
                         <span className="text-xs font-mono font-bold uppercase tracking-wider text-white">System Logs</span>
                         {unreadCount > 0 && (
@@ -589,7 +591,6 @@ export const AdminLayout: React.FC = () => {
                         ))}
                       </div>
                     </motion.div>
-                  </>
                 )}
               </AnimatePresence>
             </div>
@@ -599,7 +600,7 @@ export const AdminLayout: React.FC = () => {
           {/* Main Scrollable View Area */}
           <main className="flex-1 mt-14 overflow-y-auto p-4 md:p-6 w-full max-w-[1400px] mx-auto overflow-hidden">
             <AnimatePresence mode="wait">
-              <div key={location.pathname} className="w-full">
+              <div key={location.pathname} className="h-full">
                 {outlet}
               </div>
             </AnimatePresence>
@@ -609,23 +610,24 @@ export const AdminLayout: React.FC = () => {
         {/* Mobile Slide-over Overlay Sidebar Drawer */}
         <AnimatePresence>
           {isMobileMenuOpen && (
-            <>
-              {/* Backdrop */}
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-              />
-              {/* Drawer Container */}
-              <motion.aside 
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed top-0 bottom-0 left-0 w-full max-w-[280px] bg-[#111111]/95 glass-admin border-r border-white/8 z-50 flex flex-col md:hidden"
-              >
+            <motion.div 
+              key="mobile-drawer-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+            />
+          )}
+          {isMobileMenuOpen && (
+            <motion.aside 
+              key="mobile-drawer-aside"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 bottom-0 left-0 w-full max-w-[280px] bg-[#111111]/95 glass-admin border-r border-white/8 z-50 flex flex-col md:hidden"
+            >
                 <div className="h-14 flex items-center justify-between px-4 border-b border-white/8">
                   <span className="font-kanit font-black text-lg tracking-wider text-white">
                     ABDUL<span className="text-[#00F0FF] text-cyan-glow">.</span>
@@ -688,7 +690,6 @@ export const AdminLayout: React.FC = () => {
                   </div>
                 </div>
               </motion.aside>
-            </>
           )}
         </AnimatePresence>
 

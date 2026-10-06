@@ -17,9 +17,10 @@ export default function AssistantOrb({
   energy?: MutableRefObject<number>;
   reduceMotion?: boolean;
 }) {
+  const orbState = state === "reconnecting" ? "connecting" : state;
   return (
     <Orb
-      signal={{ state }}
+      signal={{ state: orbState }}
       size={size}
       interactive={false}
       renderTheme={({ rootProps }) => {
