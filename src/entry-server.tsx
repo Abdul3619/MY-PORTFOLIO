@@ -5,6 +5,7 @@ import { QueryClientProvider, dehydrate, type QueryKey } from '@tanstack/react-q
 import './lib/i18n';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { createQueryClient } from './lib/queryClient';
 import { getPageTitle, getRouteMeta, getSiteDescription, getSiteTitle } from './lib/seo';
 import { projectsData } from './data/projects';
@@ -207,11 +208,13 @@ export function render(url: string, plan: RoutePlan, data: Map<string, any>, sit
   const html = renderToString(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <StaticRouter location={url}>
-            <App />
-          </StaticRouter>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <StaticRouter location={url}>
+              <App />
+            </StaticRouter>
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </StrictMode>
   );

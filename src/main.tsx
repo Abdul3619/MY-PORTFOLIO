@@ -5,6 +5,7 @@ import { QueryClientProvider, hydrate } from '@tanstack/react-query';
 import './lib/i18n';
 import App from './App.tsx';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { createQueryClient } from './lib/queryClient';
 import './index.css';
 
@@ -25,11 +26,13 @@ if (window.__REACT_QUERY_STATE__) {
 const app = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>
 );
