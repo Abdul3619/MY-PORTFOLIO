@@ -255,6 +255,8 @@ const contactInfoSchema = z.object({
   linkedin_url: z.string().optional().nullable(),
   twitter_url: z.string().optional().nullable(),
   instagram_url: z.string().optional().nullable(),
+  upwork_url: z.string().optional().nullable(),
+  contra_url: z.string().optional().nullable(),
 });
 
 const skillSchema = z.object({
@@ -859,7 +861,7 @@ app.delete('/api/services/:id', requireAuth, async (req, res) => {
   }
 });
 
-// About Routes (Mapped to Profile Bio JSON)
+// About Routes (Real database table 'about_sections')
 app.get('/api/about', async (req, res) => {
   try {
     const data = await loadAbout(createLoadContext(), await isDraftRequest(req));
@@ -872,18 +874,9 @@ app.get('/api/about', async (req, res) => {
 app.post('/api/about', requireAuth, async (req, res) => {
   try {
     const validatedData = aboutSchema.parse(req.body);
-    const newAbout = {
-      id: crypto.randomUUID(),
-      ...validatedData,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    await saveBioJson((current) => {
-      const about_sections = current.about_sections || [];
-      about_sections.push(newAbout);
-      return { ...current, about_sections };
-    });
-    res.status(201).json(newAbout);
+    const { data, error } = await supabaseAdmin.from('about_sections').insert([validatedData]).select().maybeSingle();
+    if (error) throw new Error(error.message);
+    res.status(201).json(data);
   } catch (err: any) {
     res.status(400).json({ error: formatZodError(err) });
   }
@@ -892,24 +885,12 @@ app.post('/api/about', requireAuth, async (req, res) => {
 app.put('/api/about/:id', requireAuth, async (req, res) => {
   try {
     const validatedData = aboutSchema.parse(req.body);
-    let updatedAbout: any = null;
-    await saveBioJson((current) => {
-      const about_sections = current.about_sections || [];
-      const idx = about_sections.findIndex((s: any) => s.id === req.params.id);
-      if (idx !== -1) {
-        about_sections[idx] = {
-          ...about_sections[idx],
-          ...validatedData,
-          updated_at: new Date().toISOString()
-        };
-        updatedAbout = about_sections[idx];
-      }
-      return { ...current, about_sections };
-    });
-    if (!updatedAbout) {
+    const { data, error } = await supabaseAdmin.from('about_sections').update({ ...validatedData, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
       return res.status(404).json({ error: 'About section not found' });
     }
-    res.json(updatedAbout);
+    res.json(data);
   } catch (err: any) {
     res.status(400).json({ error: formatZodError(err) });
   }
@@ -917,10 +898,8 @@ app.put('/api/about/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/about/:id', requireAuth, async (req, res) => {
   try {
-    await saveBioJson((current) => {
-      const about_sections = (current.about_sections || []).filter((s: any) => s.id !== req.params.id);
-      return { ...current, about_sections };
-    });
+    const { error } = await supabaseAdmin.from('about_sections').delete().eq('id', req.params.id);
+    if (error) throw new Error(error.message);
     res.json({ message: 'Deleted successfully' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1067,7 +1046,23 @@ app.put('/api/profile', requireAuth, async (req, res) => {
   }
 });
 
-// SEO Settings Routes (Mapped to Profile Bio JSON)
+// SEO Settings Routes (Real database table 'seo_settings')
+// The table doesn't have columns for every field the admin form can send (e.g. plausible_domain,
+// plausible_api_key aren't columns yet), so writes are filtered down to columns that actually exist.
+const SEO_TABLE_COLUMNS = [
+  'logo_url', 'site_name', 'footer_copyright', 'browser_title', 'meta_keywords', 'twitter_card_image',
+  'google_analytics_id', 'google_tag_manager_id', 'microsoft_clarity_id', 'meta_pixel_id',
+  'maintenance_mode', 'site_title', 'meta_description', 'og_image_url', 'twitter_handle',
+  'favicon_url', 'canonical_url'
+];
+function pickColumns(obj: any, columns: string[]) {
+  const out: any = {};
+  for (const key of columns) {
+    if (obj[key] !== undefined) out[key] = obj[key];
+  }
+  return out;
+}
+
 app.get('/api/seo', async (req, res) => {
   try {
     res.json(await loadSeo(createLoadContext(), await isDraftRequest(req)));
@@ -1079,23 +1074,30 @@ app.get('/api/seo', async (req, res) => {
 app.post('/api/seo', requireAuth, async (req, res) => {
   try {
     const validatedData = seoSchema.parse(req.body);
-    let saved: any = validatedData;
-    await saveBioJson((current) => {
-      // An empty secret field means "unchanged": the admin form may have been filled from public data
-      // that never contains the secret, and saving it must not wipe the stored value.
-      saved = { ...validatedData };
-      for (const field of SECRET_SEO_FIELDS) {
-        if (!saved[field] && current?.seo_settings?.[field]) saved[field] = current.seo_settings[field];
-      }
-      return { ...current, seo_settings: saved };
-    });
-    res.json(saved);
+    const { data: existing } = await supabaseAdmin.from('seo_settings').select('*').limit(1).maybeSingle();
+    const toSave = pickColumns(validatedData, SEO_TABLE_COLUMNS);
+    // An empty secret field means "unchanged": the admin form may have been filled from public data
+    // that never contains the secret, and saving it must not wipe the stored value.
+    for (const field of SECRET_SEO_FIELDS) {
+      if (!toSave[field] && existing?.[field]) toSave[field] = existing[field];
+    }
+    let result;
+    if (existing?.id) {
+      const { data, error } = await supabaseAdmin.from('seo_settings').update({ ...toSave, updated_at: new Date().toISOString() }).eq('id', existing.id).select().maybeSingle();
+      if (error) throw new Error(error.message);
+      result = data;
+    } else {
+      const { data, error } = await supabaseAdmin.from('seo_settings').insert([toSave]).select().maybeSingle();
+      if (error) throw new Error(error.message);
+      result = data;
+    }
+    res.json(result);
   } catch (err: any) {
     res.status(400).json({ error: formatZodError(err) });
   }
 });
 
-// Contact Information Routes (Mapped to Profile Bio JSON)
+// Contact Information Routes (Real database table 'contact_information')
 app.get('/api/contact_info', async (req, res) => {
   try {
     res.json(await loadContactInfo(createLoadContext(), await isDraftRequest(req)));
@@ -1107,13 +1109,18 @@ app.get('/api/contact_info', async (req, res) => {
 app.post('/api/contact_info', requireAuth, async (req, res) => {
   try {
     const validatedData = contactInfoSchema.parse(req.body);
-    const result = await saveBioJson((current) => {
-      return {
-        ...current,
-        contact_information: validatedData
-      };
-    });
-    res.json(validatedData);
+    const { data: existing } = await supabaseAdmin.from('contact_information').select('id').limit(1).maybeSingle();
+    let result;
+    if (existing?.id) {
+      const { data, error } = await supabaseAdmin.from('contact_information').update({ ...validatedData, updated_at: new Date().toISOString() }).eq('id', existing.id).select().maybeSingle();
+      if (error) throw new Error(error.message);
+      result = data;
+    } else {
+      const { data, error } = await supabaseAdmin.from('contact_information').insert([validatedData]).select().maybeSingle();
+      if (error) throw new Error(error.message);
+      result = data;
+    }
+    res.json(result);
   } catch (err: any) {
     res.status(400).json({ error: formatZodError(err) });
   }
@@ -2426,7 +2433,15 @@ async function loadBioResource(ctx: LoadContext, draft: boolean, publishedKey: s
 }
 
 const loadServices = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'services', 'services', []);
-const loadAbout = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'about', 'about_sections', []);
+
+async function queryAboutSections() {
+  const { data, error } = await supabaseAdmin.from('about_sections').select('*').order('order_index', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+const loadAbout = (ctx: LoadContext, draft: boolean) =>
+  draft ? queryAboutSections() : getPublishedResource('about', queryAboutSections, ctx);
+
 // Fields of the SEO/analytics settings that are secrets: only admins may see them. Public responses (and the
 // state embedded in server-rendered pages) never include them.
 const SECRET_SEO_FIELDS = ['plausible_api_key'];
@@ -2436,11 +2451,25 @@ function publicSeo(seo: any) {
   for (const field of SECRET_SEO_FIELDS) delete copy[field];
   return copy;
 }
+async function querySeoSettings() {
+  // Ordered so the oldest row always wins if more than one ever exists.
+  const { data, error } = await supabaseAdmin.from('seo_settings').select('*').order('created_at', { ascending: true }).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data || {};
+}
 const loadSeo = async (ctx: LoadContext, draft: boolean) => {
-  const seo = await loadBioResource(ctx, draft, 'seo', 'seo_settings', {});
+  const seo = draft ? await querySeoSettings() : await getPublishedResource('seo', querySeoSettings, ctx);
   return draft ? seo : publicSeo(seo);
 };
-const loadContactInfo = (ctx: LoadContext, draft: boolean) => loadBioResource(ctx, draft, 'contact_info', 'contact_information', {});
+
+async function queryContactInfo() {
+  // Ordered so the oldest row always wins if more than one ever exists.
+  const { data, error } = await supabaseAdmin.from('contact_information').select('*').order('created_at', { ascending: true }).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data || {};
+}
+const loadContactInfo = (ctx: LoadContext, draft: boolean) =>
+  draft ? queryContactInfo() : getPublishedResource('contact_info', queryContactInfo, ctx);
 
 async function loadResumeExperience(ctx: LoadContext, draft: boolean) {
   try {
