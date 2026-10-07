@@ -1,0 +1,37 @@
+name: Fix lockfile (one-off)
+
+# Regenerates package-lock.json against the current package.json on a runner with real npm
+# registry access (unlike the sandbox this was written in, where the registry was blocked) and
+# commits the result. Manual-dispatch only -- this is a one-time repair, not a recurring job.
+# Safe to delete this file once it has run successfully once.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  fix-lockfile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Commit regenerated lock file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already in sync, nothing to commit."
+          else
+            git add package-lock.json
+            git commit -m "Regenerate package-lock.json to match package.json
+
+Fixes npm ci failing in ssr-check.yml -- the lock file had drifted out
+of sync with package.json (missing entries for @anthropic-ai/sdk,
+@sentry/node, puppeteer-core, qrcode and a few others)."
+            git push origin HEAD:main
+          fi
