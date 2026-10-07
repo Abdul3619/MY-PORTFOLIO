@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useRef, ReactNode } from 'react';
-import { motion } from 'motion/react';
 
 interface BackgroundContextType {
   isInitialized: boolean;
@@ -134,31 +133,6 @@ export const BackgroundProvider: React.FC<{ children: ReactNode }> = ({ children
       {/* Persistent Canvas Background Layer */}
       <div className="fixed inset-0 z-[-1] bg-[#050505] overflow-hidden pointer-events-none">
         <canvas ref={canvasRef} className="absolute inset-0 opacity-70 pointer-events-none" />
-
-        {/* E.I.D.X. Breathing Gradient Orbs */}
-        <motion.div 
-          className="absolute top-[10%] left-[5%] w-[550px] h-[550px] bg-red-600/18 rounded-full blur-[140px] pointer-events-none mix-blend-screen will-change-transform"
-          animate={{ scale: [1, 1.35, 1], opacity: [0.15, 0.35, 0.15] }}
-          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        
-        <motion.div 
-          className="absolute bottom-[10%] right-[10%] w-[650px] h-[650px] bg-emerald-500/16 rounded-full blur-[160px] pointer-events-none mix-blend-screen will-change-transform"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.35, 0.15] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-        />
-        
-        <motion.div 
-          className="absolute top-[30%] right-[20%] w-[500px] h-[500px] bg-blue-600/18 rounded-full blur-[130px] pointer-events-none mix-blend-screen will-change-transform"
-          animate={{ scale: [1, 1.4, 1], opacity: [0.15, 0.3, 0.15] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-        />
-
-        <motion.div 
-          className="absolute bottom-[20%] left-[15%] w-[520px] h-[520px] bg-amber-500/15 rounded-full blur-[140px] pointer-events-none mix-blend-screen will-change-transform"
-          animate={{ scale: [1, 1.32, 1], opacity: [0.12, 0.28, 0.12] }}
-          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
-        />
 
         {/* Deep Vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_#050505_95%)] pointer-events-none" />
