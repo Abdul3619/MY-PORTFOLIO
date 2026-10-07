@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard } from "lucide-react";
+import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard, Radio, ExternalLink } from "lucide-react";
 
 type OrderStatus = "New" | "Cutting" | "Sewing" | "Fitting" | "Ready" | "Delivered" | "Cancelled";
 
@@ -47,7 +47,64 @@ function naira(n: number) {
   return `₦${n.toLocaleString("en-NG")}`;
 }
 
-type Tab = "dashboard" | "orders" | "inventory";
+type Tab = "dashboard" | "orders" | "inventory" | "live";
+
+interface LiveAtelierFitOrder {
+  id: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  garment_type: string;
+  fabric: string | null;
+  occasion: string | null;
+  amount_kobo: number;
+  payment_status: string;
+  status: string;
+  delivery_method: string;
+  shipping_address: string | null;
+  tracking_number: string | null;
+  appointment_date: string | null;
+  appointment_time: string | null;
+  created_at: string;
+}
+
+interface LiveProduct {
+  id: string;
+  name: string;
+  price: number | null;
+  currency: string;
+  category: string;
+  image_url: string | null;
+}
+
+interface LiveBooking {
+  id: string;
+  kind: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  service: string | null;
+  preferred_date: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface LiveInventoryItem {
+  id: string;
+  item_name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  reorder_level: number;
+  supplier: string | null;
+  updated_at: string;
+}
+
+interface LiveOverview {
+  atelierfit: { totalOrders: number; activeOrders: number; paidRevenueKobo: number };
+  atelierNoir: { publishedProducts: number; totalBookings: number };
+  inventory: { totalItems: number; lowStockCount: number };
+}
 
 export default function StitchBook() {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -58,6 +115,18 @@ export default function StitchBook() {
 
   const [newOrder, setNewOrder] = useState({ client_name: "", garment: "", price_naira: "", deposit_naira: "" });
   const [newItem, setNewItem] = useState({ item_name: "", quantity: "", unit: "yards" });
+
+  // Live tab -- real data from AtelierFit + Atelier Noir + the real inventory tracker, loaded only once the
+  // visitor actually opens that tab (no point fetching it if they never look). Read-only: this tab has no
+  // add/edit/delete controls anywhere, unlike the three demo tabs above.
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveOverview, setLiveOverview] = useState<LiveOverview | null>(null);
+  const [liveOrders, setLiveOrders] = useState<LiveAtelierFitOrder[]>([]);
+  const [liveProducts, setLiveProducts] = useState<LiveProduct[]>([]);
+  const [liveBookings, setLiveBookings] = useState<LiveBooking[]>([]);
+  const [liveInventory, setLiveInventory] = useState<LiveInventoryItem[]>([]);
+  const [liveLoaded, setLiveLoaded] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -77,6 +146,34 @@ export default function StitchBook() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (tab !== "live" || liveLoaded) return;
+    (async () => {
+      setLiveLoading(true);
+      setLiveError(null);
+      try {
+        const [overviewRes, ordersRes, noirRes, invRes] = await Promise.all([
+          fetch("/api/stitchbook/live/overview"),
+          fetch("/api/stitchbook/live/atelierfit-orders"),
+          fetch("/api/stitchbook/live/atelier-noir"),
+          fetch("/api/stitchbook/live/inventory"),
+        ]);
+        if (!overviewRes.ok || !ordersRes.ok || !noirRes.ok || !invRes.ok) throw new Error("Could not load live data.");
+        setLiveOverview(await overviewRes.json());
+        setLiveOrders(await ordersRes.json());
+        const noir = await noirRes.json();
+        setLiveProducts(noir.products || []);
+        setLiveBookings(noir.bookings || []);
+        setLiveInventory(await invRes.json());
+        setLiveLoaded(true);
+      } catch (e: any) {
+        setLiveError(e?.message || "Something went wrong loading live data.");
+      } finally {
+        setLiveLoading(false);
+      }
+    })();
+  }, [tab, liveLoaded]);
 
   const stats = useMemo(() => {
     const active = orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled");
@@ -151,6 +248,7 @@ export default function StitchBook() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "orders", label: "Orders", icon: Scissors },
     { id: "inventory", label: "Inventory", icon: Package },
+    { id: "live", label: "Live", icon: Radio },
   ];
 
   return (
@@ -174,7 +272,9 @@ export default function StitchBook() {
           </button>
         ))}
         <div className="mt-auto px-2 py-3 text-[11px] text-gray-500 leading-relaxed">
-          Live demo &mdash; edits are visible to every visitor and old rows are pruned automatically.
+          Dashboard/Orders/Inventory: a live demo &mdash; edits are visible to every visitor and old rows are
+          pruned automatically. The Live tab is different: real, read-only data from AtelierFit &amp; Atelier
+          Noir, intentionally left unlocked.
         </div>
       </aside>
 
@@ -387,6 +487,166 @@ export default function StitchBook() {
                 </tbody>
               </table>
             </div>
+          </motion.div>
+        )}
+
+        {tab === "live" && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-display font-semibold">Live</h1>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-medium">
+                <Radio size={11} /> Real data, not a demo
+              </span>
+            </div>
+            <p className="text-sm text-gray-400 max-w-2xl">
+              This tab is genuinely connected to Abdulwahab's actual AtelierFit and Atelier Noir businesses &mdash;
+              real orders, real bookings, real stock. It's intentionally left unlocked, read-only, so you can see
+              it's really wired up rather than take that on faith. (The Dashboard/Orders/Inventory tabs are the
+              separate, editable demo &mdash; this one can't be edited by visitors.)
+            </p>
+
+            {liveError && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm">{liveError}</div>}
+            {liveLoading && !liveLoaded && <p className="text-gray-500 text-sm">Loading live data&hellip;</p>}
+
+            {liveOverview && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-5 rounded-xl bg-white/[0.03] border border-white/10">
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">AtelierFit orders</p>
+                  <p className="text-3xl font-display font-semibold">{liveOverview.atelierfit.totalOrders}</p>
+                  <p className="text-xs text-gray-500 mt-1">{liveOverview.atelierfit.activeOrders} active</p>
+                </div>
+                <div className="p-5 rounded-xl bg-white/[0.03] border border-white/10">
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Atelier Noir</p>
+                  <p className="text-3xl font-display font-semibold">{liveOverview.atelierNoir.publishedProducts}</p>
+                  <p className="text-xs text-gray-500 mt-1">published pieces &middot; {liveOverview.atelierNoir.totalBookings} bookings</p>
+                </div>
+                <div className="p-5 rounded-xl bg-white/[0.03] border border-white/10">
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1.5">
+                    <AlertTriangle size={12} /> Real stock
+                  </p>
+                  <p className="text-3xl font-display font-semibold">{liveOverview.inventory.totalItems}</p>
+                  <p className="text-xs text-gray-500 mt-1">{liveOverview.inventory.lowStockCount} running low</p>
+                </div>
+              </div>
+            )}
+
+            {liveOrders.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-300 mb-2">AtelierFit &mdash; real orders</h2>
+                <div className="overflow-x-auto rounded-xl border border-white/10">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-white/[0.03] text-left text-gray-400 text-xs uppercase tracking-wider">
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Garment</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Delivery</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveOrders.map((o) => (
+                        <tr key={o.id} className="border-t border-white/5">
+                          <td className="px-4 py-3">
+                            <div>{o.customer_name}</div>
+                            <div className="text-xs text-gray-500">{o.customer_email}{o.customer_phone ? ` · ${o.customer_phone}` : ""}</div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">{o.garment_type}{o.fabric ? ` (${o.fabric})` : ""}</td>
+                          <td className="px-4 py-3">{naira(Math.round(o.amount_kobo / 100))}</td>
+                          <td className="px-4 py-3">{o.status}</td>
+                          <td className="px-4 py-3 text-gray-400">
+                            {o.delivery_method === "shipping" ? `Shipping${o.shipping_address ? ` — ${o.shipping_address}` : ""}` : "Pickup"}
+                            {o.tracking_number && <div className="text-xs text-gold font-mono">Tracking: {o.tracking_number}</div>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {liveProducts.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-300 mb-2">Atelier Noir &mdash; published catalog</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {liveProducts.map((p) => (
+                    <div key={p.id} className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                      {p.image_url && <img src={p.image_url} alt={p.name} className="w-full h-24 object-cover rounded-lg mb-2" />}
+                      <p className="text-sm font-medium truncate">{p.name}</p>
+                      <p className="text-xs text-gray-500">{p.category}</p>
+                      {p.price != null && <p className="text-xs text-gold">{p.currency} {p.price.toLocaleString()}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {liveBookings.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-300 mb-2">Atelier Noir &mdash; real bookings</h2>
+                <div className="overflow-x-auto rounded-xl border border-white/10">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-white/[0.03] text-left text-gray-400 text-xs uppercase tracking-wider">
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Contact</th>
+                        <th className="px-4 py-3">Kind / service</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveBookings.map((b) => (
+                        <tr key={b.id} className="border-t border-white/5">
+                          <td className="px-4 py-3">{b.full_name}</td>
+                          <td className="px-4 py-3 text-gray-400">{b.email}{b.phone ? ` · ${b.phone}` : ""}</td>
+                          <td className="px-4 py-3 text-gray-400">{b.kind}{b.service ? ` — ${b.service}` : ""}</td>
+                          <td className="px-4 py-3">{b.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {liveInventory.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-300 mb-2">Real fabric &amp; supplies stock</h2>
+                <div className="overflow-x-auto rounded-xl border border-white/10">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-white/[0.03] text-left text-gray-400 text-xs uppercase tracking-wider">
+                        <th className="px-4 py-3">Item</th>
+                        <th className="px-4 py-3">Category</th>
+                        <th className="px-4 py-3">Quantity</th>
+                        <th className="px-4 py-3">Supplier</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveInventory.map((i) => (
+                        <tr key={i.id} className="border-t border-white/5">
+                          <td className="px-4 py-3">{i.item_name}</td>
+                          <td className="px-4 py-3 text-gray-400">{i.category}</td>
+                          <td className="px-4 py-3">
+                            <span className={i.quantity <= i.reorder_level ? "text-amber-300 font-medium" : ""}>
+                              {i.quantity} {i.unit}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">{i.supplier || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {liveLoaded && liveOrders.length === 0 && liveProducts.length === 0 && liveBookings.length === 0 && liveInventory.length === 0 && (
+              <p className="text-gray-500 text-sm flex items-center gap-1.5">
+                Nothing real to show yet. <ExternalLink size={12} />
+              </p>
+            )}
           </motion.div>
         )}
       </main>

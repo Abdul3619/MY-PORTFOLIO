@@ -5,6 +5,16 @@
 // to add/edit/delete rows to see how it behaves. RLS on the tables already allows anon full CRUD (see the
 // migration); this router just adds basic shape validation and prunes each table back to MAX_ROWS on insert
 // so the demo can't grow without bound.
+//
+// The /live/* routes below are a second, deliberately separate thing added later: real, read-only data from
+// the actual AtelierFit and Atelier Noir businesses, plus a real fabric/supplies inventory. Abdulwahab's own
+// explicit instruction was to NOT lock any of this behind a login -- the whole point is that a visitor (a
+// prospective client) can see this is genuinely connected to real, live data, not a mockup -- so these stay
+// public and unauthenticated exactly like the demo routes above, on the same /api/stitchbook mount as a single
+// project with one real-life URL. They are GET-only, though: nothing here lets a visitor write to real
+// customer orders or real stock -- that's intentionally still managed from the locked /admin area (see
+// server.ts's requireAuth-gated /api/admin/inventory and the existing /api/atelierfit/admin routes), since
+// "don't lock the dashboard" was about viewing it, not about handing public write access to real business data.
 
 import express from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -224,6 +234,105 @@ export function createStitchBookRouter(deps: { supabaseUrl: string; supabaseServ
         return;
       }
       res.status(204).end();
+    }),
+  );
+
+  // ---- Live (real, read-only, intentionally unlocked) -----------------------
+  //
+  // Same service-role client as above, now pointed at the real tables instead of the demo ones. These three
+  // tables -- atelierfit_orders, agbada_products/agbada_bookings, workshop_inventory -- all live in this same
+  // Supabase project, so no extra connection or secret is needed, only different table names. Read-only: GET
+  // only, no insert/update/delete routes exist here, on purpose.
+
+  const LIVE_ORDER_LIMIT = 100;
+
+  router.get(
+    '/live/atelierfit-orders',
+    asyncHandler(async (_req, res) => {
+      const { data, error } = await db
+        .from('atelierfit_orders')
+        .select(
+          'id, customer_name, customer_email, customer_phone, garment_type, fabric, occasion, amount_kobo, payment_status, status, delivery_method, shipping_address, tracking_number, appointment_date, appointment_time, created_at',
+        )
+        .order('created_at', { ascending: false })
+        .limit(LIVE_ORDER_LIMIT);
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.json(data);
+    }),
+  );
+
+  router.get(
+    '/live/atelier-noir',
+    asyncHandler(async (_req, res) => {
+      const [productsRes, bookingsRes] = await Promise.all([
+        db
+          .from('agbada_products')
+          .select('id, name, description, price, currency, category, image_url, is_published, sort_order')
+          .eq('is_published', true)
+          .order('sort_order', { ascending: true })
+          .limit(LIVE_ORDER_LIMIT),
+        db
+          .from('agbada_bookings')
+          .select('id, kind, full_name, email, phone, service, preferred_date, message, status, created_at')
+          .order('created_at', { ascending: false })
+          .limit(LIVE_ORDER_LIMIT),
+      ]);
+      if (productsRes.error) {
+        res.status(500).json({ error: productsRes.error.message });
+        return;
+      }
+      if (bookingsRes.error) {
+        res.status(500).json({ error: bookingsRes.error.message });
+        return;
+      }
+      res.json({ products: productsRes.data, bookings: bookingsRes.data });
+    }),
+  );
+
+  router.get(
+    '/live/inventory',
+    asyncHandler(async (_req, res) => {
+      const { data, error } = await db
+        .from('workshop_inventory')
+        .select('id, item_name, category, quantity, unit, reorder_level, supplier, notes, updated_at')
+        .order('item_name', { ascending: true });
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.json(data);
+    }),
+  );
+
+  // One combined summary so the Live tab's headline numbers load in a single request.
+  router.get(
+    '/live/overview',
+    asyncHandler(async (_req, res) => {
+      const [ordersRes, productsRes, bookingsRes, inventoryRes] = await Promise.all([
+        db.from('atelierfit_orders').select('id, status, amount_kobo, payment_status'),
+        db.from('agbada_products').select('id', { count: 'exact', head: true }).eq('is_published', true),
+        db.from('agbada_bookings').select('id, status').order('created_at', { ascending: false }).limit(LIVE_ORDER_LIMIT),
+        db.from('workshop_inventory').select('id, quantity, reorder_level'),
+      ]);
+      if (ordersRes.error || bookingsRes.error || inventoryRes.error) {
+        res.status(500).json({ error: ordersRes.error?.message || bookingsRes.error?.message || inventoryRes.error?.message });
+        return;
+      }
+      const orders = ordersRes.data || [];
+      const activeOrders = orders.filter((o: { status: string }) => o.status !== 'Delivered' && o.status !== 'Cancelled');
+      const paidRevenueKobo = orders
+        .filter((o: { payment_status: string }) => o.payment_status === 'paid')
+        .reduce((sum: number, o: { amount_kobo: number }) => sum + (o.amount_kobo || 0), 0);
+      const inventory = inventoryRes.data || [];
+      const lowStockCount = inventory.filter((i: { quantity: number; reorder_level: number }) => i.quantity <= i.reorder_level).length;
+      res.json({
+        atelierfit: { totalOrders: orders.length, activeOrders: activeOrders.length, paidRevenueKobo },
+        atelierNoir: { publishedProducts: productsRes.count ?? 0, totalBookings: (bookingsRes.data || []).length },
+        inventory: { totalItems: inventory.length, lowStockCount },
+      });
     }),
   );
 

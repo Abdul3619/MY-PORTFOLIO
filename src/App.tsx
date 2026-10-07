@@ -26,6 +26,7 @@ import { AdminLayout, ProtectedRoute, AdminLogin } from "./components/admin/Admi
 import Maintenance from "./pages/Maintenance";
 const AtelierFit = lazy(() => import("./pages/AtelierFit"));
 const AdminAtelierFit = lazy(() => import("./pages/admin/AdminAtelierFit"));
+const AdminInventory = lazy(() => import("./pages/admin/AdminInventory"));
 const StitchBook = lazy(() => import("./pages/StitchBook"));
 const PhoneFrameShowcase = lazy(() => import("./pages/PhoneFrameShowcase"));
 
@@ -170,6 +171,7 @@ function AnimatedRoutes() {
           <Route path="/admin/media" element={adminPage(AdminMedia)} />
           <Route path="/admin/account" element={adminPage(AdminAccount)} />
           <Route path="/admin/atelierfit" element={adminPage(AdminAtelierFit)} />
+          <Route path="/admin/inventory" element={adminPage(AdminInventory)} />
         </Route>
       </Route>
     </Routes>

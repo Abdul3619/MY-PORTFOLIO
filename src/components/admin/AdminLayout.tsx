@@ -33,7 +33,8 @@ import {
   Star,
   KeyRound,
   Radar,
-  Ruler
+  Ruler,
+  Package
 } from 'lucide-react';
 
 // Real-time Toast Notification Type
@@ -276,6 +277,7 @@ export const AdminLayout: React.FC = () => {
       case '/admin/leads': return 'Leads / CRM Engine';
       case '/admin/outreach': return 'AI Outreach';
       case '/admin/atelierfit': return 'AtelierFit Orders';
+      case '/admin/inventory': return 'Real Inventory';
       case '/admin/messages': return 'Messages Inbox';
       case '/admin/analytics': return 'Visitor & Project Analytics';
       case '/admin/resume': return 'Resume Manager';
@@ -318,7 +320,8 @@ export const AdminLayout: React.FC = () => {
         { name: 'Leads / CRM Engine', path: '/admin/leads', icon: <Users size={18} /> },
         { name: 'Inbox Messages', path: '/admin/messages', icon: <Mail size={18} /> },
         { name: 'AI Outreach', path: '/admin/outreach', icon: <Radar size={18} /> },
-        { name: 'AtelierFit Orders', path: '/admin/atelierfit', icon: <Ruler size={18} /> }
+        { name: 'AtelierFit Orders', path: '/admin/atelierfit', icon: <Ruler size={18} /> },
+        { name: 'Real Inventory', path: '/admin/inventory', icon: <Package size={18} /> }
       ]
     },
     {
