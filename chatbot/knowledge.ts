@@ -160,7 +160,7 @@ export type DashboardLinkResult = { ok: true; url: string } | { ok: false; error
 // here simply isn't supported yet, which createDashboardLink() reports as 'not_supported'.
 const DASHBOARD_LINK_HANDLERS: Record<string, () => Promise<DashboardLinkResult>> = {
   'atelier-noir': () => createAgbadaDashboardLink(),
-  'shion-orne': () => createShionOrneDashboardLink(),
+  'shin-orne': () => createShionOrneDashboardLink(),
   'h-orizon-hotel': () => createHorizonDashboardLink(),
 };
 
