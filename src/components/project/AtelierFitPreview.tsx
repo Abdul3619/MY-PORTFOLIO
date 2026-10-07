@@ -27,8 +27,9 @@ export function AtelierFitPreview({
 }) {
   // Use relative route /atelierfit for the iframe preview to avoid cross-origin framing blocks
   const iframeSrc = (!url || url.includes("abdulwahab-portfolio-tau.vercel.app") || url.includes("/atelierfit")) ? "/atelierfit" : url;
-  const qrTarget = typeof window !== "undefined" ? `${window.location.origin}/atelierfit` : (url || "https://abdulwahab-portfolio-tau.vercel.app/atelierfit");
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&color=212-175-55&bgcolor=11-10-8&data=${encodeURIComponent(qrTarget)}`;
+  // Our own server-generated code (atelierfit/route.ts) -- the actual live /atelierfit URl with the
+  // AtelierFit icon composited into the center, not a third-party QR service.
+  const qrSrc = "/api/atelierfit/qr-code.png";
 
   return (
     <motion.section
