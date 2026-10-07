@@ -159,15 +159,20 @@ export type DashboardLinkResult = { ok: true; url: string } | { ok: false; error
 // a matching function below) for each project as its own magic-link mechanism is built; a slug with no entry
 // here simply isn't supported yet, which createDashboardLink() reports as 'not_supported'.
 const DASHBOARD_LINK_HANDLERS: Record<string, () => Promise<DashboardLinkResult>> = {
-  'agbada-luxe': () => createAgbadaDashboardLink(),
+  'atelier-noir': () => createAgbadaDashboardLink(),
   'shion-orne': () => createShionOrneDashboardLink(),
   'h-orizon-hotel': () => createHorizonDashboardLink(),
 };
 
-// Agbada Luxe is a separate frontend-only app that happens to share this same Supabase project, so its
+// Atelier Noir (renamed from Agbada Luxe -- same app, same code, same repo, just a broader worldwide-fashion
+// name/domain) is a separate frontend-only app that happens to share this same Supabase project, so its
 // agbada_admin_create_magic_link() function is reachable over this same chatbot_reader connection -- no separate
 // API call needed. The function itself is locked down to only chatbot_reader/service_role (see its migration in
-// the agbada-luxe repo), so this server is the only thing besides Abdulwahab's own SQL access that can mint one.
+// the agbada-luxe repo -- the underlying function/table names weren't renamed, only the public slug/title/domain),
+// so this server is the only thing besides Abdulwahab's own SQL access that can mint one. The live site now
+// answers on BOTH its original agbada-luxe.vercel.app domain and the new atelier-noir-official.vercel.app domain
+// (same Vercel project, two domains) -- the magic link is minted against the new domain, but the old one still
+// works for anything that already links to it.
 async function createAgbadaDashboardLink(): Promise<DashboardLinkResult> {
   const { rows } = await getPool().query<{ ok: boolean; error: string | null; link_token: string | null }>(
     'select ok, error, link_token from public.agbada_admin_create_magic_link($1)',
@@ -175,7 +180,7 @@ async function createAgbadaDashboardLink(): Promise<DashboardLinkResult> {
   );
   const row = rows[0];
   if (!row?.ok || !row.link_token) return { ok: false, error: row?.error || 'unknown' };
-  return { ok: true, url: `https://agbada-luxe.vercel.app/admin/magic/${row.link_token}` };
+  return { ok: true, url: `https://atelier-noir-official.vercel.app/admin/magic/${row.link_token}` };
 }
 
 // Shion Orne has its own, separate Supabase project -- unlike Agbada Luxe it doesn't share this server's database,
