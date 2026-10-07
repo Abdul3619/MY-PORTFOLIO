@@ -33,32 +33,21 @@ export default function Projects() {
   const navigate = useNavigate();
   const { data: projectsData, isLoading, error } = useProjects();
   const [query, setQuery] = useState("");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    (projectsData || []).forEach((p: any) => {
-      (p.tags || []).forEach((tag: string) => set.add(tag));
-      (p.tech_stack || p.techStack || []).forEach((tech: string) => set.add(tech));
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [projectsData]);
 
   const filteredProjects = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (projectsData || []).filter((p: any) => {
-      const tagsAndStack = [...(p.tags || []), ...(p.tech_stack || p.techStack || [])];
-      if (activeTag && !tagsAndStack.includes(activeTag)) return false;
       if (!q) return true;
+      const tagsAndStack = [...(p.tags || []), ...(p.tech_stack || p.techStack || [])];
       return (
         p.title?.toLowerCase().includes(q) ||
         p.description?.toLowerCase().includes(q) ||
         tagsAndStack.some((v: string) => v.toLowerCase().includes(q))
       );
     });
-  }, [projectsData, query, activeTag]);
+  }, [projectsData, query]);
 
   // Type-ahead suggestions: as the visitor types, surface the *matching word* (title, tag, or
   // tech-stack term) alongside the project it belongs to -- so a visitor who doesn't recall a
@@ -225,29 +214,9 @@ export default function Projects() {
               </div>
             )}
           </div>
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2">
-              <button
-                onClick={() => setActiveTag(null)}
-                className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-full border transition-colors interactive ${
-                  activeTag === null ? "bg-gold text-black border-gold" : "bg-white/5 text-gray-400 border-white/10 hover:border-gold/40 hover:text-white"
-                }`}
-              >
-                {t("projects.filter_all", "All")}
-              </button>
-              {allTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                  className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-full border transition-colors interactive ${
-                    activeTag === tag ? "bg-gold text-black border-gold" : "bg-white/5 text-gray-400 border-white/10 hover:border-gold/40 hover:text-white"
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
+          <p className="text-center text-xs font-mono uppercase tracking-widest text-gray-500">
+            {t("projects.browse_hint", "Feel free to browse my work below")}
+          </p>
         </div>
 
         {filteredProjects.length === 0 && (
