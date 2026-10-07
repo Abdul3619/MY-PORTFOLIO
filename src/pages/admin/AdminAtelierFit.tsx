@@ -21,11 +21,20 @@ interface Order {
   amount_kobo: number;
   payment_status: "pending" | "paid" | "failed";
   status: string;
+  delivery_method: "pickup" | "shipping";
+  shipping_address: string | null;
+  tracking_number: string | null;
   notes: string | null;
   created_at: string;
 }
 
-const STATUSES = ["New", "Confirmed", "In Progress", "Ready", "Delivered", "Cancelled"];
+// The real tailoring sub-stages, in order -- matches atelierfit/route.ts's own ALL_STATUSES exactly, so a
+// status this dropdown can set is always one the PATCH route actually accepts. "Shipped" is only offered
+// for orders the customer chose shipping for (see the per-order status list below); pickup orders skip
+// straight from "Ready" to "Delivered".
+const BASE_STATUSES = ["New", "Confirmed", "Cutting", "Sewing", "Embroidery", "Quality Check", "Ready"];
+const SHIPPING_ONLY_STATUSES = ["Shipped"];
+const FINAL_STATUSES = ["Delivered", "Cancelled"];
 
 async function authedFetch(url: string, init?: RequestInit) {
   const { data: { session } } = await supabase.auth.getSession();
@@ -39,6 +48,11 @@ export default function AdminAtelierFit() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  // Shipping needs a real tracking number before the backend will accept "Shipped" (see route.ts) -- these
+  // hold the in-progress value per order while the admin types it, and which orders currently have the
+  // tracking-number confirm box open.
+  const [trackingDraft, setTrackingDraft] = useState<Record<string, string>>({});
+  const [pendingShip, setPendingShip] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     setLoading(true);
@@ -49,11 +63,26 @@ export default function AdminAtelierFit() {
 
   useEffect(() => { load(); }, []);
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (id: string, status: string, trackingNumber?: string) => {
     setUpdating(id);
-    await authedFetch(`/api/atelierfit/admin/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    await authedFetch(`/api/atelierfit/admin/orders/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(trackingNumber ? { status, trackingNumber } : { status }),
+    });
     await load();
     setUpdating(null);
+  };
+
+  const handleStatusChange = (o: Order, newStatus: string) => {
+    if (newStatus === "Shipped") {
+      // Needs a real tracking number first -- hold off on the PATCH until the admin confirms one, rather
+      // than sending a request the server will just reject.
+      setTrackingDraft((d) => ({ ...d, [o.id]: d[o.id] ?? o.tracking_number ?? "" }));
+      setPendingShip((p) => ({ ...p, [o.id]: true }));
+      return;
+    }
+    setPendingShip((p) => ({ ...p, [o.id]: false }));
+    updateStatus(o.id, newStatus);
   };
 
   if (loading) {
@@ -114,6 +143,13 @@ export default function AdminAtelierFit() {
                     {o.appointment_time ? ` · ${o.appointment_time}` : ""}
                   </div>
                 )}
+                <div className="text-xs text-gray-400 mt-1">
+                  {o.delivery_method === "shipping" ? "Shipping" : "Pickup"}
+                  {o.delivery_method === "shipping" && o.shipping_address ? ` -- ${o.shipping_address}` : ""}
+                </div>
+                {o.tracking_number && (
+                  <div className="text-xs text-[#D4AF37] font-mono mt-0.5">Tracking: {o.tracking_number}</div>
+                )}
               </div>
               <div className="text-right">
                 <div className="text-sm font-mono text-[#D4AF37]">₦{(o.amount_kobo / 100).toLocaleString("en-NG")} deposit</div>
@@ -137,14 +173,40 @@ export default function AdminAtelierFit() {
             <div className="mt-4 flex items-center gap-3">
               <label className="text-xs text-gray-400 font-mono">Status</label>
               <select
-                value={o.status}
+                value={pendingShip[o.id] ? "Shipped" : o.status}
                 disabled={updating === o.id}
-                onChange={(e) => updateStatus(o.id, e.target.value)}
+                onChange={(e) => handleStatusChange(o, e.target.value)}
                 className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white"
               >
-                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {[...BASE_STATUSES, ...(o.delivery_method === "shipping" ? SHIPPING_ONLY_STATUSES : []), ...FINAL_STATUSES].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
               </select>
             </div>
+            {pendingShip[o.id] && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                <label className="text-xs text-gray-400 font-mono">Tracking #</label>
+                <input
+                  value={trackingDraft[o.id] ?? ""}
+                  onChange={(e) => setTrackingDraft((d) => ({ ...d, [o.id]: e.target.value }))}
+                  placeholder="e.g. courier waybill number"
+                  className="flex-1 min-w-[160px] bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white"
+                />
+                <button
+                  disabled={!trackingDraft[o.id]?.trim() || updating === o.id}
+                  onClick={() => { updateStatus(o.id, "Shipped", trackingDraft[o.id].trim()); setPendingShip((p) => ({ ...p, [o.id]: false })); }}
+                  className="px-3 py-1.5 rounded-lg bg-[#D4AF37] text-black text-xs font-semibold disabled:opacity-40"
+                >
+                  Confirm shipped
+                </button>
+                <button
+                  onClick={() => setPendingShip((p) => ({ ...p, [o.id]: false }))}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </GlassCard>
         ))}
       </div>

@@ -48,6 +48,28 @@ const ESTIMATED_TURNAROUND_DAYS = 9; // "7-10 days" from the reference design, m
 
 const DEPOSIT_RATE = 0.4;
 
+// Real order-progress stages, set by the tailor from the admin dashboard -- one shared source of truth so
+// the customer-facing timeline (which fetches this from /config) never drifts out of sync with what the
+// admin PATCH route actually accepts. Pickup orders skip "Shipped" entirely; shipping orders pass through
+// it between "Ready" and "Delivered". "Cancelled" can be set from any pre-Delivered state but isn't part
+// of either ordered timeline.
+const PICKUP_STAGES = ['New', 'Confirmed', 'Cutting', 'Sewing', 'Embroidery', 'Quality Check', 'Ready', 'Delivered'] as const;
+const SHIPPING_STAGES = ['New', 'Confirmed', 'Cutting', 'Sewing', 'Embroidery', 'Quality Check', 'Ready', 'Shipped', 'Delivered'] as const;
+const ALL_STATUSES = [...SHIPPING_STAGES, 'Cancelled'] as const; // superset -- every status PATCH is allowed to set
+
+const STATUS_LABELS: Record<string, string> = {
+  New: 'Order received',
+  Confirmed: 'Deposit confirmed',
+  Cutting: 'Fabric cut',
+  Sewing: 'Sewing in progress',
+  Embroidery: 'Embroidery / finishing',
+  'Quality Check': 'Quality check',
+  Ready: 'Ready',
+  Shipped: 'Shipped',
+  Delivered: 'Delivered',
+  Cancelled: 'Cancelled',
+};
+
 const measurementsSchema = z.object({
   heightCm: z.number().positive().max(260),
   shoulderWidthCm: z.number().positive().max(100).optional(),
@@ -59,20 +81,27 @@ const measurementsSchema = z.object({
   legLengthCm: z.number().positive().max(140).optional(),
 }).passthrough();
 
-const createOrderSchema = z.object({
-  customerName: z.string().min(1).max(120),
-  customerEmail: z.string().email().max(254),
-  customerPhone: z.string().max(30).optional().nullable(),
-  garment: z.string().refine((g) => g in GARMENTS, { message: 'Unknown garment type' }),
-  fabric: z.string().refine((f) => f in FABRICS, { message: 'Unknown fabric' }).optional().nullable(),
-  embroideryNotes: z.string().max(500).optional().nullable(),
-  occasion: z.enum(OCCASIONS).optional().nullable(),
-  appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'appointmentDate must be YYYY-MM-DD').optional().nullable(),
-  appointmentTime: z.string().refine((t) => TIME_SLOTS.includes(t), { message: 'Unknown time slot' }).optional().nullable(),
-  notes: z.string().max(2000).optional().nullable(),
-  measurements: measurementsSchema,
-  measurementMethod: z.enum(['camera_ai', 'manual']),
-});
+const createOrderSchema = z
+  .object({
+    customerName: z.string().min(1).max(120),
+    customerEmail: z.string().email().max(254),
+    customerPhone: z.string().max(30).optional().nullable(),
+    garment: z.string().refine((g) => g in GARMENTS, { message: 'Unknown garment type' }),
+    fabric: z.string().refine((f) => f in FABRICS, { message: 'Unknown fabric' }).optional().nullable(),
+    embroideryNotes: z.string().max(500).optional().nullable(),
+    occasion: z.enum(OCCASIONS).optional().nullable(),
+    appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'appointmentDate must be YYYY-MM-DD').optional().nullable(),
+    appointmentTime: z.string().refine((t) => TIME_SLOTS.includes(t), { message: 'Unknown time slot' }).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+    measurements: measurementsSchema,
+    measurementMethod: z.enum(['camera_ai', 'manual']),
+    deliveryMethod: z.enum(['pickup', 'shipping']).optional().nullable(),
+    shippingAddress: z.string().max(500).optional().nullable(),
+  })
+  .refine((body) => body.deliveryMethod !== 'shipping' || Boolean(body.shippingAddress?.trim()), {
+    message: 'A shipping address is required when delivery is by shipping',
+    path: ['shippingAddress'],
+  });
 
 export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandler; supabaseUrl: string; supabaseServiceKey: string }) {
   const router = express.Router();
@@ -98,7 +127,9 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
     '/config',
     asyncHandler(async (_req, res) => {
       // Real selectable dates -- the next BOOKING_WINDOW_DAYS calendar days, Mondays-Saturdays only (the
-      // reference design's calendar grid needs actual dates to render, not just a visual mockup).
+      // reference design's calendar grid needs actual dates to render, not just a visual mockup). Kept as
+      // a flat list for any caller still reading it directly, alongside the window bounds a real month-view
+      // calendar needs to render its own grid (today/prev/next month navigation, disabled days) client-side.
       const bookableDates: string[] = [];
       const cursor = new Date();
       cursor.setHours(0, 0, 0, 0);
@@ -116,9 +147,56 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
         occasions: OCCASIONS,
         depositRate: DEPOSIT_RATE,
         bookableDates,
+        bookingWindowStart: bookableDates[0],
+        bookingWindowEnd: bookableDates[bookableDates.length - 1],
+        closedWeekdays: [0], // Sunday
         timeSlots: TIME_SLOTS,
         estimatedTurnaroundDays: ESTIMATED_TURNAROUND_DAYS,
+        pickupStages: PICKUP_STAGES,
+        shippingStages: SHIPPING_STAGES,
+        statusLabels: STATUS_LABELS,
       });
+    }),
+  );
+
+  // ---- Public: booked slots in a date range, for the real calendar --------
+  //
+  // Returns which time slots are already taken on which dates, so the booking calendar can grey out a
+  // full day/slot instead of letting two customers double-book the same appointment. Clamped to the real
+  // booking window -- there's no reason to ever query or expose bookings outside it.
+  router.get(
+    '/availability',
+    asyncHandler(async (req, res) => {
+      const windowStart = new Date();
+      windowStart.setHours(0, 0, 0, 0);
+      windowStart.setDate(windowStart.getDate() + 1);
+      const windowEnd = new Date(windowStart);
+      windowEnd.setDate(windowEnd.getDate() + BOOKING_WINDOW_DAYS + 7); // small buffer past the window
+
+      const fromStr = typeof req.query.from === 'string' ? req.query.from : windowStart.toISOString().slice(0, 10);
+      const toStr = typeof req.query.to === 'string' ? req.query.to : windowEnd.toISOString().slice(0, 10);
+
+      const { data, error } = await db
+        .from('atelierfit_orders')
+        .select('appointment_date, appointment_time')
+        .not('appointment_date', 'is', null)
+        .not('appointment_time', 'is', null)
+        .neq('status', 'Cancelled')
+        .gte('appointment_date', fromStr)
+        .lte('appointment_date', toStr);
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+
+      const bookedSlots: Record<string, string[]> = {};
+      for (const row of data || []) {
+        const d = row.appointment_date as string;
+        const t = row.appointment_time as string;
+        if (!bookedSlots[d]) bookedSlots[d] = [];
+        bookedSlots[d].push(t);
+      }
+      res.json({ bookedSlots });
     }),
   );
 
@@ -186,6 +264,26 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
       const amountKobo = amountNaira * 100;
       const reference = `ATF-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
 
+      // Re-check the slot server-side right before booking it -- the client's calendar already greys out
+      // taken slots from /availability, but that's a point-in-time read; this is the real guard against two
+      // customers racing for the same appointment.
+      if (body.appointmentDate && body.appointmentTime) {
+        const { count, error: slotErr } = await db
+          .from('atelierfit_orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('appointment_date', body.appointmentDate)
+          .eq('appointment_time', body.appointmentTime)
+          .neq('status', 'Cancelled');
+        if (slotErr) {
+          res.status(500).json({ error: slotErr.message });
+          return;
+        }
+        if ((count || 0) > 0) {
+          res.status(409).json({ error: 'That appointment slot was just booked by someone else -- please pick another.' });
+          return;
+        }
+      }
+
       const { data, error } = await db
         .from('atelierfit_orders')
         .insert({
@@ -209,6 +307,8 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
           payment_reference: reference,
           payment_status: 'pending',
           status: 'New',
+          delivery_method: body.deliveryMethod || 'pickup',
+          shipping_address: body.deliveryMethod === 'shipping' ? body.shippingAddress?.trim() || null : null,
         })
         .select('id, payment_reference, amount_kobo, created_at')
         .single();
@@ -285,6 +385,38 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
     }),
   );
 
+  // ---- Public (by reference): live order-progress status for polling -----
+  //
+  // Same security model as /verify above: possession of the payment reference (a long random token only
+  // the customer who placed the order ever receives) is the authorization, not a signed-in session -- this
+  // is what lets the success screen poll for live status updates even for guest checkouts. Returns only
+  // the minimal fields the tracking screen needs, never name/email/measurements/notes.
+  router.get(
+    '/orders/:reference/status',
+    asyncHandler(async (req, res) => {
+      const { data, error } = await db
+        .from('atelierfit_orders')
+        .select('status, payment_status, delivery_method, tracking_number, shipped_at, delivered_at, appointment_date, created_at')
+        .eq('payment_reference', req.params.reference)
+        .single();
+      if (error || !data) {
+        res.status(404).json({ error: 'Order not found for that reference' });
+        return;
+      }
+      const anchor = data.appointment_date ? new Date(data.appointment_date) : new Date(data.created_at);
+      res.json({
+        status: data.status,
+        statusLabel: STATUS_LABELS[data.status] || data.status,
+        paymentStatus: data.payment_status,
+        deliveryMethod: data.delivery_method,
+        trackingNumber: data.tracking_number,
+        shippedAt: data.shipped_at,
+        deliveredAt: data.delivered_at,
+        estimatedReadyAt: new Date(anchor.getTime() + ESTIMATED_TURNAROUND_DAYS * 86400000).toISOString(),
+      });
+    }),
+  );
+
   // ---- Public (customer-authenticated): my own order history + profile ----
   //
   // Orders have no RLS read access for anon/authenticated (see the migration) -- the service-role client
@@ -310,7 +442,7 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
 
       const { data, error } = await db
         .from('atelierfit_orders')
-        .select('id, garment_type, fabric, occasion, amount_kobo, currency, payment_status, status, measurements, appointment_date, appointment_time, created_at')
+        .select('id, garment_type, fabric, occasion, amount_kobo, currency, payment_status, status, delivery_method, shipping_address, tracking_number, measurements, appointment_date, appointment_time, created_at')
         .eq('customer_email', email)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -353,14 +485,24 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
     deps.requireAuth,
     asyncHandler(async (req, res) => {
       const status = typeof req.body?.status === 'string' ? req.body.status : null;
-      const allowed = ['New', 'Confirmed', 'In Progress', 'Ready', 'Delivered', 'Cancelled'];
-      if (!status || !allowed.includes(status)) {
-        res.status(400).json({ error: `status must be one of ${allowed.join(', ')}` });
+      const trackingNumber = typeof req.body?.trackingNumber === 'string' ? req.body.trackingNumber.trim() : null;
+      if (!status || !ALL_STATUSES.includes(status as (typeof ALL_STATUSES)[number])) {
+        res.status(400).json({ error: `status must be one of ${ALL_STATUSES.join(', ')}` });
         return;
       }
+      if (status === 'Shipped' && !trackingNumber) {
+        res.status(400).json({ error: 'trackingNumber is required when marking an order Shipped' });
+        return;
+      }
+
+      const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+      if (trackingNumber) update.tracking_number = trackingNumber;
+      if (status === 'Shipped') update.shipped_at = new Date().toISOString();
+      if (status === 'Delivered') update.delivered_at = new Date().toISOString();
+
       const { data, error } = await db
         .from('atelierfit_orders')
-        .update({ status, updated_at: new Date().toISOString() })
+        .update(update)
         .eq('id', req.params.id)
         .select()
         .single();

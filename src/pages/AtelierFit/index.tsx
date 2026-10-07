@@ -13,6 +13,7 @@ import { useContactInfo } from "@/hooks/useApi";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { WorldCollectionBook } from "@/components/atelierfit/WorldCollectionBook";
 import { WORLD_COLLECTION, type WorldGarment } from "@/lib/atelierfit/worldCollection";
+import { BookingCalendar } from "@/components/atelierfit/BookingCalendar";
 import "@/components/atelierfit/ui/atelierfit-glass.css";
 
 // Standard four-colour "G" mark used on "Continue/Sign in with Google" buttons -- this is the button
@@ -208,13 +209,22 @@ export default function AtelierFit() {
     paystackConfigured: boolean;
     paystackPublicKey: string | null;
     bookableDates: string[];
+    bookingWindowStart: string;
+    bookingWindowEnd: string;
+    closedWeekdays: number[];
     timeSlots: string[];
     estimatedTurnaroundDays: number;
+    pickupStages: string[];
+    shippingStages: string[];
+    statusLabels: Record<string, string>;
   } | null>(null);
   const [garment, setGarment] = useState<Garment | null>(null);
   const [fabricId, setFabricId] = useState<string>("cotton");
   const [embroideryNotes, setEmbroideryNotes] = useState("");
   const [occasion, setOccasion] = useState<string | null>(null);
+  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "shipping">("pickup");
+  const [shippingAddress, setShippingAddress] = useState("");
+  const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({});
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null);
   const [appointmentTime, setAppointmentTime] = useState<string | null>(null);
   const [heightCm, setHeightCm] = useState(170);
@@ -312,6 +322,18 @@ export default function AtelierFit() {
       .catch(() => setError("Couldn't reach the server -- check your connection and reload."));
   }, []);
 
+  // Real booked slots for the calendar -- re-fetched each time the booking step is opened, so a slot
+  // someone else just took doesn't keep showing as free.
+  useEffect(() => {
+    if (step !== "booking") return;
+    fetch("/api/atelierfit/availability")
+      .then((r) => r.json())
+      .then((d) => setBookedSlots(d.bookedSlots || {}))
+      .catch(() => {
+        // Non-fatal -- the server re-checks the slot again at submit time either way.
+      });
+  }, [step]);
+
   // Loads the signed-in customer's own order history -- fetched fresh each time the Profile tab is opened,
   // never cached client-side, since it's the one screen showing real order data back to them.
   useEffect(() => {
@@ -347,6 +369,44 @@ export default function AtelierFit() {
     const id = setInterval(() => setNowTick(Date.now()), 30000);
     return () => clearInterval(id);
   }, [step]);
+
+  // Live order-progress polling -- the admin dashboard can move an order through real stages (Cutting,
+  // Sewing, Shipped, etc.) at any time, so this screen re-checks the server instead of freezing at whatever
+  // status existed the moment checkout finished. Scoped by the order's own payment reference, same
+  // possession-based access the /verify route already uses -- works for guest checkouts too, no sign-in
+  // required.
+  const [liveOrderStatus, setLiveOrderStatus] = useState<{
+    status: string;
+    statusLabel: string;
+    paymentStatus: string;
+    deliveryMethod: "pickup" | "shipping";
+    trackingNumber: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+    estimatedReadyAt: string;
+  } | null>(null);
+  useEffect(() => {
+    if (step !== "success" || !order?.reference) return;
+    let cancelled = false;
+    const poll = () => {
+      fetch(`/api/atelierfit/orders/${encodeURIComponent(order.reference)}/status`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled) return;
+          setLiveOrderStatus(d);
+          if (typeof d.status === "string") setOrderStatus(d.status);
+        })
+        .catch(() => {
+          // Non-fatal -- the last-known status (from checkout or a previous poll) just stays on screen.
+        });
+    };
+    poll();
+    const id = setInterval(poll, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [step, order?.reference]);
 
   const totalPriceNaira = useMemo(() => (garment ? garment.basePriceNaira + (fabric?.surchargeNaira ?? 0) : 0), [garment, fabric]);
   const deposit = useMemo(() => Math.round(totalPriceNaira * (config?.depositRate ?? 0.4)), [totalPriceNaira, config]);
@@ -404,6 +464,8 @@ export default function AtelierFit() {
           notes: customer.notes || null,
           measurements,
           measurementMethod: method,
+          deliveryMethod,
+          shippingAddress: deliveryMethod === "shipping" ? shippingAddress : null,
         }),
       });
       const data = await res.json();
@@ -420,7 +482,7 @@ export default function AtelierFit() {
     } finally {
       setBusy(false);
     }
-  }, [garment, fabricId, embroideryNotes, occasion, appointmentDate, appointmentTime, customer, measurements, method, config]);
+  }, [garment, fabricId, embroideryNotes, occasion, appointmentDate, appointmentTime, customer, measurements, method, config, deliveryMethod, shippingAddress]);
 
   const pay = useCallback(async () => {
     if (!order || !config?.paystackPublicKey) return;
@@ -918,42 +980,20 @@ export default function AtelierFit() {
               <span className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden />
             </div>
 
-            <div>
+            <div className="rounded-xl glass-card-subtle p-4">
               <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Select a date</div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                {config.bookableDates.map((d) => {
-                  const date = new Date(d + "T00:00:00");
-                  const selected = appointmentDate === d;
-                  return (
-                    <button
-                      key={d}
-                      onClick={() => setAppointmentDate(d)}
-                      className={`shrink-0 w-14 py-2.5 rounded-xl flex flex-col items-center gap-0.5 transition-colors ${selected ? "bg-[#D6397D] text-black" : "glass-card-subtle text-white/70 hover:text-white"}`}
-                    >
-                      <span className="text-[10px] uppercase">{date.toLocaleDateString(undefined, { weekday: "short" })}</span>
-                      <span className="text-sm font-semibold">{date.getDate()}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <BookingCalendar
+                windowStart={config.bookingWindowStart}
+                windowEnd={config.bookingWindowEnd}
+                closedWeekdays={config.closedWeekdays}
+                timeSlots={config.timeSlots}
+                bookedSlots={bookedSlots}
+                selectedDate={appointmentDate}
+                selectedTime={appointmentTime}
+                onSelectDate={(d) => { setAppointmentDate(d); setAppointmentTime(null); }}
+                onSelectTime={setAppointmentTime}
+              />
             </div>
-
-            {appointmentDate && (
-              <div>
-                <div className="text-xs uppercase tracking-wide text-white/40 mb-2">Time slot</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {config.timeSlots.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setAppointmentTime(t)}
-                      className={`py-2.5 rounded-lg text-xs font-medium transition-colors ${appointmentTime === t ? "bg-[#D6397D] text-black" : "glass-card-subtle text-white/70 hover:text-white"}`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {appointmentDate && (
               <div className="rounded-xl glass-card-subtle p-4 text-sm flex items-center justify-between">
@@ -965,6 +1005,44 @@ export default function AtelierFit() {
               </div>
             )}
 
+            {/* Pickup vs shipping -- a real address is collected and stored on the order when shipping is
+                chosen, so the tailor knows where to send it; there's no courier API wired up, so what the
+                tailor later marks "Shipped" carries a real tracking number but not a live GPS feed. */}
+            <div>
+              <div className="text-xs uppercase tracking-wide text-white/40 mb-2">How should it reach you?</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => setDeliveryMethod("pickup")}
+                  className={`text-left p-3 rounded-xl transition-colors flex items-center gap-2.5 ${deliveryMethod === "pickup" ? "glass-card flowing-pink-edge" : "glass-card-subtle hover:border-pink-400/40"}`}
+                >
+                  <Package size={16} className="text-[#F06BA6] shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium">Pickup</div>
+                    <div className="text-[11px] text-white/45">At the atelier</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setDeliveryMethod("shipping")}
+                  className={`text-left p-3 rounded-xl transition-colors flex items-center gap-2.5 ${deliveryMethod === "shipping" ? "glass-card flowing-pink-edge" : "glass-card-subtle hover:border-pink-400/40"}`}
+                >
+                  <ArrowRight size={16} className="text-[#F06BA6] shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium">Shipping</div>
+                    <div className="text-[11px] text-white/45">Delivered to you</div>
+                  </div>
+                </button>
+              </div>
+              {deliveryMethod === "shipping" && (
+                <textarea
+                  value={shippingAddress}
+                  onChange={(e) => setShippingAddress(e.target.value)}
+                  placeholder="Full delivery address -- street, city, state"
+                  rows={2}
+                  className="w-full mt-2.5 p-3 rounded-lg glass-input resize-none text-sm"
+                />
+              )}
+            </div>
+
             <div className="rounded-xl glass-card p-4 space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-white/60">Deposit due now (40%)</span><span className="font-semibold">{naira(deposit)}</span></div>
               <div className="flex justify-between text-white/50 text-xs"><span>Balance on delivery (60%)</span><span>{naira(balanceDue)}</span></div>
@@ -972,7 +1050,7 @@ export default function AtelierFit() {
 
             <button
               onClick={() => setStep("details")}
-              disabled={!appointmentDate || !appointmentTime}
+              disabled={!appointmentDate || !appointmentTime || (deliveryMethod === "shipping" && !shippingAddress.trim())}
               className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors disabled:opacity-50"
             >
               Reserve appointment
@@ -1049,15 +1127,21 @@ export default function AtelierFit() {
         )}
 
         {step === "success" && (() => {
-          const STAGES = [
-            { key: "New", label: "Deposit recorded" },
-            { key: "Confirmed", label: "Deposit confirmed" },
-            { key: "In Progress", label: "Tailoring in progress" },
-            { key: "Ready", label: "Ready for pickup" },
-            { key: "Delivered", label: "Delivered" },
+          // Real stage order from the server (/config) -- pickup orders skip "Shipped" entirely, shipping
+          // orders pass through it between "Ready" and "Delivered". Falls back to the pickup list before
+          // config loads, and switches to whichever the order actually used once the first poll confirms it.
+          const effectiveDeliveryMethod = liveOrderStatus?.deliveryMethod ?? deliveryMethod;
+          const stageKeys = (effectiveDeliveryMethod === "shipping" ? config?.shippingStages : config?.pickupStages) ?? [
+            "New", "Confirmed", "Ready", "Delivered",
           ];
-          const stageIdx = Math.max(0, STAGES.findIndex((s) => s.key === orderStatus));
-          const readyAt = order?.estimatedReadyAt ? new Date(order.estimatedReadyAt).getTime() : null;
+          const STAGES = stageKeys.map((key) => ({ key, label: config?.statusLabels?.[key] ?? key }));
+          const currentStatus = liveOrderStatus?.status ?? orderStatus;
+          const stageIdx = Math.max(0, STAGES.findIndex((s) => s.key === currentStatus));
+          const readyAt = liveOrderStatus?.estimatedReadyAt
+            ? new Date(liveOrderStatus.estimatedReadyAt).getTime()
+            : order?.estimatedReadyAt
+            ? new Date(order.estimatedReadyAt).getTime()
+            : null;
           const remainingMs = readyAt ? Math.max(0, readyAt - nowTick) : null;
           const remDays = remainingMs !== null ? Math.floor(remainingMs / 86400000) : null;
           const remHours = remainingMs !== null ? Math.floor((remainingMs % 86400000) / 3600000) : null;
@@ -1096,7 +1180,9 @@ export default function AtelierFit() {
               </div>
 
               {/* Illustrative route -- not a live GPS feed (there's no courier service wired up), just a
-                  static sense of "workshop to you" alongside the real countdown below. */}
+                  static sense of "workshop to you" alongside the real countdown below. The tracking number,
+                  when there is one, is real -- set by the tailor from the admin dashboard once an order
+                  actually ships -- it's just not plugged into a live courier map. */}
               <div className="rounded-xl glass-card-subtle p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col items-center gap-1.5">
@@ -1106,13 +1192,19 @@ export default function AtelierFit() {
                   <div className="flex-1 h-px mx-2 relative top-[-10px]" style={{ backgroundImage: "repeating-linear-gradient(90deg, rgba(240,107,166,0.5) 0 6px, transparent 6px 12px)" }} aria-hidden />
                   <div className="flex flex-col items-center gap-1.5">
                     <span className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center"><User size={14} className="text-white/70" /></span>
-                    <span className="text-[10px] text-white/50">You</span>
+                    <span className="text-[10px] text-white/50">{effectiveDeliveryMethod === "shipping" ? "Your address" : "Pickup"}</span>
                   </div>
                 </div>
                 {remDays !== null && (
                   <div className="mt-4 text-center">
                     <div className="text-[11px] text-white/40 uppercase tracking-wide">Ready in</div>
                     <div className="font-serif text-lg font-semibold mt-0.5">{remDays}d {remHours}h</div>
+                  </div>
+                )}
+                {liveOrderStatus?.trackingNumber && (
+                  <div className="mt-4 pt-4 border-t border-white/10 text-center">
+                    <div className="text-[11px] text-white/40 uppercase tracking-wide">Tracking number</div>
+                    <div className="font-mono text-sm mt-0.5 text-[#F8A0C8]">{liveOrderStatus.trackingNumber}</div>
                   </div>
                 )}
               </div>
