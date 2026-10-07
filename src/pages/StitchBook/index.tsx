@@ -4,8 +4,12 @@
 // adjusting stock right away; see stitchbook/route.ts for why that's safe here.
 
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard, Radio, ExternalLink } from "lucide-react";
+import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard, Radio, ExternalLink, Lock } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { ADMIN_EMAIL } from "../../components/admin/AdminLayout";
+import AdminAtelierFit from "../admin/AdminAtelierFit";
 
 type OrderStatus = "New" | "Cutting" | "Sewing" | "Fitting" | "Ready" | "Delivered" | "Cancelled";
 
@@ -47,7 +51,7 @@ function naira(n: number) {
   return `₦${n.toLocaleString("en-NG")}`;
 }
 
-type Tab = "dashboard" | "orders" | "inventory" | "live";
+type Tab = "dashboard" | "orders" | "inventory" | "live" | "manage";
 
 interface LiveAtelierFitOrder {
   id: string;
@@ -107,7 +111,22 @@ interface LiveOverview {
 }
 
 export default function StitchBook() {
-  const [tab, setTab] = useState<Tab>("dashboard");
+  // Supports linking straight to a tab (e.g. /stitchbook?tab=manage from the admin sidebar) without
+  // adding a real sub-route for what's otherwise client-side tab state.
+  const initialTab = (): Tab => {
+    if (typeof window === "undefined") return "dashboard";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return (t === "orders" || t === "inventory" || t === "live" || t === "manage") ? t : "dashboard";
+  };
+  const [tab, setTab] = useState<Tab>(initialTab);
+  // Manage is the one real, write-capable tab -- it's the actual AtelierFit order-management screen
+  // (formerly its own locked /admin/atelierfit page), now folded into StitchBook since this is meant to
+  // be the one shared dashboard for the Atelier Noir / AtelierFit family. Writes still go through the
+  // same requireAuth-gated /api/atelierfit/admin/* routes either way, so showing/hiding this tab is a
+  // UX nicety, not the actual security boundary -- but there's no reason to render it, or send the
+  // authed fetches it makes on mount, to a visitor who isn't signed in as the real admin.
+  const { user: adminUser, loading: adminLoading } = useAuth();
+  const isRealAdmin = !adminLoading && adminUser?.email?.toLowerCase() === ADMIN_EMAIL;
   const [orders, setOrders] = useState<Order[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -249,6 +268,7 @@ export default function StitchBook() {
     { id: "orders", label: "Orders", icon: Scissors },
     { id: "inventory", label: "Inventory", icon: Package },
     { id: "live", label: "Live", icon: Radio },
+    { id: "manage", label: "Manage", icon: Lock },
   ];
 
   return (
@@ -273,8 +293,8 @@ export default function StitchBook() {
         ))}
         <div className="mt-auto px-2 py-3 text-[11px] text-gray-500 leading-relaxed">
           Dashboard/Orders/Inventory: a live demo &mdash; edits are visible to every visitor and old rows are
-          pruned automatically. The Live tab is different: real, read-only data from AtelierFit &amp; Atelier
-          Noir, intentionally left unlocked.
+          pruned automatically. Live is real, read-only data from AtelierFit &amp; Atelier Noir, intentionally
+          left unlocked. Manage is the one real write screen, for the shop owner only.
         </div>
       </aside>
 
@@ -646,6 +666,31 @@ export default function StitchBook() {
               <p className="text-gray-500 text-sm flex items-center gap-1.5">
                 Nothing real to show yet. <ExternalLink size={12} />
               </p>
+            )}
+          </motion.div>
+        )}
+
+        {tab === "manage" && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            {isRealAdmin ? (
+              <AdminAtelierFit />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center py-20 gap-3">
+                <Lock size={28} className="text-gray-500" />
+                <h1 className="text-xl font-display font-semibold">Manage is for the shop owner</h1>
+                <p className="text-sm text-gray-400 max-w-md">
+                  This is the real order-management screen for AtelierFit &mdash; the same one that used to
+                  live at <code className="text-gray-300">/admin/atelierfit</code>, now folded into StitchBook
+                  since this is meant to be the one shared dashboard for the business. Sign in as the owner to
+                  see and update real customer orders.
+                </p>
+                <Link
+                  to="/admin/login"
+                  className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gold text-black text-sm font-medium"
+                >
+                  Owner sign-in
+                </Link>
+              </div>
             )}
           </motion.div>
         )}

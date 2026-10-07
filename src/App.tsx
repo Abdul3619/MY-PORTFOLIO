@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Routes, Route, useLocation, Outlet } from "react-router-dom";
+import { Routes, Route, useLocation, Outlet, Navigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { AppDataProvider, useAppData } from "./contexts/AppDataContext";
@@ -25,7 +25,6 @@ import NotFound from "./pages/NotFound";
 import { AdminLayout, ProtectedRoute, AdminLogin } from "./components/admin/AdminLayout";
 import Maintenance from "./pages/Maintenance";
 const AtelierFit = lazy(() => import("./pages/AtelierFit"));
-const AdminAtelierFit = lazy(() => import("./pages/admin/AdminAtelierFit"));
 const AdminInventory = lazy(() => import("./pages/admin/AdminInventory"));
 const StitchBook = lazy(() => import("./pages/StitchBook"));
 const PhoneFrameShowcase = lazy(() => import("./pages/PhoneFrameShowcase"));
@@ -170,7 +169,8 @@ function AnimatedRoutes() {
           <Route path="/admin/resume" element={adminPage(AdminResume)} />
           <Route path="/admin/media" element={adminPage(AdminMedia)} />
           <Route path="/admin/account" element={adminPage(AdminAccount)} />
-          <Route path="/admin/atelierfit" element={adminPage(AdminAtelierFit)} />
+          {/* Folded into StitchBook's own Manage tab -- redirect any old bookmark/link there. */}
+          <Route path="/admin/atelierfit" element={<Navigate to="/stitchbook?tab=manage" replace />} />
           <Route path="/admin/inventory" element={adminPage(AdminInventory)} />
         </Route>
       </Route>

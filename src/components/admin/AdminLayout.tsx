@@ -74,7 +74,7 @@ export const useAdmin = () => {
   return context;
 };
 
-const ADMIN_EMAIL = 'abdulwahababdullah3619@gmail.com';
+export const ADMIN_EMAIL = 'abdulwahababdullah3619@gmail.com';
 
 export const ProtectedRoute: React.FC = () => {
   const { user, loading, signOut } = useAuth();
@@ -276,7 +276,6 @@ export const AdminLayout: React.FC = () => {
       case '/admin/projects': return 'Projects Manager';
       case '/admin/leads': return 'Leads / CRM Engine';
       case '/admin/outreach': return 'AI Outreach';
-      case '/admin/atelierfit': return 'AtelierFit Orders';
       case '/admin/inventory': return 'Real Inventory';
       case '/admin/messages': return 'Messages Inbox';
       case '/admin/analytics': return 'Visitor & Project Analytics';
@@ -320,7 +319,7 @@ export const AdminLayout: React.FC = () => {
         { name: 'Leads / CRM Engine', path: '/admin/leads', icon: <Users size={18} /> },
         { name: 'Inbox Messages', path: '/admin/messages', icon: <Mail size={18} /> },
         { name: 'AI Outreach', path: '/admin/outreach', icon: <Radar size={18} /> },
-        { name: 'AtelierFit Orders', path: '/admin/atelierfit', icon: <Ruler size={18} /> },
+        { name: 'StitchBook (Manage)', path: '/stitchbook?tab=manage', icon: <Ruler size={18} /> },
         { name: 'Real Inventory', path: '/admin/inventory', icon: <Package size={18} /> }
       ]
     },
