@@ -35,6 +35,10 @@ export interface DraftLeadInput {
    * site (e.g. "a visible menu" for a restaurant) -- see businessRequirements.ts. Empty when the business's
    * category wasn't known or recognized. */
   compulsoryMissing?: string[];
+  /** Real, specific complaints found by live web search (see reputation.ts) -- never invented, and empty
+   * when search found nothing notable. Independent of the crawl: this is what people say about the
+   * business, not what their own site looks like. */
+  reputationIssues?: string[];
 }
 
 // Technical crawl findings are real, but a business owner has never heard of a "meta description" and
@@ -97,6 +101,7 @@ function buildPrompt(input: DraftLeadInput): string {
   const plainFacts = translateEvidence(evidence);
   const siteLooksOld = DESIGN_AGE_SIGNAL_COUNT(evidence) >= 2;
   const compulsoryMissing = input.compulsoryMissing || [];
+  const reputationIssues = input.reputationIssues || [];
   return `
 You are drafting a short, honest cold outreach email from a freelance web
 developer to a real local business, based ONLY on the evidence below. Do not
@@ -111,6 +116,8 @@ substance of the email, not the raw jargon):
 ${plainFacts.length > 0 ? plainFacts.map((f) => `- ${f}`).join('\n') : '- No major issues were detected -- the site looks reasonably solid technically; focus the email on offering a second opinion or a small improvement rather than inventing a problem.'}
 
 ${compulsoryMissing.length > 0 ? `Things customers specifically expect from this TYPE of business, that this site does not have (these are not generic nice-to-haves -- treat the most important one or two as the lead observation if nothing else stands out more):\n${compulsoryMissing.map((m) => `- ${m}`).join('\n')}\n` : ''}
+
+${reputationIssues.length > 0 ? `Real complaints found online about this business (from actual reviews/search, not the site itself -- these are sensitive, so raise AT MOST one, gently, only if it fits naturally, and never sound like you're attacking them):\n${reputationIssues.map((r) => `- ${r}`).join('\n')}\n` : ''}
 
 Raw technical evidence, for your own reference only (do not quote these terms in the email itself):
 - Page title: ${evidence.title || '(none found)'}
@@ -241,10 +248,13 @@ export interface DraftNoWebsiteLeadInput {
   city: string | null;
   contactChannel: 'whatsapp' | 'facebook' | 'instagram' | 'phone';
   sender: SenderProfile;
+  /** Real, specific complaints found by live web search (see reputation.ts) -- never invented. */
+  reputationIssues?: string[];
 }
 
 function buildNoWebsitePrompt(input: DraftNoWebsiteLeadInput): string {
   const { businessName, category, city, contactChannel, sender } = input;
+  const reputationIssues = input.reputationIssues || [];
   const channelLabel: Record<DraftNoWebsiteLeadInput['contactChannel'], string> = {
     whatsapp: 'WhatsApp',
     facebook: 'Facebook',
@@ -263,6 +273,8 @@ Recipient business: ${businessName}
 Business category: ${category}
 ${city ? `Location: ${city}` : ''}
 How they're reachable: ${channelLabel[contactChannel]} (no website found)
+
+${reputationIssues.length > 0 ? `Real complaints found online about this business (from actual reviews/search -- these are sensitive, so raise AT MOST one, gently, only if it fits naturally, and never sound like you're attacking them):\n${reputationIssues.map((r) => `- ${r}`).join('\n')}\n` : ''}
 
 Sender (who this message is from):
 - Name/business: ${sender.businessName}

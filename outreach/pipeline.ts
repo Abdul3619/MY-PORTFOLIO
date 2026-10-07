@@ -6,10 +6,23 @@
 import { Store } from './store.js';
 import { crawlHomepage } from './crawler.js';
 import { draftEmail, draftNoWebsiteEmail, type SenderProfile } from './gemini.js';
+import { findReputationIssues } from './reputation.js';
 import { appendComplianceFooter } from './compliance.js';
 import { domainKey, normalizeUrl, contactKey } from './domain.js';
 import { getMissingCompulsoryItems } from './businessRequirements.js';
 import type { Lead, LeadSource } from './types.js';
+
+/** Best-effort: a reputation-search failure (no key, no results, a flaky search) should never block a lead
+ * from being drafted on crawl evidence alone, so this always resolves, never throws or returns undefined. */
+async function safeFindReputationIssues(businessName: string | null | undefined, city: string | null | undefined, country: string | null | undefined): Promise<string[]> {
+  if (!businessName) return [];
+  try {
+    const result = await findReputationIssues(businessName, city ?? null, country ?? null);
+    return result.ok && result.findings ? result.findings.complaints : [];
+  } catch {
+    return [];
+  }
+}
 
 export interface PipelineInput {
   website: string;
@@ -112,6 +125,14 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     return { kind: 'crawl_error', leadId, domain, error };
   }
 
+  // Real-world reputation, from live search -- independent of anything on the business's own site. Run
+  // alongside the rest of this step rather than blocking on it separately; a failure here just means an
+  // empty list, never a failed lead.
+  const reputationIssues = await safeFindReputationIssues(input.businessName || business.name, input.city, input.country);
+  if (reputationIssues.length > 0) {
+    crawlResult.evidence.issues = [...crawlResult.evidence.issues, ...reputationIssues.map((r) => `Found online: ${r}`)];
+  }
+
   await store.updateLead(leadId, { evidence: crawlResult.evidence, status: 'drafting' });
 
   // Opt-out check happens after crawling (we still want the evidence saved
@@ -129,6 +150,7 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     evidence: crawlResult.evidence,
     sender: deps.sender,
     compulsoryMissing: missingCompulsory,
+    reputationIssues,
   });
 
   if (!draftResult.ok || !draftResult.subject || !draftResult.body) {
@@ -197,12 +219,15 @@ export async function runNoWebsiteLeadPipeline(input: NoWebsitePipelineInput, de
   // No email address exists for these channels, so the opt-out list (keyed
   // on email) doesn't apply here -- there's no email to check against.
 
+  const reputationIssues = await safeFindReputationIssues(input.businessName || business.name, input.city, input.country);
+
   const draftResult = await draft({
     businessName: input.businessName || business.name || key,
     category: input.category,
     city: input.city ?? null,
     contactChannel: input.contactChannel,
     sender: deps.sender,
+    reputationIssues,
   });
 
   if (!draftResult.ok || !draftResult.subject || !draftResult.body) {
