@@ -856,41 +856,53 @@ export default function ChatWidget() {
                   className="flex-1 resize-none max-h-28 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold/50 transition-colors"
                 />
                 {speechSupported && (
-                  <button
+                  <motion.button
                     type="button"
                     onClick={toggleSpeech}
                     disabled={busy}
                     aria-pressed={listeningSpeech}
                     aria-label={listeningSpeech ? t("assistant.stop_voice", "Stop voice input") : t("assistant.start_voice", "Speak your question instead of typing")}
                     title={listeningSpeech ? t("assistant.stop_voice", "Stop voice input") : t("assistant.start_voice", "Speak your question instead of typing")}
-                    className={`interactive glass-button rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${
-                      listeningSpeech ? "bg-red-500 text-white" : "bg-white/10 text-gray-300 hover:text-white hover:bg-white/15"
+                    whileHover={reduceMotion || busy ? undefined : { scale: 1.07 }}
+                    whileTap={reduceMotion || busy ? undefined : { scale: 0.91 }}
+                    className={`interactive glass-button rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 transition-all duration-200 disabled:opacity-50 ${
+                      listeningSpeech
+                        ? "bg-red-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.45)]"
+                        : "bg-white/10 text-gray-300 hover:text-white hover:bg-white/15 hover:shadow-[0_0_14px_rgba(255,255,255,0.15)]"
                     }`}
                   >
                     <Mic size={17} aria-hidden="true" className={listeningSpeech ? "animate-pulse" : undefined} />
-                  </button>
+                  </motion.button>
                 )}
                 {speechSupported && (
-                  <button
+                  <motion.button
                     type="button"
                     onClick={() => setCallOpen(true)}
                     disabled={busy}
                     aria-label={t("assistant.start_call", "Start a voice call")}
                     title={t("assistant.start_call", "Start a voice call")}
-                    className="interactive glass-button rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 bg-white/10 text-gray-300 hover:text-white hover:bg-white/15"
+                    whileHover={reduceMotion || busy ? undefined : { scale: 1.07 }}
+                    whileTap={reduceMotion || busy ? undefined : { scale: 0.91 }}
+                    className="interactive glass-button rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 transition-all duration-200 disabled:opacity-50 bg-white/10 text-gray-300 hover:text-white hover:bg-white/15 hover:shadow-[0_0_14px_rgba(255,255,255,0.15)]"
                   >
                     <Phone size={17} aria-hidden="true" />
-                  </button>
+                  </motion.button>
                 )}
-                <button
+                <motion.button
                   type={busy ? "button" : "submit"}
                   onClick={busy ? stop : undefined}
                   disabled={!busy && !input.trim()}
                   aria-label={busy ? t("assistant.stop", "Stop the reply") : t("assistant.send", "Send")}
-                  className="interactive glass-button bg-gold text-black rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 disabled:opacity-50"
+                  whileHover={reduceMotion || (!busy && !input.trim()) ? undefined : { scale: 1.07 }}
+                  whileTap={reduceMotion || (!busy && !input.trim()) ? undefined : { scale: 0.9 }}
+                  className={`interactive glass-button rounded-xl h-[46px] w-[46px] flex items-center justify-center shrink-0 transition-all duration-200 disabled:opacity-40 disabled:shadow-none ${
+                    busy
+                      ? "bg-white/10 text-white hover:bg-white/15"
+                      : "bg-gradient-to-br from-gold to-bronze text-black shadow-[0_4px_18px_rgba(212,175,55,0.35)] hover:shadow-[0_4px_26px_rgba(212,175,55,0.55)]"
+                  }`}
                 >
                   {busy ? <Square size={14} fill="currentColor" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}
-                </button>
+                </motion.button>
               </div>
               <p className="mt-2 flex items-center justify-center gap-1.5 font-mono text-[11px] text-gray-400 text-center">
                 <Sparkles size={11} className="text-gold/70 shrink-0" aria-hidden="true" />

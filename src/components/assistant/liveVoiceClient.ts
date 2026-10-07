@@ -104,7 +104,10 @@ function openOnce(
               automaticActivityDetection: {
                 disabled: false,
                 prefixPaddingMs: 100,
-                silenceDurationMs: 700,
+                // Shorter than the default: every millisecond here is a millisecond the visitor is sitting in
+                // silence after they finish talking, before the assistant starts responding. 500ms is still
+                // comfortably past a normal mid-sentence breath or "um", so it doesn't cut people off.
+                silenceDurationMs: 500,
                 startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
                 endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
               },
@@ -131,6 +134,20 @@ function openOnce(
         if (msg.setupComplete && !settled) {
           settled = true;
           clearTimeout(timeout);
+          // Nobody likes a call that just sits there silently once it connects -- it reads as broken, not
+          // polite. On a brand-new call (never on a resumed one -- that would re-greet mid-conversation after a
+          // routine reconnect) nudge the model to speak first, the way a real person answering a call would,
+          // rather than waiting for the visitor to break the silence not knowing if anything is even listening.
+          if (!resumeHandle) {
+            socket.send(
+              JSON.stringify({
+                clientContent: {
+                  turns: [{ role: 'user', parts: [{ text: '(The visitor just connected. Greet them warmly and briefly, then ask how you can help.)' }] }],
+                  turnComplete: true,
+                },
+              }),
+            );
+          }
           resolve({
             modelUsed: model,
             sendAudioChunk: (base64Pcm: string) => {

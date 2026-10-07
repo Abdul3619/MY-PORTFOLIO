@@ -23,7 +23,8 @@ import {
   Github,
   MessageSquare,
   Sparkles,
-  BookOpen
+  BookOpen,
+  Smartphone
 } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
@@ -599,6 +600,16 @@ export default function Home() {
                         {...(index === 0 ? { fetchPriority: "high" } : {})}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />
+                      {(project.tech_stack || project.techStack || []).some((s: string) => s.includes("Mobile App")) && (
+                        <div className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/15 backdrop-blur-md border border-gold/40 text-gold text-[10px] font-bold uppercase tracking-wider">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-gold opacity-75 animate-ping" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-gold" />
+                          </span>
+                          <Smartphone size={12} aria-hidden="true" />
+                          {t("projects.try_it_live", "Live app -- try it")}
+                        </div>
+                      )}
                       <div className="absolute top-4 right-4 z-20 flex gap-2">
                         {(project.tech_stack || project.techStack || []).slice(0, 2).map((stack: string) => (
                           <span key={stack} className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider bg-black/75 backdrop-blur-md text-white rounded-md border border-white/10">

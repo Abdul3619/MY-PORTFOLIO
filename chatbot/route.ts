@@ -733,7 +733,20 @@ const VOICE_SESSION_SYSTEM_SUFFIX =
   'Whenever you would give a visitor any link -- a project\'s live link, a dashboard link, /contact, anything ' +
   'from <projects>/<knowledge> -- call the show_link tool with that exact url and a short label instead, then ' +
   'just say naturally that you\'ve put it on their screen (e.g. "I\'ve put the project on your screen" or ' +
-  '"here\'s the dashboard -- I\'ve shown it on screen"). This is the only way to give a link on a voice call.';
+  '"here\'s the dashboard -- I\'ve shown it on screen"). This is the only way to give a link on a voice call.\n\n' +
+  'Sound like a real person on the phone, not a script being read aloud:\n' +
+  '- The moment the call connects, speak first -- a short, warm, casual hello and an open question (e.g. ' +
+  '"Hey, thanks for calling -- what can I help you with today?"), never silence while you wait for them to talk.\n' +
+  '- While they are explaining something, it is fine to drop in a brief, quiet acknowledgment -- "mm-hmm", ' +
+  '"right", "okay", "got it" -- the way someone listening on the phone naturally would, so they know you are ' +
+  'following. Use these sparingly and only where they would land naturally, never at the start of every single ' +
+  'reply and never stacked together.\n' +
+  '- Keep it brisk: lead with the actual answer or the next useful thing to say, not a wind-up. The shorter and ' +
+  'more direct your reply, the more natural and responsive the call feels -- long replies feel slow even when ' +
+  'they start promptly.\n' +
+  '- Light, natural speech is fine -- "yeah", "sure", "got it", a brief laugh-in-text moment if something is ' +
+  'genuinely funny -- but never force enthusiasm, and the AI-cliche ban above still applies fully: no "I\'m ' +
+  'delighted to", no exclamation-point energy, no sounding like a script.';
 
 export function createVoiceLiveRouter() {
   const router = express.Router();

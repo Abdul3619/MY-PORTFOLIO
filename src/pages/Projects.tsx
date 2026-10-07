@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ExternalLink, ArrowRight, Search, X } from "lucide-react";
+import { ExternalLink, ArrowRight, Search, X, Smartphone } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -243,7 +243,18 @@ export default function Projects() {
                     alt={project.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
-                  
+
+                  {(project.tech_stack || project.techStack || []).some((s: string) => s.includes("Mobile App")) && (
+                    <div className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/15 backdrop-blur-md border border-gold/40 text-gold text-[10px] font-bold uppercase tracking-wider">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-gold opacity-75 animate-ping" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-gold" />
+                      </span>
+                      <Smartphone size={12} aria-hidden="true" />
+                      {t("projects.try_it_live", "Live app -- try it")}
+                    </div>
+                  )}
+
                   {/* Tech stack floating tags */}
                   <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-1.5 z-20">
                     {(project.tech_stack || project.techStack || []).slice(0, 3).map((stack: string) => (
