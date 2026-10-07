@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Mail, Github, Linkedin, Twitter, Instagram, MessageCircle, Send, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Mail, Github, Linkedin, Twitter, Instagram, MessageCircle, Send, CheckCircle2, ShieldCheck, Briefcase, Handshake } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
@@ -108,6 +108,16 @@ export default function Contact() {
                 {contactInfo?.instagram_url && (
                   <a href={contactInfo.instagram_url} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
                     <Instagram size={24} />
+                  </a>
+                )}
+                {contactInfo?.upwork_url && (
+                  <a href={contactInfo.upwork_url} target="_blank" rel="noopener noreferrer" aria-label="Upwork" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                    <Briefcase size={24} />
+                  </a>
+                )}
+                {contactInfo?.contra_url && (
+                  <a href={contactInfo.contra_url} target="_blank" rel="noopener noreferrer" aria-label="Contra" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                    <Handshake size={24} />
                   </a>
                 )}
               </div>

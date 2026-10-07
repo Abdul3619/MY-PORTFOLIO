@@ -23,6 +23,8 @@ import {
   Github,
   Twitter,
   Instagram,
+  Briefcase,
+  Handshake,
   MessageSquare,
   Sparkles,
   BookOpen,
@@ -102,6 +104,8 @@ export default function Home() {
     linkedin: contact?.linkedin_url || "#",
     twitter: contact?.twitter_url || "#",
     instagram: contact?.instagram_url || "#",
+    upwork: contact?.upwork_url || "#",
+    contra: contact?.contra_url || "#",
     email: contact?.email || "abdulwahababdullahi3619@gmail.com",
     whatsapp: contact?.whatsapp ? `https://wa.me/${contact.whatsapp.replace(/\D/g, '')}` : "#"
   };
@@ -878,6 +882,16 @@ export default function Home() {
                 {socialLinks.instagram !== "#" && (
                   <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
                     <Instagram size={18} />
+                  </a>
+                )}
+                {socialLinks.upwork !== "#" && (
+                  <a href={socialLinks.upwork} target="_blank" rel="noopener noreferrer" aria-label="Upwork" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                    <Briefcase size={18} />
+                  </a>
+                )}
+                {socialLinks.contra !== "#" && (
+                  <a href={socialLinks.contra} target="_blank" rel="noopener noreferrer" aria-label="Contra" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                    <Handshake size={18} />
                   </a>
                 )}
               </div>
