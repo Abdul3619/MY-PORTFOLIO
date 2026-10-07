@@ -80,7 +80,14 @@ export class Store {
 
   async updateLead(
     id: number,
-    patch: Partial<{ status: LeadStatus; error: string | null; evidence: CrawlEvidence | null; draftSubject: string | null; draftBody: string | null }>,
+    patch: Partial<{
+      status: LeadStatus;
+      error: string | null;
+      evidence: CrawlEvidence | null;
+      draftSubject: string | null;
+      draftBody: string | null;
+      visualAudit: { summary: string; issues: string[]; strengths: string[] } | null;
+    }>,
   ): Promise<void> {
     const result = await this.client.rpc('ai_outreach_update_lead', { p_lead_id: id, p_patch: patch });
     unwrap(result, 'updateLead');
@@ -209,6 +216,7 @@ function rowToLead(row: any): Lead {
     evidence: row.evidence ?? null,
     draftSubject: row.draftSubject,
     draftBody: row.draftBody,
+    visualAudit: row.visualAudit ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

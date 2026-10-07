@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldCheck,
+  Eye,
 } from 'lucide-react';
 
 // Admin-only lead discovery, crawling, AI drafting and review queue -- merged in from the standalone AI-Outreach
@@ -62,6 +63,7 @@ interface Lead {
   evidence: CrawlEvidence | null;
   draftSubject: string | null;
   draftBody: string | null;
+  visualAudit: { summary: string; issues: string[]; strengths: string[] } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -128,6 +130,7 @@ export default function AdminOutreach() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [draftEdits, setDraftEdits] = useState<Record<number, { subject: string; body: string }>>({});
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [runningAuditFor, setRunningAuditFor] = useState<Set<number>>(new Set());
 
   const [website, setWebsite] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -419,6 +422,26 @@ export default function AdminOutreach() {
   const handleMarkSent = async (lead: Lead) => {
     const updated = await patchLead(lead.id, { action: 'mark_sent' });
     if (updated) triggerToast('Marked as sent', 'Recorded in the coverage registry permanently.', 'success');
+  };
+
+  // Launches a real headless browser to screenshot the site and has Gemini look at it the way a visitor
+  // would -- slow (several seconds) and the riskiest piece of this pipeline, so it only ever runs one lead
+  // at a time, on request, never automatically across a batch (see outreach/screenshot.ts / visualAudit.ts).
+  const handleRunVisualAudit = async (lead: Lead) => {
+    setRunningAuditFor((prev) => new Set(prev).add(lead.id));
+    try {
+      const updated = await fetchApi(`/api/admin/outreach/leads/${lead.id}/visual-audit`, { method: 'POST' });
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? updated : l)));
+      triggerToast('Visual audit complete', 'A human-eye look at the homepage design is ready below.', 'success');
+    } catch (err: any) {
+      triggerToast('Visual audit failed', err.message || 'Could not capture or analyze a screenshot of this site.', 'warning');
+    } finally {
+      setRunningAuditFor((prev) => {
+        const next = new Set(prev);
+        next.delete(lead.id);
+        return next;
+      });
+    }
   };
 
   const handleAddOptOut = async (e: React.FormEvent) => {
@@ -968,6 +991,55 @@ export default function AdminOutreach() {
                         >
                           <ShieldCheck size={12} /> Verify on CAC (Nigeria registry) — name copied, just paste it
                         </a>
+
+                        {/* "Look at it like a human would" -- a real screenshot judged by Gemini's vision, not
+                            HTML pattern-matching. Opt-in and one lead at a time: it launches a real browser,
+                            which is slow and the riskiest piece of this whole pipeline. */}
+                        {lead.contactChannel === 'website' && lead.website && (
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => handleRunVisualAudit(lead)}
+                              disabled={runningAuditFor.has(lead.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase disabled:opacity-50"
+                            >
+                              {runningAuditFor.has(lead.id) ? (
+                                <>
+                                  <Loader2 size={12} className="animate-spin" /> Capturing screenshot &amp; analyzing...
+                                </>
+                              ) : (
+                                <>
+                                  <Eye size={12} /> {lead.visualAudit ? 'Re-run visual audit' : 'Run visual audit (human-eye design check)'}
+                                </>
+                              )}
+                            </button>
+
+                            {lead.visualAudit && (
+                              <div className="bg-white/2 border border-white/8 rounded p-3 space-y-2 font-mono text-[11px] text-gray-400">
+                                <p className="text-gray-300">{lead.visualAudit.summary}</p>
+                                {lead.visualAudit.issues.length > 0 && (
+                                  <div>
+                                    <p className="text-rose-400/80 uppercase text-[10px] tracking-wider mb-1">Issues</p>
+                                    <ul className="list-disc list-inside space-y-0.5">
+                                      {lead.visualAudit.issues.map((issue, i) => (
+                                        <li key={i}>{issue}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {lead.visualAudit.strengths.length > 0 && (
+                                  <div>
+                                    <p className="text-emerald-400/80 uppercase text-[10px] tracking-wider mb-1">Strengths</p>
+                                    <ul className="list-disc list-inside space-y-0.5">
+                                      {lead.visualAudit.strengths.map((strength, i) => (
+                                        <li key={i}>{strength}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {(lead.status === 'drafted' || lead.status === 'approved' || lead.status === 'sent') && (
                           <div className="space-y-2">

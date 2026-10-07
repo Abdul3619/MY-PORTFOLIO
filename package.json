@@ -9,13 +9,16 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "check:ssr": "node scripts/check-ssr.mjs"
+    "check:ssr": "node scripts/check-ssr.mjs",
+    "postinstall": "node scripts/postinstall-chromium.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
     "@google/genai": "^2.4.0",
     "@mediapipe/tasks-vision": "^0.10.14",
     "@sentry/node": "^9.31.0",
+    "@sparticuz/chromium-min": "^141.0.0",
+    "puppeteer-core": "^23.11.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tanstack/react-query": "^5.101.2",
@@ -46,6 +49,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@sparticuz/chromium": "^141.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
     "@types/multer": "^2.2.0",

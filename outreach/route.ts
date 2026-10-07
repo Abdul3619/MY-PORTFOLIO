@@ -23,6 +23,8 @@ import { runLeadPipeline, runNoWebsiteLeadPipeline, runWithConcurrency, loadSend
 import { parseCsv } from './csv.js';
 import { searchBusinesses, knownCategories, type OsmBusinessResult } from './overpass.js';
 import { searchFoursquarePlaces } from './foursquare.js';
+import { captureScreenshot } from './screenshot.js';
+import { runVisualAudit } from './visualAudit.js';
 import type { LeadStatus } from './types.js';
 
 export function createOutreachRouter(deps: { requireAuth: express.RequestHandler; supabaseUrl: string; supabaseServiceKey: string }) {
@@ -86,6 +88,32 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
       const lead = await store.getLead(Number(req.params.id));
       if (!lead) return void res.status(404).json({ error: 'Lead not found' });
       res.json(lead);
+    }),
+  );
+
+  // The "look at it like a human would" check -- deliberately NOT part of the bulk auto-search pipeline.
+  // It launches a real headless browser, which is slow (several seconds) and the one part of this whole
+  // tool with real infrastructure risk (a native binary, a real page load), so it only ever runs one lead
+  // at a time, on request, from the Review Queue -- never automatically across a batch of results.
+  router.post(
+    '/leads/:id/visual-audit',
+    asyncHandler(async (req, res) => {
+      const lead = await store.getLead(Number(req.params.id));
+      if (!lead) return void res.status(404).json({ error: 'Lead not found' });
+      if (!lead.website) return void res.status(400).json({ error: 'This lead has no website to screenshot -- the visual audit only applies to website leads.' });
+
+      const screenshot = await captureScreenshot(lead.website);
+      if (!screenshot.ok || !screenshot.base64Png) {
+        return void res.status(502).json({ error: `Could not capture a screenshot: ${screenshot.error || 'unknown error'}` });
+      }
+
+      const audit = await runVisualAudit(screenshot.base64Png, lead.businessName || lead.domain);
+      if (!audit.ok || !audit.findings) {
+        return void res.status(502).json({ error: `Could not run the visual audit: ${audit.error || 'unknown error'}` });
+      }
+
+      await store.updateLead(lead.id, { visualAudit: audit.findings });
+      res.json(await store.getLead(lead.id));
     }),
   );
 

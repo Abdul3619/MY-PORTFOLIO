@@ -107,6 +107,10 @@ export interface Lead {
   evidence: CrawlEvidence | null;
   draftSubject: string | null;
   draftBody: string | null;
+  /** The human-eye design critique (see visualAudit.ts) -- null until someone runs it from the Review Queue.
+   * Opt-in and per-lead, not run automatically during auto-search (it launches a real browser, which is slow
+   * and the one part of this pipeline with real infrastructure risk). */
+  visualAudit: { summary: string; issues: string[]; strengths: string[] } | null;
   createdAt: string;
   updatedAt: string;
 }
