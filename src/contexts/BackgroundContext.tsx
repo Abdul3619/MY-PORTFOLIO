@@ -9,7 +9,6 @@ const BackgroundContext = createContext<BackgroundContextType | undefined>(undef
 
 export const BackgroundProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streakCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const scrollRef = useRef(0);
 
@@ -130,137 +129,6 @@ export const BackgroundProvider: React.FC<{ children: ReactNode }> = ({ children
     };
   }, []);
 
-  // Warp-speed light streak layer, radiating outward toward the viewer
-  useEffect(() => {
-    const canvas = streakCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (!ctx) return;
-
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    let animationFrameId: number;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    };
-    window.addEventListener('resize', handleResize);
-
-    const PALETTE = [
-      [255, 150, 70],   // warm orange
-      [255, 255, 255],  // white
-      [90, 170, 255],   // electric blue
-      [190, 125, 255],  // violet
-    ];
-
-    const streakCount = reduceMotion ? 0 : width < 768 ? 36 : 75;
-
-    type Streak = {
-      angle: number;
-      radius: number;
-      prevRadius: number;
-      speed: number;
-      color: number[];
-      alpha: number;
-    };
-
-    const maxRadius = () => Math.hypot(width, height) / 2 + 60;
-
-    const spawn = (s: Partial<Streak> = {}): Streak => ({
-      angle: s.angle ?? Math.random() * Math.PI * 2,
-      radius: s.radius ?? Math.random() * 40,
-      prevRadius: s.radius ?? Math.random() * 40,
-      speed: s.speed ?? Math.random() * 1.2 + 0.6,
-      color: s.color ?? PALETTE[Math.floor(Math.random() * PALETTE.length)],
-      alpha: s.alpha ?? 0,
-    });
-
-    const streaks: Streak[] = Array.from({ length: streakCount }, () => spawn());
-
-    let lastTime = performance.now();
-    const originRef = { x: width / 2, y: height / 2 };
-
-    const render = (currentTime: number) => {
-      const delta = Math.min((currentTime - lastTime) / 1000, 0.05);
-      lastTime = currentTime;
-
-      ctx.clearRect(0, 0, width, height);
-
-      // Vanishing point drifts gently toward the cursor for a reactive, parallax feel
-      const targetX = width / 2 + (mouseRef.current.x - width / 2) * 0.08;
-      const targetY = height / 2 + (mouseRef.current.y - height / 2) * 0.08;
-      originRef.x += (targetX - originRef.x) * 0.04;
-      originRef.y += (targetY - originRef.y) * 0.04;
-
-      ctx.globalCompositeOperation = 'lighter';
-
-      const limit = maxRadius();
-
-      for (const s of streaks) {
-        s.prevRadius = s.radius;
-        // Accelerating outward motion, fast, like streaking past the viewer
-        s.speed += delta * 55;
-        s.radius += s.speed * delta * 60;
-
-        // Fade in near the center, fade out just before despawn
-        const progress = s.radius / limit;
-        s.alpha = progress < 0.08
-          ? progress / 0.08
-          : progress > 0.82
-            ? Math.max(0, (1 - progress) / 0.18)
-            : 1;
-
-        const cosA = Math.cos(s.angle);
-        const sinA = Math.sin(s.angle);
-        const x1 = originRef.x + s.prevRadius * cosA;
-        const y1 = originRef.y + s.prevRadius * sinA;
-        const x2 = originRef.x + s.radius * cosA;
-        const y2 = originRef.y + s.radius * sinA;
-
-        const [r, g, b] = s.color;
-        const lineWidth = 0.6 + progress * 2.6;
-        const alpha = s.alpha * 0.85;
-
-        if (alpha > 0.01) {
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-          ctx.lineWidth = lineWidth;
-          ctx.lineCap = 'round';
-          ctx.stroke();
-        }
-
-        if (s.radius > limit) {
-          const fresh = spawn({ radius: Math.random() * 30 });
-          s.angle = fresh.angle;
-          s.radius = fresh.radius;
-          s.prevRadius = fresh.radius;
-          s.speed = fresh.speed;
-          s.color = fresh.color;
-          s.alpha = 0;
-        }
-      }
-
-      ctx.globalCompositeOperation = 'source-over';
-
-      animationFrameId = requestAnimationFrame(render);
-    };
-
-    if (streakCount > 0) {
-      animationFrameId = requestAnimationFrame(render);
-    }
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
   return (
     <BackgroundContext.Provider value={{ isInitialized: true }}>
       {/* Persistent Canvas Background Layer */}
@@ -291,9 +159,6 @@ export const BackgroundProvider: React.FC<{ children: ReactNode }> = ({ children
           animate={{ scale: [1, 1.32, 1], opacity: [0.12, 0.28, 0.12] }}
           transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
         />
-
-        {/* Warp-speed light streak layer, shooting outward over the breathing color orbs */}
-        <canvas ref={streakCanvasRef} className="absolute inset-0 opacity-80 pointer-events-none" />
 
         {/* Deep Vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_#050505_95%)] pointer-events-none" />
