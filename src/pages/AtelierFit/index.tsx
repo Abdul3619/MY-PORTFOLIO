@@ -293,6 +293,15 @@ export default function AtelierFit() {
 
   // Installable PWA shell: manifest + service worker only for this route, so the rest of the portfolio keeps
   // its own identity. Registering the SW is also what makes "Add to Home Screen" show up on Android/Chrome.
+  //
+  // Also where the real "doesn't fit every phone screen" bug gets fixed: the shared app.html viewport tag
+  // (used by every other page on the site) has no `viewport-fit=cover`, so on a notched/Dynamic-Island or
+  // home-indicator iPhone the browser keeps the whole page letterboxed inside the *safe* area instead of
+  // drawing edge-to-edge -- on some screen sizes that's exactly the "doesn't properly fit" symptom. Scoped
+  // the same way theme-color/manifest already are here: only changed while AtelierFit is mounted, restored
+  // on unmount, so the rest of the portfolio's pages are unaffected. iOS specifically also needs its own
+  // apple-mobile-web-app-* tags and an apple-touch-icon to render standalone/edge-to-edge at all -- the
+  // manifest alone (an Android/Chrome mechanism) does nothing for "Add to Home Screen" on iOS Safari.
   useEffect(() => {
     const link = document.createElement("link");
     link.rel = "manifest";
@@ -306,12 +315,36 @@ export default function AtelierFit() {
       document.head.appendChild(themeMeta);
     }
     themeMeta.content = "#0B0A08";
+
+    const viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
+    const prevViewportContent = viewportMeta?.getAttribute("content") ?? null;
+    if (viewportMeta) viewportMeta.content = "width=device-width, initial-scale=1.0, viewport-fit=cover";
+
+    const extraTags: HTMLMetaElement[] = [];
+    const addMeta = (name: string, content: string) => {
+      const m = document.createElement("meta");
+      m.name = name;
+      m.content = content;
+      document.head.appendChild(m);
+      extraTags.push(m);
+    };
+    addMeta("apple-mobile-web-app-capable", "yes");
+    addMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
+    addMeta("apple-mobile-web-app-title", "AtelierFit");
+    const appleIconLink = document.createElement("link");
+    appleIconLink.rel = "apple-touch-icon";
+    appleIconLink.href = "/icons/atelierfit-192.png";
+    document.head.appendChild(appleIconLink);
+
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/atelierfit-sw.js", { scope: "/atelierfit" }).catch(() => {});
     }
     return () => {
       link.remove();
       if (themeMeta && prevThemeColor) themeMeta.content = prevThemeColor;
+      if (viewportMeta && prevViewportContent !== null) viewportMeta.content = prevViewportContent;
+      extraTags.forEach((m) => m.remove());
+      appleIconLink.remove();
     };
   }, []);
 
@@ -513,7 +546,7 @@ export default function AtelierFit() {
   }, [order, config, customer.email]);
 
   return (
-    <div className="atelierfit-root relative min-h-screen w-full text-[#F5F0E6] font-sans flex flex-col items-center px-6 py-10">
+    <div className="atelierfit-root relative min-h-dvh w-full text-[#F5F0E6] font-sans flex flex-col items-center px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
       <BackgroundGlow glowPositions={["top-right", "top-left", "bottom-left", "bottom-right"]} intensity="vibrant" />
       <div className="w-full max-w-md relative z-10">
         {step !== "splash" && (
@@ -542,7 +575,7 @@ export default function AtelierFit() {
         )}
 
         {step === "splash" && (
-          <section className="min-h-[85vh] flex flex-col items-center justify-center text-center gap-8 pb-10">
+          <section className="min-h-[85dvh] flex flex-col items-center justify-center text-center gap-8 pb-10">
             <div className="flex flex-col items-center gap-4">
               <CopilotOrb size="hero" state={orbState} />
               <div>
@@ -1247,7 +1280,7 @@ export default function AtelierFit() {
 
       {/* Bottom nav -- only on the "browsing" screens, out of the way once someone's mid-order. */}
       {(step === "home" || step === "gallery" || step === "profile") && (
-        <nav className="atelierfit-root fixed bottom-0 inset-x-0 flex justify-center pointer-events-none z-20">
+        <nav className="atelierfit-root fixed bottom-0 inset-x-0 flex justify-center pointer-events-none z-20 pb-[env(safe-area-inset-bottom)]">
           <div className="pointer-events-auto w-full max-w-md flex items-center justify-around pink-glass-card px-2 py-2.5 mx-4 mb-3 rounded-[22px]">
             <button onClick={() => setStep("home")} className={`flex flex-col items-center gap-1 px-4 py-1 rounded-xl transition-colors ${step === "home" ? "text-[#D6397D]" : "text-white/40 hover:text-white/70"}`}>
               <HomeIcon size={18} />
