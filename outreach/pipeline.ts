@@ -7,6 +7,7 @@ import { Store } from './store.js';
 import { crawlHomepage } from './crawler.js';
 import { draftEmail, draftNoWebsiteEmail, type SenderProfile } from './gemini.js';
 import { findReputationIssues } from './reputation.js';
+import { verifyEmail } from './emailVerify.js';
 import { appendComplianceFooter } from './compliance.js';
 import { domainKey, normalizeUrl, contactKey } from './domain.js';
 import { getMissingCompulsoryItems } from './businessRequirements.js';
@@ -131,6 +132,23 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
   const reputationIssues = await safeFindReputationIssues(input.businessName || business.name, input.city, input.country);
   if (reputationIssues.length > 0) {
     crawlResult.evidence.issues = [...crawlResult.evidence.issues, ...reputationIssues.map((r) => `Found online: ${r}`)];
+  }
+
+  // Before this address goes anywhere near a draft: is it even real? Best-effort, never blocks -- with no
+  // HUNTER_API_KEY set this is a no-op, and any failure just means "couldn't check," not "bad address."
+  const emailToVerify = crawlResult.evidence.emails[0];
+  if (emailToVerify) {
+    try {
+      const verification = await verifyEmail(emailToVerify);
+      if (verification.ok && verification.enabled && (verification.status === 'undeliverable' || verification.status === 'risky')) {
+        crawlResult.evidence.issues = [
+          ...crawlResult.evidence.issues,
+          `Email verification: "${emailToVerify}" -- ${verification.detail}`,
+        ];
+      }
+    } catch {
+      // best-effort
+    }
   }
 
   await store.updateLead(leadId, { evidence: crawlResult.evidence, status: 'drafting' });

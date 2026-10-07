@@ -78,10 +78,11 @@ function extractContactFromPlace(place: any): { channel: OsmBusinessResult['cont
   return null;
 }
 
-export async function searchFoursquarePlaces(bbox: BoundingBox, category: string): Promise<FoursquareSearchResult> {
+export async function searchFoursquarePlaces(bbox: BoundingBox, category: string, radiusMultiplier = 1): Promise<FoursquareSearchResult> {
   if (!isConfigured()) return { businesses: [], rawCount: 0, enabled: false };
 
-  const { lat, lon, radiusMeters } = bboxToCenterAndRadius(bbox);
+  const { lat, lon, radiusMeters: baseRadius } = bboxToCenterAndRadius(bbox);
+  const radiusMeters = Math.min(100_000, Math.round(baseRadius * radiusMultiplier));
   const url = new URL(FOURSQUARE_SEARCH_URL);
   url.searchParams.set('ll', `${lat},${lon}`);
   url.searchParams.set('radius', String(radiusMeters));

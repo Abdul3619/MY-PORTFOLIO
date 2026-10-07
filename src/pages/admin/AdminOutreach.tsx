@@ -16,6 +16,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  ShieldCheck,
 } from 'lucide-react';
 
 // Admin-only lead discovery, crawling, AI drafting and review queue -- merged in from the standalone AI-Outreach
@@ -951,6 +952,23 @@ export default function AdminOutreach() {
                           </div>
                         )}
 
+                        {/* A one-click cross-check before trusting any info this far -- CAC's public search is
+                            Nigeria's own official company registry, free, with no API to wire in automatically
+                            (it's CAPTCHA-gated), so this opens it in a new tab with the business name ready to
+                            paste rather than pretending to deep-link straight to a result. */}
+                        <a
+                          href="https://publicsearch.cac.gov.ng/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase text-[#00F0FF]/80 hover:text-[#00F0FF]"
+                          onClick={() => {
+                            const name = lead.businessName || lead.domain;
+                            if (name) navigator.clipboard?.writeText(name).catch(() => {});
+                          }}
+                        >
+                          <ShieldCheck size={12} /> Verify on CAC (Nigeria registry) — name copied, just paste it
+                        </a>
+
                         {(lead.status === 'drafted' || lead.status === 'approved' || lead.status === 'sent') && (
                           <div className="space-y-2">
                             <label className="block text-[10px] font-mono uppercase text-[#00F0FF] tracking-wider">Subject</label>
@@ -1079,6 +1097,12 @@ export default function AdminOutreach() {
                           ? "OpenStreetMap has nothing mapped under this category in this area at all -- not a filtering issue, there's simply nothing there to find yet."
                           : `OpenStreetMap has ${searchResult.rawCount} matching business(es) here, but none of them have a website, WhatsApp, phone, Facebook, or Instagram on file to reach them by.`}
                       </p>
+                    )}
+                    {searchResult.thinResultsNote && (
+                      <p className="text-amber-400/80">{searchResult.thinResultsNote}</p>
+                    )}
+                    {!searchResult.foursquareEnabled && (
+                      <p className="text-gray-500">Foursquare is not connected for this search -- results are OpenStreetMap only.</p>
                     )}
                   </div>
                 )}

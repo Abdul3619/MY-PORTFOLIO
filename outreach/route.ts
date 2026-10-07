@@ -221,6 +221,16 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
           foursquareEnabled = fsq.enabled;
           foursquareRawCount = fsq.rawCount;
           if (fsq.businesses.length > 0) businesses = mergeBusinessSources(businesses, fsq.businesses);
+
+          // Thin results (a small town, a narrow category) are real, not a bug -- but worth one honest
+          // attempt at finding more before reporting back whatever was found. Only Foursquare's radius is
+          // widened here, not OSM's bbox: OSM's bbox already IS the geocoded place's actual shape, so
+          // enlarging it arbitrarily risks pulling in a neighboring, unrelated town under the same search.
+          if (businesses.length < 15 && fsq.enabled) {
+            const widerFsq = await searchFoursquarePlaces(result.bbox, category, 2.5);
+            if (widerFsq.businesses.length > 0) businesses = mergeBusinessSources(businesses, widerFsq.businesses);
+            foursquareRawCount += widerFsq.rawCount;
+          }
         } catch (e: any) {
           Sentry.captureException(e, { tags: { route: '/search:foursquare' }, extra: { city, category } });
         }
@@ -261,6 +271,12 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
         rawCount: rawCount + foursquareRawCount,
         resolvedPlace,
         foursquareEnabled,
+        // Honest, not padded: if a real widen-and-retry still comes up short, say so instead of quietly
+        // handing back fewer than expected with no explanation.
+        thinResultsNote:
+          businesses.length < 15
+            ? `Only ${businesses.length} reachable business${businesses.length === 1 ? '' : 'es'} found for "${category}" in ${resolvedPlace}, even after widening the search area. This usually means there just aren't many mapped here yet on OpenStreetMap or Foursquare, not a tool problem.`
+            : null,
         outcomes,
       });
     }),
