@@ -11,6 +11,8 @@ import { GarmentPlaceholder } from "@/components/atelierfit/ui/GarmentPlaceholde
 import { useAuth } from "@/contexts/AuthContext";
 import { useContactInfo } from "@/hooks/useApi";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { WorldCollectionBook } from "@/components/atelierfit/WorldCollectionBook";
+import { WORLD_COLLECTION, type WorldGarment } from "@/lib/atelierfit/worldCollection";
 import "@/components/atelierfit/ui/atelierfit-glass.css";
 
 // Standard four-colour "G" mark used on "Continue/Sign in with Google" buttons -- this is the button
@@ -45,32 +47,29 @@ function GoogleG({ size = 18 }: { size?: number }) {
 // AtelierFit's own signature accent is copper-rose (#D6397D / hover #F06BA6), distinct from Atelier Noir's gold.
 
 type Garment = { id: string; label: string; basePriceNaira: number; imageUrl?: string };
+
+// Turns a WorldGarment (the real, worldwide catalog -- see worldCollection.ts) into the plain Garment shape
+// the rest of this order flow already works with, so picking a piece from the real gallery drops straight
+// into the existing design/details/checkout steps with zero changes to them.
+function worldGarmentToGarment(g: WorldGarment): Garment {
+  return { id: g.id, label: g.label, basePriceNaira: g.basePriceNaira, imageUrl: g.imageUrl };
+}
 type Fabric = { id: string; label: string; tagline: string; surchargeNaira: number };
 type Step = "splash" | "home" | "gallery" | "garment" | "design" | "method" | "camera" | "manual" | "review" | "booking" | "details" | "checkout" | "success" | "profile";
 
 const GUEST_FLAG = "atelierfit_guest";
 
-// Compact gallery -- standing in for Atelier Noir's real catalog until that catalog exists. Deliberately NOT
-// photos: an earlier version used stock-photo URLs labeled with specific garment/country names (e.g. "Tailored
-// Agbada") that this sandbox can't actually render to verify, so those names were guesses, not facts -- and
-// guessing a culture's name onto an unseen image is exactly the mistake to avoid. Until there are real photos
-// (the user's own work, or images sent directly in chat, which Claude can actually see), these tiles are
-// honest, unphotographed categories -- organized by garment type, international and not Nigeria-only, each
-// drawn as its own glass-panel pattern so the gallery still has visual variety without faking content.
-const FEATURED_COLLECTIONS: { id: string; title: string; tagline: string; pattern: "diagonal" | "grid" | "dots" | "wave" | "chevron" | "arc" }[] = [
-  { id: "f1", title: "The Couture Collection", tagline: "Timeless elegance, reimagined with AI-measured precision.", pattern: "wave" },
-  { id: "f2", title: "Everyday Tailoring", tagline: "Shirts, trousers and skirts cut exactly to you.", pattern: "diagonal" },
-  { id: "f3", title: "Traditional Wear", tagline: "Africa, Asia and beyond -- heritage cuts, modern fit.", pattern: "chevron" },
-];
-
-const GALLERY: { id: string; title: string; tag: string; pattern: "diagonal" | "grid" | "dots" | "wave" | "chevron" | "arc" }[] = [
-  { id: "g1", title: "Tailored Suits", tag: "International · Menswear & Womenswear", pattern: "diagonal" },
-  { id: "g2", title: "Traditional Wear", tag: "Africa, Asia & beyond", pattern: "wave" },
-  { id: "g3", title: "Dresses & Gowns", tag: "Occasion · Unisex-friendly cuts", pattern: "arc" },
-  { id: "g4", title: "Outerwear & Layers", tag: "Coats, jackets, capes", pattern: "chevron" },
-  { id: "g5", title: "Everyday Tailoring", tag: "Shirts, trousers, skirts", pattern: "grid" },
-  { id: "g6", title: "Streetwear Cuts", tag: "Contemporary · Unisex", pattern: "dots" },
-];
+// Real worldwide-catalog highlights for the home screen's "Featured Collection" strip -- the same
+// WORLD_COLLECTION photos and copy that power the full gallery (WorldCollectionBook) below, and that
+// Atelier Noir's own web catalog draws from, so the two apps show the same collection with their own
+// distinct designs. Picked for spread across regions/genders rather than any fixed order.
+const FEATURED_COLLECTIONS: WorldGarment[] = [
+  WORLD_COLLECTION.find((g) => g.id === "women_sari")!,
+  WORLD_COLLECTION.find((g) => g.id === "men_agbada")!,
+  WORLD_COLLECTION.find((g) => g.id === "women_kimono")!,
+  WORLD_COLLECTION.find((g) => g.id === "men_suit")!,
+  WORLD_COLLECTION.find((g) => g.id === "women_boubou")!,
+].filter(Boolean);
 
 const emptyMeasurements: EstimatedMeasurements = {
   heightCm: 170, shoulderWidthCm: 45, chestCm: 96, waistCm: 82, hipCm: 98, sleeveLengthCm: 60, armLengthCm: 60, legLengthCm: 100,
@@ -81,23 +80,10 @@ const FIELD_LABELS: Record<keyof EstimatedMeasurements, string> = {
   hipCm: "Hip", sleeveLengthCm: "Sleeve length", armLengthCm: "Arm length", legLengthCm: "Leg / inseam length",
 };
 
-const PATTERN_BG: Record<string, string> = {
-  diagonal: "repeating-linear-gradient(135deg, rgba(240,107,166,0.22) 0px, rgba(240,107,166,0.22) 2px, transparent 2px, transparent 14px)",
-  grid: "linear-gradient(rgba(240,107,166,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(240,107,166,0.18) 1px, transparent 1px)",
-  dots: "radial-gradient(rgba(240,107,166,0.35) 1.5px, transparent 1.5px)",
-  wave: "repeating-radial-gradient(circle at 0% 50%, rgba(214,57,125,0.22) 0, rgba(214,57,125,0.22) 3px, transparent 3px, transparent 18px)",
-  chevron: "repeating-linear-gradient(45deg, rgba(214,57,125,0.2) 0, rgba(214,57,125,0.2) 2px, transparent 2px, transparent 10px), repeating-linear-gradient(-45deg, rgba(240,107,166,0.15) 0, rgba(240,107,166,0.15) 2px, transparent 2px, transparent 10px)",
-  arc: "radial-gradient(circle at 50% 120%, rgba(240,107,166,0.35), transparent 60%)",
-};
-
-function GalleryTile({ title, tag, pattern }: { title: string; tag: string; pattern: string }) {
+function GalleryTile({ title, tag, imageUrl }: { title: string; tag: string; imageUrl: string }) {
   return (
     <div className="relative h-36 rounded-[18px] overflow-hidden glass-card-subtle flowing-pink-edge flex flex-col justify-end p-3">
-      <div
-        className="absolute inset-0"
-        style={{ backgroundImage: PATTERN_BG[pattern], backgroundSize: pattern === "dots" ? "14px 14px" : pattern === "grid" ? "16px 16px" : "auto" }}
-        aria-hidden
-      />
+      <img src={imageUrl} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#1a0515]/90 via-transparent to-transparent" aria-hidden />
       <div className="relative z-10">
         <div className="text-sm font-medium leading-snug font-serif">{title}</div>
@@ -108,8 +94,9 @@ function GalleryTile({ title, tag, pattern }: { title: string; tag: string; patt
 }
 
 // Swipeable "Featured Collection" card -- a real scroll-snap carousel (not just a static image), with dots
-// that track true scroll position so they stay honest if someone swipes instead of tapping a dot.
-function FeaturedCollectionCarousel({ onOpen }: { onOpen: () => void }) {
+// that track true scroll position so they stay honest if someone swipes instead of tapping a dot. Now backed
+// by real photos from the worldwide catalog (WORLD_COLLECTION) instead of pattern placeholders.
+function FeaturedCollectionCarousel({ onOpen }: { onOpen: (g: WorldGarment) => void }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
@@ -136,20 +123,18 @@ function FeaturedCollectionCarousel({ onOpen }: { onOpen: () => void }) {
         {FEATURED_COLLECTIONS.map((c) => (
           <button
             key={c.id}
-            onClick={onOpen}
+            onClick={() => onOpen(c)}
             className="relative w-full shrink-0 snap-center h-40 overflow-hidden glass-card flowing-pink-edge flex flex-col justify-end p-4 text-left"
             style={{ scrollSnapAlign: "center" }}
           >
-            <div
-              className="absolute inset-0"
-              style={{ backgroundImage: PATTERN_BG[c.pattern], backgroundSize: c.pattern === "dots" ? "14px 14px" : c.pattern === "grid" ? "16px 16px" : "auto" }}
-              aria-hidden
-            />
+            <img src={c.imageUrl} alt={c.label} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#1a0515]/95 via-[#1a0515]/30 to-transparent" aria-hidden />
             <div className="relative z-10">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-[#F8A0C8] mb-1">Featured Collection</div>
-              <div className="font-serif text-lg font-semibold leading-snug">{c.title}</div>
-              <div className="text-xs text-white/55 mt-1 max-w-[85%]">{c.tagline}</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-[#F8A0C8] mb-1 flex items-center gap-1">
+                {c.flagEmoji} Featured Collection
+              </div>
+              <div className="font-serif text-lg font-semibold leading-snug">{c.label}</div>
+              <div className="text-xs text-white/55 mt-1 max-w-[85%]">{c.description}</div>
             </div>
           </button>
         ))}
@@ -180,7 +165,7 @@ function naira(n: number) {
 }
 
 // Maps a garment id to one of GarmentPlaceholder's abstract silhouette types -- still an honest,
-// unphotographed placeholder (see the GALLERY comment above), just shaped roughly like the garment.
+// unphotographed placeholder, just shaped roughly like the garment.
 function garmentPlaceholderType(garmentId: string): "gown" | "suit" | "fabric" {
   if (garmentId === "dress") return "gown";
   if (garmentId === "agbada" || garmentId === "kaftan" || garmentId === "senator") return "suit";
@@ -589,7 +574,7 @@ export default function AtelierFit() {
               ))}
             </div>
 
-            <FeaturedCollectionCarousel onOpen={() => setStep("gallery")} />
+            <FeaturedCollectionCarousel onOpen={(g) => { setGarment(worldGarmentToGarment(g)); setStep("design"); }} />
 
             {/* The AI-copilot hero -- pink glassmorphism panel (ported from the AI-Studio build) with an
                 animated flowing border and inner glow, rather than a flat banner. */}
@@ -618,7 +603,7 @@ export default function AtelierFit() {
               <span>Camera measurements are estimated entirely on your own phone. No photo is ever uploaded or stored -- you confirm every number before anything is charged.</span>
             </div>
 
-            {/* Compact gallery teaser -- categories, not unverified stock photos (see the GALLERY comment above). */}
+            {/* Compact gallery teaser -- real worldwide-catalog photos, see worldCollection.ts. */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="font-display font-semibold text-sm uppercase tracking-wide text-white/80">What we make</h2>
@@ -627,9 +612,9 @@ export default function AtelierFit() {
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {GALLERY.slice(0, 4).map((item) => (
+                {WORLD_COLLECTION.slice(0, 4).map((item) => (
                   <button key={item.id} onClick={() => setStep("gallery")} className="text-left">
-                    <GalleryTile title={item.title} tag={item.tag} pattern={item.pattern} />
+                    <GalleryTile title={item.label} tag={item.categoryLabel} imageUrl={item.imageUrl} />
                   </button>
                 ))}
               </div>
@@ -638,24 +623,10 @@ export default function AtelierFit() {
         )}
 
         {step === "gallery" && (
-          <section className="space-y-6 pb-24">
-            <div>
-              <h2 className="text-xl font-display font-semibold mb-1">What we make</h2>
-              <p className="text-sm text-white/60">Unisex, international and traditional fashion together -- the same categories Atelier Noir organizes on the web. Real pieces are on their way; these stand in for the catalog until then.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {GALLERY.map((item) => (
-                <GalleryTile key={item.id} title={item.title} tag={item.tag} pattern={item.pattern} />
-              ))}
-            </div>
-            <button
-              onClick={() => setStep("garment")}
-              disabled={!config}
-              className="w-full py-3.5 rounded-xl bg-[#D6397D] text-black font-semibold hover:bg-[#F06BA6] transition-colors disabled:opacity-50"
-            >
-              {config ? "Begin fitting" : "Loading..."}
-            </button>
-          </section>
+          <WorldCollectionBook
+            onSelectGarment={(g) => { setGarment(worldGarmentToGarment(g)); setStep("design"); }}
+            onBeginFitting={() => setStep("garment")}
+          />
         )}
 
         {step === "profile" && (
