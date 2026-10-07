@@ -161,6 +161,7 @@ export type DashboardLinkResult = { ok: true; url: string } | { ok: false; error
 const DASHBOARD_LINK_HANDLERS: Record<string, () => Promise<DashboardLinkResult>> = {
   'agbada-luxe': () => createAgbadaDashboardLink(),
   'shion-orne': () => createShionOrneDashboardLink(),
+  'h-orizon-hotel': () => createHorizonDashboardLink(),
 };
 
 // Agbada Luxe is a separate frontend-only app that happens to share this same Supabase project, so its
@@ -181,6 +182,20 @@ async function createAgbadaDashboardLink(): Promise<DashboardLinkResult> {
 // so there's no RPC connection to reuse. Instead this calls Shion Orne's own deployed API directly, authenticated
 // with a shared secret (SHION_ORNE_SERVICE_KEY here, PORTFOLIO_SERVICE_KEY on its side) that only these two servers
 // know -- a visitor's browser never sees it, only the one-time token the endpoint hands back.
+// H'orizon shares this same Supabase project (the free-tier project limit was already reached by this
+// project and Shin Orne's own, so H'orizon's hotel-admin tables and RPC functions live here too, horizon_-
+// prefixed to avoid colliding with this portfolio's own tables). Its magic-link minting function,
+// horizon_admin_create_magic_link(), is locked down to chatbot_reader/service_role only, exactly like
+// Agbada's -- so this is a direct RPC call over the existing chatbot_reader connection, no network hop.
+async function createHorizonDashboardLink(): Promise<DashboardLinkResult> {
+  const { rows } = await getPool().query<{ ok: boolean; error: string | null; link_token: string | null }>(
+    'select ok, error, link_token from public.horizon_admin_create_magic_link()',
+  );
+  const row = rows[0];
+  if (!row?.ok || !row.link_token) return { ok: false, error: row?.error || 'unknown' };
+  return { ok: true, url: `https://horizon-br6n.vercel.app/admin/magic/${row.link_token}` };
+}
+
 async function createShionOrneDashboardLink(): Promise<DashboardLinkResult> {
   const serviceKey = process.env.SHION_ORNE_SERVICE_KEY;
   if (!serviceKey) return { ok: false, error: 'not_configured' };
