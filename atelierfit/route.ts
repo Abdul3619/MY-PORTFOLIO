@@ -10,6 +10,8 @@ import express from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import crypto from 'crypto';
+import QRCode from 'qrcode';
+import sharp from 'sharp';
 
 // `imageUrl` is the one-line hook for real cutout-collection photos later -- unset today (the client falls
 // back to an honest abstract placeholder, see GarmentPlaceholder), set it here once real photos exist and
@@ -117,6 +119,52 @@ export function createAtelierFitRouter(deps: { requireAuth: express.RequestHandl
         timeSlots: TIME_SLOTS,
         estimatedTurnaroundDays: ESTIMATED_TURNAROUND_DAYS,
       });
+    }),
+  );
+
+  // ---- Public: a real, scannable QR code for the installable app ----------
+  // Encodes the actual /atelierfit URL (not a placeholder) with the AtelierFit icon composited in the
+  // center -- level-H error correction tolerates roughly 30% of the code being obscured, so a logo badge
+  // sized well under that still scans reliably. Scanning it opens /atelierfit, which is itself a fully
+  // installable PWA (manifest + service worker, see src/pages/AtelierFit/index.tsx) -- so "scan to open"
+  // and "scan to install" are the same link; the phone's own browser offers the install/home-screen prompt.
+  router.get(
+    '/qr-code.png',
+    asyncHandler(async (req, res) => {
+      const targetUrl = `${req.protocol}://${req.get('host')}/atelierfit`;
+      const qrSize = 900;
+      const qrBuffer = await QRCode.toBuffer(targetUrl, {
+        type: 'png',
+        errorCorrectionLevel: 'H',
+        margin: 2,
+        width: qrSize,
+        color: { dark: '#0B0A08', light: '#FFFFFF' },
+      });
+
+      const badgeSize = Math.round(qrSize * 0.26);
+      const logoSize = Math.round(badgeSize * 0.74);
+
+      let finalBuffer = qrBuffer;
+      try {
+        const logoRes = await fetch(`${req.protocol}://${req.get('host')}/icons/atelierfit-512.png`);
+        if (logoRes.ok) {
+          const logoBuffer = Buffer.from(await logoRes.arrayBuffer());
+          const badgeSvg = Buffer.from(
+            `<svg width="${badgeSize}" height="${badgeSize}"><rect width="${badgeSize}" height="${badgeSize}" rx="${Math.round(badgeSize * 0.22)}" fill="#FFFFFF"/></svg>`,
+          );
+          const resizedLogo = await sharp(logoBuffer).resize(logoSize, logoSize, { fit: 'contain' }).png().toBuffer();
+          const badge = await sharp(badgeSvg).composite([{ input: resizedLogo, gravity: 'center' }]).png().toBuffer();
+          const offset = Math.round((qrSize - badgeSize) / 2);
+          finalBuffer = await sharp(qrBuffer).composite([{ input: badge, left: offset, top: offset }]).png().toBuffer();
+        }
+      } catch (logoErr) {
+        // A failed logo fetch/composite still leaves a perfectly scannable plain QR code -- never block on it.
+        console.warn('AtelierFit QR logo overlay skipped:', (logoErr as any)?.message || logoErr);
+      }
+
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(finalBuffer);
     }),
   );
 
