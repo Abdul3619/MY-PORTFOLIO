@@ -39,6 +39,10 @@ export interface DraftLeadInput {
    * when search found nothing notable. Independent of the crawl: this is what people say about the
    * business, not what their own site looks like. */
   reputationIssues?: string[];
+  /** A real screenshot of the homepage, judged the way a visitor actually would (see visualAudit.ts) --
+   * specific, concrete design issues, never generic filler. Undefined when the automatic visual audit
+   * couldn't run or failed (e.g. no Chromium, navigation timeout) -- the draft still works fine without it. */
+  visualFindings?: { issues: string[]; strengths: string[] };
 }
 
 // Technical crawl findings are real, but a business owner has never heard of a "meta description" and
@@ -102,6 +106,7 @@ function buildPrompt(input: DraftLeadInput): string {
   const siteLooksOld = DESIGN_AGE_SIGNAL_COUNT(evidence) >= 2;
   const compulsoryMissing = input.compulsoryMissing || [];
   const reputationIssues = input.reputationIssues || [];
+  const visualIssues = input.visualFindings?.issues || [];
   return `
 You are drafting a short, honest cold outreach email from a freelance web
 developer to a real local business, based ONLY on the evidence below. Do not
@@ -118,6 +123,8 @@ ${plainFacts.length > 0 ? plainFacts.map((f) => `- ${f}`).join('\n') : '- No maj
 ${compulsoryMissing.length > 0 ? `Things customers specifically expect from this TYPE of business, that this site does not have (these are not generic nice-to-haves -- treat the most important one or two as the lead observation if nothing else stands out more):\n${compulsoryMissing.map((m) => `- ${m}`).join('\n')}\n` : ''}
 
 ${reputationIssues.length > 0 ? `Real complaints found online about this business (from actual reviews/search, not the site itself -- these are sensitive, so raise AT MOST one, gently, only if it fits naturally, and never sound like you're attacking them):\n${reputationIssues.map((r) => `- ${r}`).join('\n')}\n` : ''}
+
+${visualIssues.length > 0 ? `What the homepage actually looks like to a visitor (from a real screenshot, judged on sight -- these are specific, observed design problems, not guesses; pick at most one or two, in your own plain words, never quoting them verbatim):\n${visualIssues.map((v) => `- ${v}`).join('\n')}\n` : ''}
 
 Raw technical evidence, for your own reference only (do not quote these terms in the email itself):
 - Page title: ${evidence.title || '(none found)'}

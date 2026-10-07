@@ -993,8 +993,9 @@ export default function AdminOutreach() {
                         </a>
 
                         {/* "Look at it like a human would" -- a real screenshot judged by Gemini's vision, not
-                            HTML pattern-matching. Opt-in and one lead at a time: it launches a real browser,
-                            which is slow and the riskiest piece of this whole pipeline. */}
+                            HTML pattern-matching. This now runs automatically for every website lead as part
+                            of the pipeline (see outreach/pipeline.ts) -- the button below is only a manual
+                            retry, for the rare case the automatic pass failed or the site has since changed. */}
                         {lead.contactChannel === 'website' && lead.website && (
                           <div className="space-y-2">
                             <button
@@ -1008,7 +1009,7 @@ export default function AdminOutreach() {
                                 </>
                               ) : (
                                 <>
-                                  <Eye size={12} /> {lead.visualAudit ? 'Re-run visual audit' : 'Run visual audit (human-eye design check)'}
+                                  <Eye size={12} /> {lead.visualAudit ? 'Re-run visual audit' : 'Retry visual audit (none captured for this lead)'}
                                 </>
                               )}
                             </button>

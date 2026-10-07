@@ -6,11 +6,13 @@
 // and served from this same deployed site, so chromium-min downloads and extracts it from our own domain at
 // runtime instead of depending on an external URL that could go stale.
 //
-// Deliberately isolated and best-effort: this is the one piece of the outreach pipeline with real
-// infrastructure risk (a native binary, a real browser, real navigation), so it is never called from the
-// bulk auto-search path -- only on demand, one lead at a time (see route.ts's /leads/:id/visual-audit) -- and
+// This is the one piece of the outreach pipeline with real infrastructure risk (a native binary, a real
+// browser, real navigation). It now runs automatically for every website lead as part of the main pipeline
+// (pipeline.ts) -- nobody has to click anything for it to happen -- but stays best-effort and serialized
+// (see withGlobalBrowserLock below) so it can never stack up multiple browsers or take a whole lead down:
 // every failure mode (missing pack, launch failure, navigation timeout, SSRF guard refusal) resolves to
-// { ok: false, error } rather than throwing or hanging the request.
+// { ok: false, error } rather than throwing or hanging the request. route.ts's /leads/:id/visual-audit still
+// exists as an optional manual re-run (e.g. if the automatic pass failed or the site has since changed).
 
 import { checkUrlIsSafeToFetch } from './security.js';
 
@@ -66,12 +68,32 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   }
 }
 
+// The visual audit now runs automatically inside the main lead pipeline (pipeline.ts), which processes up to
+// 5 leads concurrently (see runWithConcurrency). Launching a real Chromium instance per lead with no limit
+// would mean up to 5 browsers running at once inside the same serverless function -- real risk of blowing the
+// 2GB memory budget. This simple chain-based lock serializes every browser launch to exactly one at a time,
+// globally, for the life of this warm function instance, regardless of how many callers invoke it concurrently.
+let browserLock: Promise<any> = Promise.resolve();
+function withGlobalBrowserLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = browserLock.then(fn, fn); // run fn next in line, whether the previous caller succeeded or failed
+  browserLock = run.then(
+    () => undefined,
+    () => undefined, // never let one caller's failure wedge the lock for everyone after it
+  );
+  return run;
+}
+
 /** Takes a real screenshot of a URL's rendered homepage. Reuses the same SSRF guard the HTML crawler uses,
- * since this is another path that fetches an arbitrary, user/search-supplied URL from the server. */
+ * since this is another path that fetches an arbitrary, user/search-supplied URL from the server. Serialized
+ * globally (see withGlobalBrowserLock) so concurrent callers queue rather than launching Chromium in parallel. */
 export async function captureScreenshot(targetUrl: string): Promise<ScreenshotResult> {
   const safety = await checkUrlIsSafeToFetch(targetUrl);
   if (!safety.safe) return { ok: false, error: `Refused to fetch (SSRF guard): ${safety.reason}` };
 
+  return withGlobalBrowserLock(() => captureScreenshotUnlocked(targetUrl));
+}
+
+async function captureScreenshotUnlocked(targetUrl: string): Promise<ScreenshotResult> {
   let browser: any;
   try {
     const result = await withTimeout(

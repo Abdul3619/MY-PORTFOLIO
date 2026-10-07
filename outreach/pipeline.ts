@@ -8,6 +8,8 @@ import { crawlHomepage } from './crawler.js';
 import { draftEmail, draftNoWebsiteEmail, type SenderProfile } from './gemini.js';
 import { findReputationIssues } from './reputation.js';
 import { verifyEmail } from './emailVerify.js';
+import { captureScreenshot } from './screenshot.js';
+import { runVisualAudit } from './visualAudit.js';
 import { appendComplianceFooter } from './compliance.js';
 import { domainKey, normalizeUrl, contactKey } from './domain.js';
 import { getMissingCompulsoryItems } from './businessRequirements.js';
@@ -22,6 +24,22 @@ async function safeFindReputationIssues(businessName: string | null | undefined,
     return result.ok && result.findings ? result.findings.complaints : [];
   } catch {
     return [];
+  }
+}
+
+/** Runs the "look at it like a human would" visual audit automatically, as a normal part of every website
+ * lead -- nobody has to click a button for this to happen. Best-effort like the reputation search: a missing
+ * Chromium pack, a navigation timeout, or any other failure just means no visual findings for this lead, never
+ * a failed draft. (See screenshot.ts for why concurrent calls are safe -- browser launches are globally
+ * serialized there regardless of how many leads this pipeline is processing at once.) */
+async function safeRunVisualAudit(website: string, businessName: string): Promise<{ summary: string; issues: string[]; strengths: string[] } | null> {
+  try {
+    const screenshot = await captureScreenshot(website);
+    if (!screenshot.ok || !screenshot.base64Png) return null;
+    const audit = await runVisualAudit(screenshot.base64Png, businessName);
+    return audit.ok && audit.findings ? audit.findings : null;
+  } catch {
+    return null;
   }
 }
 
@@ -126,12 +144,18 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     return { kind: 'crawl_error', leadId, domain, error };
   }
 
-  // Real-world reputation, from live search -- independent of anything on the business's own site. Run
-  // alongside the rest of this step rather than blocking on it separately; a failure here just means an
-  // empty list, never a failed lead.
-  const reputationIssues = await safeFindReputationIssues(input.businessName || business.name, input.city, input.country);
+  // Real-world reputation (live search) and the visual/design audit (a real screenshot, judged on sight) are
+  // both independent, best-effort lookups -- run them together rather than one after the other, since neither
+  // depends on the other's result. Automatic for every website lead now; nobody has to click anything.
+  const [reputationIssues, visualAudit] = await Promise.all([
+    safeFindReputationIssues(input.businessName || business.name, input.city, input.country),
+    safeRunVisualAudit(business.website || input.website, input.businessName || business.name || domain),
+  ]);
   if (reputationIssues.length > 0) {
     crawlResult.evidence.issues = [...crawlResult.evidence.issues, ...reputationIssues.map((r) => `Found online: ${r}`)];
+  }
+  if (visualAudit && visualAudit.issues.length > 0) {
+    crawlResult.evidence.issues = [...crawlResult.evidence.issues, ...visualAudit.issues.map((v) => `Visual: ${v}`)];
   }
 
   // Before this address goes anywhere near a draft: is it even real? Best-effort, never blocks -- with no
@@ -151,7 +175,7 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     }
   }
 
-  await store.updateLead(leadId, { evidence: crawlResult.evidence, status: 'drafting' });
+  await store.updateLead(leadId, { evidence: crawlResult.evidence, status: 'drafting', visualAudit: visualAudit ?? null });
 
   // Opt-out check happens after crawling (we still want the evidence saved
   // for transparency) but strictly before drafting or contacting anyone.
@@ -169,6 +193,7 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     sender: deps.sender,
     compulsoryMissing: missingCompulsory,
     reputationIssues,
+    visualFindings: visualAudit ?? undefined,
   });
 
   if (!draftResult.ok || !draftResult.subject || !draftResult.body) {
