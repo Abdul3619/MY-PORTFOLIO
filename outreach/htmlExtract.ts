@@ -364,6 +364,11 @@ export function extractSignals(html: string, finalUrl: string): CrawlEvidence {
     hasBookingMention,
     hasPortfolioMention,
     hasTestimonials,
+    // Filled in by crawler.ts after this returns (requires live sub-requests this function doesn't make);
+    // defaulted to 0 here so every CrawlEvidence is always a complete, valid object.
+    deadButtonCount: 0,
+    brokenLinkCount: 0,
+    brokenImageCount: 0,
   };
 }
 

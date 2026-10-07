@@ -59,6 +59,10 @@ function translateEvidence(evidence: CrawlEvidence): string[] {
   if (!evidence.hasClearCallToAction) facts.push('Nothing on the page actually tells a visitor what to do next -- there is no obvious button or line that says to call, book, or get in touch.');
   if (!evidence.hasOnlinePayment) facts.push('There is no way to pay, book, or check out online -- anything like that has to happen off the site entirely, usually by phone.');
   if (!evidence.hasTestimonials) facts.push('There is nothing on the site showing what past customers think -- no reviews or testimonials, so a new visitor has nothing to reassure them.');
+  // These three are actually tested, not guessed at -- a real request was made and it actually failed.
+  if (evidence.deadButtonCount > 0) facts.push(`${evidence.deadButtonCount} button${evidence.deadButtonCount === 1 ? '' : 's'} on the page do nothing when clicked -- they go nowhere at all, which looks broken to anyone who tries.`);
+  if (evidence.brokenLinkCount > 0) facts.push(`${evidence.brokenLinkCount} link${evidence.brokenLinkCount === 1 ? '' : 's'} on the page lead to a page that no longer exists or returns an error.`);
+  if (evidence.brokenImageCount > 0) facts.push(`${evidence.brokenImageCount} image${evidence.brokenImageCount === 1 ? '' : 's'} on the page fail to load -- visitors see a broken image icon instead.`);
   return facts;
 }
 

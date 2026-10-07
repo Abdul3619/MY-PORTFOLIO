@@ -7,6 +7,7 @@
 import { checkUrlIsSafeToFetch, type UrlSafetyResult } from './security.js';
 import { parseRobotsTxt, isAllowed } from './robots.js';
 import { extractSignals } from './htmlExtract.js';
+import { auditTechnicalIssues } from './technicalAudit.js';
 import { normalizeUrl } from './domain.js';
 import type { CrawlResult } from './types.js';
 
@@ -129,6 +130,19 @@ export async function crawlHomepage(targetUrl: string, deps: CrawlerDeps = defau
     const html = await res.text();
     const finalUrl = res.url || url;
     const evidence = extractSignals(html, finalUrl);
+
+    // Real functional problems -- buttons that go nowhere, links that 404, images that fail to load --
+    // rather than only the pattern-matched technical signals above. Best-effort: a failure here (a flaky
+    // sub-request, an unusual page structure) should never invalidate an otherwise-successful crawl.
+    try {
+      const audit = await auditTechnicalIssues(html, finalUrl, deps.checkUrlIsSafeToFetch);
+      if (audit.issues.length > 0) evidence.issues = [...evidence.issues, ...audit.issues];
+      evidence.deadButtonCount = audit.deadButtonCount;
+      evidence.brokenLinkCount = audit.brokenLinkCount;
+      evidence.brokenImageCount = audit.brokenImageCount;
+    } catch {
+      // best-effort
+    }
 
     // If the homepage has no contact info at all, check the linked contact or about page:
     if (evidence.emails.length === 0 && evidence.phones.length === 0 && Object.keys(evidence.socialLinks).length === 0) {

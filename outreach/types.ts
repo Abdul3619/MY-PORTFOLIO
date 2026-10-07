@@ -46,6 +46,10 @@ export interface CrawlEvidence {
   hasBookingMention: boolean;
   hasPortfolioMention: boolean;
   hasTestimonials: boolean;
+  // Real, actually-tested functional problems (see technicalAudit.ts) -- not pattern-matched guesses.
+  deadButtonCount: number; // href="#"/javascript:void(0) with no real destination
+  brokenLinkCount: number; // same-domain links that returned a 4xx/5xx when actually requested
+  brokenImageCount: number; // same-domain images that failed to load when actually requested
 }
 
 export interface CrawlResult {
