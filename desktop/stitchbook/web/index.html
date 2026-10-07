@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  Tauri's bundler wants a local frontendDist to point at even though the actual app window
+  loads the real, remote StitchBook page (see src-tauri/tauri.conf.json's app.windows[0].url).
+  This file is never normally shown -- it only appears for a moment if the remote load is slow
+  or offline, and sends the window to the real URL either way.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>StitchBook</title>
+    <meta http-equiv="refresh" content="0; url=https://abdulwahab-portfolio-tau.vercel.app/stitchbook" />
+    <style>
+      body { background: #0b0a08; color: #9ca3af; font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <p>Loading StitchBook&hellip;</p>
+    <script>location.replace('https://abdulwahab-portfolio-tau.vercel.app/stitchbook');</script>
+  </body>
+</html>
