@@ -142,17 +142,48 @@ function extractPhones(html: string): string[] {
   return Array.from(found);
 }
 
+// A raw href from a site's HTML can be protocol-relative ("//facebook.com/..."), missing a protocol
+// entirely ("facebook.com/..."), or a "Share this page" / login / intent link that happens to contain the
+// platform's domain without actually being the business's own profile. Clicking any of those either does
+// nothing (an unresolvable relative URL) or lands somewhere useless -- both read as "the button is broken"
+// even though a link is technically present. This turns a raw href into either a real, absolute URL worth
+// offering as a contact method, or null when it's not actually one.
+function normalizeSocialHref(raw: string, platform: string): string | null {
+  let href = raw.trim();
+  if (!href) return null;
+  if (href.startsWith('//')) href = `https:${href}`;
+  else if (!/^https?:\/\//i.test(href)) href = `https://${href.replace(/^\/+/, '')}`;
+
+  const NOISE = /\/(sharer|share\.php|intent|dialog\/share|login|accounts\/login|developers?|business|policy|about|privacy|help)(\/|$|\?)/i;
+  if (NOISE.test(href)) return null;
+
+  try {
+    const u = new URL(href);
+    const path = u.pathname.replace(/\/+$/, '');
+    // A link to the bare domain root (no page/handle in the path) isn't a usable contact method -- it's
+    // generally a "Follow us" icon nobody customized, not this business's actual profile.
+    if (!path || path === '/') return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 function extractSocialLinks(html: string): Record<string, string> {
   const links: Record<string, string> = {};
   const hrefRe = /href=["']([^"']+)["']/gi;
   for (const m of html.matchAll(hrefRe)) {
     const href = m[1];
-    if (href.includes('linkedin.com')) links.linkedin = href;
-    else if (href.includes('facebook.com')) links.facebook = href;
-    else if (href.includes('instagram.com')) links.instagram = href;
-    else if (href.includes('twitter.com') || href.includes('x.com')) links.x = href;
-    else if (href.includes('youtube.com') || href.includes('youtu.be')) links.youtube = href;
-    else if (href.includes('wa.me/') || href.includes('whatsapp.com')) links.whatsapp = href;
+    let platform: string | null = null;
+    if (href.includes('linkedin.com')) platform = 'linkedin';
+    else if (href.includes('facebook.com')) platform = 'facebook';
+    else if (href.includes('instagram.com')) platform = 'instagram';
+    else if (href.includes('twitter.com') || href.includes('x.com')) platform = 'x';
+    else if (href.includes('youtube.com') || href.includes('youtu.be')) platform = 'youtube';
+    else if (href.includes('wa.me/') || href.includes('whatsapp.com')) platform = 'whatsapp';
+    if (!platform || links[platform]) continue;
+    const normalized = normalizeSocialHref(href, platform);
+    if (normalized) links[platform] = normalized;
   }
   // Also detect raw Instagram links if not enclosed in standard href:
   if (!links.instagram) {

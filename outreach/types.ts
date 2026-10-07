@@ -77,6 +77,10 @@ export interface Business {
   website: string | null;
   contactChannel: ContactChannel;
   contactValue: string | null;
+  /** A real phone number OSM had on file for this business even though something else (whatsapp/facebook/
+   * instagram, or a website) won as the primary contact channel -- a fallback way to reach them that would
+   * otherwise be silently discarded. See overpass.ts's extractContact. */
+  fallbackPhone: string | null;
   city: string | null;
   country: string | null;
   createdAt: string;
@@ -89,6 +93,7 @@ export interface Lead {
   website: string | null;
   contactChannel: ContactChannel;
   contactValue: string | null;
+  fallbackPhone: string | null;
   businessName: string | null;
   city: string | null;
   country: string | null;

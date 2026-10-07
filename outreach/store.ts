@@ -40,6 +40,7 @@ export class Store {
     country?: string | null;
     contactChannel?: ContactChannel;
     contactValue?: string | null;
+    fallbackPhone?: string | null;
   }): Promise<Business> {
     const result = await this.client.rpc<any>('ai_outreach_upsert_business', {
       p_domain: input.domain,
@@ -49,6 +50,7 @@ export class Store {
       p_country: input.country ?? null,
       p_contact_channel: input.contactChannel ?? 'website',
       p_contact_value: input.contactValue ?? null,
+      p_fallback_phone: input.fallbackPhone ?? null,
     });
     const row = unwrap(result, 'upsertBusiness');
     return {
@@ -58,6 +60,7 @@ export class Store {
       website: row.website,
       contactChannel: row.contactChannel,
       contactValue: row.contactValue,
+      fallbackPhone: row.fallbackPhone ?? null,
       city: row.city,
       country: row.country,
       createdAt: row.createdAt,
@@ -196,6 +199,7 @@ function rowToLead(row: any): Lead {
     website: row.website,
     contactChannel: row.contactChannel ?? 'website',
     contactValue: row.contactValue ?? null,
+    fallbackPhone: row.fallbackPhone ?? null,
     businessName: row.businessName,
     city: row.city,
     country: row.country,

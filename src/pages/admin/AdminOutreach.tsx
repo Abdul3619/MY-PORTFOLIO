@@ -51,6 +51,7 @@ interface Lead {
   website: string | null;
   contactChannel: ContactChannel;
   contactValue: string | null;
+  fallbackPhone: string | null;
   businessName: string | null;
   city: string | null;
   country: string | null;
@@ -100,7 +101,9 @@ function normalizeWhatsAppUrl(raw: string, text?: string): string | undefined {
     }
   }
   let digits = raw.replace(/\D/g, '');
-  if (!digits) return undefined;
+  // Fewer than 7 digits can't be a real phone number -- rather than build a wa.me link to a near-empty
+  // number (a dead button that "doesn't lead to WhatsApp when opened"), treat it as no number at all.
+  if (!digits || digits.length < 7) return undefined;
   // Handle Nigerian mobile format (080..., 081..., 070..., 090..., 091...): strip leading 0 and prepend 234
   if (digits.startsWith('0') && digits.length === 11) {
     digits = '234' + digits.slice(1);
@@ -505,16 +508,14 @@ export default function AdminOutreach() {
     } else if (lead.contactValue) {
       if (lead.contactChannel === 'whatsapp') {
         const waUrl = normalizeWhatsAppUrl(lead.contactValue, draftText);
-        opts.push({
-          key: 'whatsapp',
-          label: 'WhatsApp',
-          display: lead.contactValue,
-          href: waUrl,
-          external: true,
-        });
+        // Only a real, working link is worth a button -- a dead one (no digits came out of the OSM value)
+        // is worse than not showing it, since it looks clickable but silently does nothing.
+        if (waUrl) {
+          opts.push({ key: 'whatsapp', label: 'WhatsApp', display: lead.contactValue, href: waUrl, external: true });
+        }
       } else if (lead.contactChannel === 'phone') {
         const digits = lead.contactValue.replace(/[^\d+]/g, '');
-        opts.push({ key: 'phone', label: 'Phone', display: lead.contactValue, href: digits ? `tel:${digits}` : undefined });
+        if (digits) opts.push({ key: 'phone', label: 'Phone', display: lead.contactValue, href: `tel:${digits}` });
       } else {
         // facebook / instagram -- OSM sometimes tags these as a full URL, sometimes just a handle.
         const isUrl = /^https?:\/\//i.test(lead.contactValue);
@@ -526,13 +527,24 @@ export default function AdminOutreach() {
         } else if (lead.contactChannel === 'facebook') {
           href = `https://facebook.com/${lead.contactValue.replace(/^@/, '')}`;
         }
-        opts.push({
-          key: lead.contactChannel,
-          label: CHANNEL_LABEL[lead.contactChannel],
-          display: lead.contactValue,
-          href,
-          external: true,
-        });
+        if (href) {
+          opts.push({ key: lead.contactChannel, label: CHANNEL_LABEL[lead.contactChannel], display: lead.contactValue, href, external: true });
+        }
+      }
+
+      // A real phone OSM had on file even though whatsapp/facebook/instagram won as the primary channel --
+      // surfaced as its own option (call + a "try WhatsApp" guess) rather than silently dropped. Skipped
+      // when the primary channel already IS this same number (phone-channel leads, or a whatsapp value
+      // that already came from this phone).
+      if (lead.fallbackPhone && lead.fallbackPhone !== lead.contactValue) {
+        const digits = lead.fallbackPhone.replace(/[^\d+]/g, '');
+        if (digits) {
+          opts.push({ key: 'fallback-phone', label: 'Phone', display: lead.fallbackPhone, href: `tel:${digits}` });
+          const waUrl = normalizeWhatsAppUrl(lead.fallbackPhone, draftText);
+          if (waUrl && lead.contactChannel !== 'whatsapp') {
+            opts.push({ key: 'fallback-whatsapp', label: 'Try WhatsApp', display: lead.fallbackPhone, href: waUrl, external: true, unconfirmed: true });
+          }
+        }
       }
     }
 

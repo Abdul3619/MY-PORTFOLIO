@@ -167,26 +167,55 @@ export function knownCategories(): string[] {
  * then a phone number, then Facebook, then Instagram. Returns null if none
  * of these are present -- that business genuinely can't be reached from
  * what OSM has on file, and gets dropped. */
+// OSM tags like `contact:whatsapp` are meant to hold a number, but mappers routinely set them to a bare
+// "yes" / "true" instead -- meaning "this business has WhatsApp, on the same number as their phone" rather
+// than an actual contact value. Taking that literally as the contact (as this used to) produces a dead
+// button: nothing to build a wa.me link, a contact page link, from. A real phone/WhatsApp number needs
+// several digits; a placeholder flag has none once the non-digits are stripped.
+const PLACEHOLDER_FLAG = /^(yes|true|1|y|no|none|n\/?a)$/i;
+
+function hasEnoughDigits(raw: string, min = 7): boolean {
+  return raw.replace(/\D/g, '').length >= min;
+}
+
+/** True for anything that could plausibly become a working link -- real digits, or a recognizable
+ * wa.me/whatsapp.com/full-URL/handle -- as opposed to a bare OSM boolean flag. */
+function looksUsable(raw: string): boolean {
+  const v = raw.trim();
+  if (!v || PLACEHOLDER_FLAG.test(v)) return false;
+  return true;
+}
+
 function extractContact(
   tags: Record<string, string>,
 ): { channel: OsmBusinessResult['contactChannel']; website: string | null; value: string | null; osmPhone: string | null } | null {
   const phone = tags['contact:phone'] || tags.phone || tags['contact:mobile'] || tags.mobile || tags.telephone || tags['contact:telephone'] || tags['operator:phone'] || tags['operator:mobile'] || null;
+  const usablePhone = phone && hasEnoughDigits(phone) ? phone : null;
 
   const website = tags.website || tags['contact:website'] || tags.url || null;
   // A phone tag riding alongside a website isn't the "best" channel, but it's a real, independently
   // confirmed way to reach them -- worth keeping rather than discarding just because website won.
-  if (website) return { channel: 'website', website, value: null, osmPhone: phone };
+  if (website) return { channel: 'website', website, value: null, osmPhone: usablePhone };
 
-  const whatsapp = tags['contact:whatsapp'] || tags.whatsapp || null;
-  if (whatsapp) return { channel: 'whatsapp', website: null, value: whatsapp, osmPhone: null };
+  // contact:whatsapp is sometimes a real number, sometimes just "yes" (same number as the phone tag) --
+  // either way, the real phone (when there is one) rides along as a fallback so it's never silently lost
+  // just because whatsapp was picked as the primary channel.
+  const whatsappRaw = tags['contact:whatsapp'] || tags.whatsapp || null;
+  if (whatsappRaw && looksUsable(whatsappRaw) && hasEnoughDigits(whatsappRaw)) {
+    return { channel: 'whatsapp', website: null, value: whatsappRaw, osmPhone: usablePhone };
+  }
+  if (whatsappRaw && PLACEHOLDER_FLAG.test(whatsappRaw.trim()) && usablePhone) {
+    // "Yes, WhatsApp is available" -- on the phone number we already have.
+    return { channel: 'whatsapp', website: null, value: usablePhone, osmPhone: usablePhone };
+  }
 
-  if (phone) return { channel: 'phone', website: null, value: phone, osmPhone: null };
+  if (usablePhone) return { channel: 'phone', website: null, value: usablePhone, osmPhone: usablePhone };
 
   const facebook = tags['contact:facebook'] || tags.facebook || tags['social:facebook'] || null;
-  if (facebook) return { channel: 'facebook', website: null, value: facebook, osmPhone: null };
+  if (facebook && looksUsable(facebook)) return { channel: 'facebook', website: null, value: facebook, osmPhone: usablePhone };
 
   const instagram = tags['contact:instagram'] || tags.instagram || tags['social:instagram'] || null;
-  if (instagram) return { channel: 'instagram', website: null, value: instagram, osmPhone: null };
+  if (instagram && looksUsable(instagram)) return { channel: 'instagram', website: null, value: instagram, osmPhone: usablePhone };
 
   return null;
 }

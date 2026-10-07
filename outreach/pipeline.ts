@@ -154,6 +154,9 @@ export interface NoWebsitePipelineInput {
   contactChannel: 'whatsapp' | 'facebook' | 'instagram' | 'phone';
   contactValue: string;
   source: LeadSource;
+  /** A real phone number OSM had on file for this business even though whatsapp/facebook/instagram won as
+   * the primary channel -- see overpass.ts's extractContact. Carried through as a fallback contact method. */
+  osmPhone?: string | null;
 }
 
 /** The equivalent of runLeadPipeline for a business that has no website --
@@ -185,6 +188,7 @@ export async function runNoWebsiteLeadPipeline(input: NoWebsitePipelineInput, de
     country: input.country ?? null,
     contactChannel: input.contactChannel,
     contactValue: input.contactValue,
+    fallbackPhone: input.osmPhone ?? null,
   });
 
   const leadId = await store.createLead(business.id, input.source, 'drafting');
