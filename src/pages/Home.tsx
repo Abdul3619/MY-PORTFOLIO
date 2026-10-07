@@ -21,6 +21,8 @@ import {
   CheckCircle,
   Linkedin,
   Github,
+  Twitter,
+  Instagram,
   MessageSquare,
   Sparkles,
   BookOpen,
@@ -866,6 +868,16 @@ export default function Home() {
                 {socialLinks.linkedin !== "#" && (
                   <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
                     <Linkedin size={18} />
+                  </a>
+                )}
+                {socialLinks.twitter !== "#" && (
+                  <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" aria-label="Twitter / X" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                    <Twitter size={18} />
+                  </a>
+                )}
+                {socialLinks.instagram !== "#" && (
+                  <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gold/50 transition-colors interactive">
+                    <Instagram size={18} />
                   </a>
                 )}
               </div>

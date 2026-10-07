@@ -44,7 +44,7 @@ function saveMessages(messages: ChatMessage[]) {
 
 // Full URLs and known site paths (/contact, /projects/<slug>, etc) inside assistant replies. Used to find
 // destinations for the ChatActions buttons below, and (for plain error strings only) to keep them clickable.
-const LINK_PATTERN = /(https?:\/\/[^\s<>"]+|(?<![\w/])\/(?:contact|projects|about|skills|resume|certificates|testimonials|solar-estimator)(?:\/[\w-]+)?)/g;
+const LINK_PATTERN = /(https?:\/\/[^\s<>"]+|(?<![\w/])\/(?:contact|projects|about|skills|resume|certificates|testimonials)(?:\/[\w-]+)?)/g;
 
 function renderWithLinks(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
@@ -122,13 +122,6 @@ const PAGE_SUGGESTIONS: { match: (path: string) => boolean; build: () => Omit<Su
     }),
   },
   {
-    match: (p) => p.startsWith("/solar-estimator"),
-    build: () => ({
-      label: "Have a solar or off-grid power question?",
-      prompt: "Can you help with a question about a solar or off-grid power system?",
-    }),
-  },
-  {
     match: (p) => p.startsWith("/skills"),
     build: () => ({
       label: "Want to know if his stack fits your project?",
@@ -200,7 +193,6 @@ const INTERNAL_LABELS: Record<string, string> = {
   "/resume": "Open the resume",
   "/certificates": "Open Certificates",
   "/testimonials": "Open Testimonials",
-  "/solar-estimator": "Open the solar estimator",
 };
 
 interface ChatAction {
@@ -567,6 +559,18 @@ export default function ChatWidget() {
       abortRef.current = null;
     }
   };
+
+  // Lets other parts of the page (e.g. a locked-dashboard badge on a project card) open the assistant and ask
+  // its question for the visitor, instead of leaving them to find the launcher and type it themselves.
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const detail = (e as CustomEvent<{ message?: string }>).detail;
+      setOpen(true);
+      if (detail?.message) send(detail.message);
+    };
+    window.addEventListener("portfolio:ask-assistant", onAsk);
+    return () => window.removeEventListener("portfolio:ask-assistant", onAsk);
+  }, [send]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();

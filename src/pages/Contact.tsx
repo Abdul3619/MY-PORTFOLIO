@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Mail, Github, Linkedin, MessageCircle, Send, CheckCircle2 } from "lucide-react";
+import { Mail, Github, Linkedin, Twitter, Instagram, MessageCircle, Send, CheckCircle2, ShieldCheck } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
@@ -100,8 +100,39 @@ export default function Contact() {
                     <Linkedin size={24} />
                   </a>
                 )}
+                {contactInfo?.twitter_url && (
+                  <a href={contactInfo.twitter_url} target="_blank" rel="noopener noreferrer" aria-label="Twitter / X" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                    <Twitter size={24} />
+                  </a>
+                )}
+                {contactInfo?.instagram_url && (
+                  <a href={contactInfo.instagram_url} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold hover:border-gold/50 transition-all interactive hover:-translate-y-1">
+                    <Instagram size={24} />
+                  </a>
+                )}
               </div>
             </div>
+
+            {contactInfo?.upwork_url && (
+              <a
+                href={contactInfo.upwork_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-10 flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/50 transition-all interactive group"
+              >
+                <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {t("contact.upwork_title", "Prefer escrow-protected payment?")}
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    {t("contact.upwork_subtitle", "Hire me through Upwork -- your payment stays in escrow until you approve the delivered work.")}
+                  </p>
+                </div>
+              </a>
+            )}
           </motion.div>
 
           {/* Contact Form */}

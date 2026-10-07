@@ -12,7 +12,6 @@ const navLinks = [
   { name: "Skills", key: "skills", path: "/skills" },
   { name: "Projects", key: "projects", path: "/projects" },
   { name: "Certificates", key: "certificates", path: "/certificates" },
-  { name: "Solar Sizer", key: "solarSizer", path: "/solar-estimator" },
   { name: "Testimonials", key: "testimonials", path: "/testimonials" },
   { name: "Resume", key: "resume", path: "/resume" },
   { name: "Contact", key: "contact", path: "/contact" },

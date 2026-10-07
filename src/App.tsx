@@ -21,7 +21,6 @@ import Certificates from "./pages/Certificates";
 import Testimonials from "./pages/Testimonials";
 import Resume from "./pages/Resume";
 import Contact from "./pages/Contact";
-import SolarEstimator from "./pages/SolarEstimator";
 import NotFound from "./pages/NotFound";
 import { AdminLayout, ProtectedRoute, AdminLogin } from "./components/admin/AdminLayout";
 import Maintenance from "./pages/Maintenance";
@@ -133,7 +132,6 @@ function AnimatedRoutes() {
           <Route path="/skills" element={<Skills />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/solar-estimator" element={<SolarEstimator />} />
           <Route path="/certificates" element={<Certificates />} />
           <Route path="/testimonials" element={<Testimonials />} />
           <Route path="/resume" element={<Resume />} />

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ExternalLink, ArrowRight, Search, X, Smartphone } from "lucide-react";
+import { ExternalLink, ArrowRight, Search, X, Smartphone, Lock } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -283,7 +283,7 @@ export default function Projects() {
                       <ArrowRight size={16} />
                     </Link>
                     
-                    {project.live_url && !project.has_dashboard && (
+                    {project.live_url && (
                       <a
                         href={project.live_url}
                         target="_blank"
@@ -294,6 +294,25 @@ export default function Projects() {
                       >
                         <ExternalLink size={20} />
                       </a>
+                    )}
+
+                    {project.has_dashboard && (
+                      <button
+                        type="button"
+                        aria-label={`${project.title}'s admin dashboard is locked -- ask the assistant for access`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.dispatchEvent(
+                            new CustomEvent("portfolio:ask-assistant", {
+                              detail: { message: `Can I get a live test login for ${project.title}'s dashboard?` },
+                            }),
+                          );
+                        }}
+                        className="relative p-3 rounded-xl bg-[#00F0FF]/5 border border-[#00F0FF]/20 text-[#00F0FF] hover:bg-[#00F0FF]/10 hover:border-[#00F0FF]/50 transition-all duration-300 interactive"
+                      >
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-xl bg-[#00F0FF]/10" />
+                        <Lock size={20} className="relative" />
+                      </button>
                     )}
                   </div>
                 </div>

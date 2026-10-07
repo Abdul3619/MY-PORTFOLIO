@@ -13,7 +13,9 @@ import {
   ImageIcon,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Lock,
+  MessageCircle
 } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
@@ -350,7 +352,7 @@ export default function ProjectDetail() {
                 {t("project_detail.access_points", "Access Points")}
               </h3>
               <div className="flex flex-col gap-4">
-                {project.live_url && !project.has_dashboard && (
+                {project.live_url && (
                   <a href={project.live_url} target="_blank" rel="noopener noreferrer" className="w-full interactive">
                     <MagneticButton variant="primary" className="w-full flex justify-center py-2">
                       <ExternalLink size={16} />
@@ -359,13 +361,35 @@ export default function ProjectDetail() {
                   </a>
                 )}
 
-                {project.live_url && project.has_dashboard && (
-                  <p className="text-gray-400 font-mono text-center text-xs py-2 leading-relaxed">
-                    {t(
-                      "project_detail.dashboard_gated",
-                      "This project's dashboard isn't linked here -- ask the assistant to show it to you and it'll open it for you.",
-                    )}
-                  </p>
+                {project.has_dashboard && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent("portfolio:ask-assistant", {
+                          detail: { message: `Can I get a live test login for ${project.title}'s dashboard?` },
+                        }),
+                      )
+                    }
+                    className="w-full interactive flex items-center gap-3 rounded-xl border border-[#00F0FF]/20 bg-[#00F0FF]/5 px-4 py-3 text-left transition-colors hover:border-[#00F0FF]/50 hover:bg-[#00F0FF]/10"
+                  >
+                    <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#00F0FF]/10">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00F0FF]/20" />
+                      <Lock size={14} className="relative text-[#00F0FF]" />
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-xs font-mono uppercase tracking-wider text-[#00F0FF]">
+                        {t("project_detail.dashboard_locked_title", "Admin dashboard -- locked")}
+                      </span>
+                      <span className="mt-1 block text-xs text-gray-400 leading-relaxed">
+                        {t(
+                          "project_detail.dashboard_gated",
+                          "Live and private. Chat with the assistant and it'll hand you a real test login instantly.",
+                        )}
+                      </span>
+                    </span>
+                    <MessageCircle size={16} className="flex-shrink-0 text-[#00F0FF]" />
+                  </button>
                 )}
 
                 {project.github_url && (

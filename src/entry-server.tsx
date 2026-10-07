@@ -42,7 +42,7 @@ const globalQueries: PrefetchEntry[] = [
   { key: ['testimonials', LANG], resource: { type: 'testimonials' } },
 ];
 
-const staticRoutes = new Set(['/', '/about', '/skills', '/projects', '/solar-estimator', '/certificates', '/testimonials', '/resume', '/contact']);
+const staticRoutes = new Set(['/', '/about', '/skills', '/projects', '/certificates', '/testimonials', '/resume', '/contact']);
 
 export function getRoutePlan(pathname: string): RoutePlan {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;

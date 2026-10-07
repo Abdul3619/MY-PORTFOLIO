@@ -21,7 +21,6 @@ const PAGE_META: Record<string, { title: string; description: (who: string) => s
   '/about': { title: 'About', description: (who) => `About ${who}: background, experience and how I work across web development and solar energy.` },
   '/skills': { title: 'Skills', description: (who) => `Technical skills of ${who}: frontend and full-stack web development, tools, and solar system design.` },
   '/projects': { title: 'Projects', description: (who) => `Selected projects by ${who}: websites and web apps built for real businesses, with live demos.` },
-  '/solar-estimator': { title: 'Solar System Estimator', description: () => 'Estimate the solar panels, battery and inverter size your home or business needs with this free interactive calculator.' },
   '/certificates': { title: 'Certificates', description: (who) => `Certificates and credentials earned by ${who}.` },
   '/testimonials': { title: 'Testimonials', description: (who) => `What clients say about working with ${who}, and a form to leave your own review.` },
   '/resume': { title: 'Resume', description: (who) => `Resume of ${who}: experience, education and skills.` },
