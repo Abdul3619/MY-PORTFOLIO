@@ -32,7 +32,7 @@ export default function AdminSiteSettings() {
   const [social, setSocial] = useState({
     github_url: '', linkedin_url: '', twitter_url: '', instagram_url: '',
     facebook_url: '', behance_url: '', dribbble_url: '', youtube_url: '', discord_url: '',
-    upwork_url: ''
+    upwork_url: '', contra_url: ''
   });
 
   // Branding State
@@ -117,7 +117,7 @@ export default function AdminSiteSettings() {
         twitter_url: contact.twitter_url || '', instagram_url: contact.instagram_url || '',
         facebook_url: contact.facebook_url || '', behance_url: contact.behance_url || '',
         dribbble_url: contact.dribbble_url || '', youtube_url: contact.youtube_url || '', discord_url: contact.discord_url || '',
-        upwork_url: contact.upwork_url || ''
+        upwork_url: contact.upwork_url || '', contra_url: contact.contra_url || ''
       });
     }
     if (seo) {

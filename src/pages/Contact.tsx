@@ -113,25 +113,52 @@ export default function Contact() {
               </div>
             </div>
 
-            {contactInfo?.upwork_url && (
-              <a
-                href={contactInfo.upwork_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-10 flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/50 transition-all interactive group"
-              >
-                <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold flex-shrink-0 group-hover:scale-110 transition-transform">
-                  <ShieldCheck size={22} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-white">
-                    {t("contact.upwork_title", "Prefer escrow-protected payment?")}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    {t("contact.upwork_subtitle", "Hire me through Upwork -- your payment stays in escrow until you approve the delivered work.")}
-                  </p>
-                </div>
-              </a>
+            {(contactInfo?.upwork_url || contactInfo?.contra_url) && (
+              <div className="mt-10 space-y-3">
+                <p className="text-xs font-mono uppercase tracking-widest text-gray-500">
+                  {t("contact.escrow_heading", "Prefer escrow-protected payment?")}
+                </p>
+                {contactInfo?.upwork_url && (
+                  <a
+                    href={contactInfo.upwork_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/50 transition-all interactive group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold flex-shrink-0 group-hover:scale-110 transition-transform">
+                      <ShieldCheck size={22} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {t("contact.upwork_title", "Hire me through Upwork")}
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        {t("contact.upwork_subtitle", "Your payment stays in escrow until you approve the delivered work.")}
+                      </p>
+                    </div>
+                  </a>
+                )}
+                {contactInfo?.contra_url && (
+                  <a
+                    href={contactInfo.contra_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/50 transition-all interactive group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold flex-shrink-0 group-hover:scale-110 transition-transform">
+                      <ShieldCheck size={22} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {t("contact.contra_title", "Hire me through Contra")}
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        {t("contact.contra_subtitle", "Commission-free, with Contra's own buyer protection on the payment.")}
+                      </p>
+                    </div>
+                  </a>
+                )}
+              </div>
             )}
           </motion.div>
 
