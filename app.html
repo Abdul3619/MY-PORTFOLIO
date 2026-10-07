@@ -31,8 +31,91 @@
         gtag("config", "G-Q5E0ZZMW47", { send_page_view: true });
       }
     </script>
+    <style>
+      /* First-paint skeleton, self-contained (no Tailwind/JS dependency) so it shows instantly on the very
+         first byte, before React hydrates -- the real content underneath is already server-rendered, but
+         several hero elements fade in via framer-motion once the page's JS takes over, which can otherwise
+         leave a brief gap where only the page's ambient background is visible. This masks that gap with a
+         deliberate, on-brand loading state instead of an accidental blank one, then fades itself out once
+         App.tsx's first client-side effect fires (see its useEffect calling hideInitialSkeleton below).
+         Removed entirely by that effect, so it never lingers or blocks input even if something goes wrong. */
+      #initial-skeleton {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #050505;
+        transition: opacity 0.5s ease-out;
+      }
+      #initial-skeleton.initial-skeleton-hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #initial-skeleton .isk-card {
+        width: 100%;
+        max-width: 880px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 48px;
+        padding: 48px;
+        border-radius: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+      }
+      #initial-skeleton .isk-avatar {
+        width: 220px;
+        height: 240px;
+        border-radius: 40px;
+        flex-shrink: 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      #initial-skeleton .isk-lines { flex: 1; min-width: 240px; }
+      #initial-skeleton .isk-bar { border-radius: 8px; margin-bottom: 16px; }
+      #initial-skeleton .isk-pills { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+      #initial-skeleton .isk-pill { height: 46px; width: 150px; border-radius: 999px; }
+      #initial-skeleton .isk-shimmer {
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.04) 0%,
+          rgba(255, 255, 255, 0.1) 20%,
+          rgba(212, 175, 55, 0.22) 40%,
+          rgba(255, 255, 255, 0.1) 60%,
+          rgba(255, 255, 255, 0.04) 100%
+        );
+        background-size: 200% 100%;
+        animation: isk-sweep 1.8s infinite linear;
+      }
+      @keyframes isk-sweep {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #initial-skeleton .isk-shimmer { animation: none; background: rgba(255, 255, 255, 0.08); }
+      }
+    </style>
   </head>
   <body>
+    <div id="initial-skeleton" aria-hidden="true">
+      <div class="isk-card">
+        <div class="isk-avatar isk-shimmer"></div>
+        <div class="isk-lines">
+          <div class="isk-bar isk-shimmer" style="height:14px; width:140px;"></div>
+          <div class="isk-bar isk-shimmer" style="height:44px; width:85%;"></div>
+          <div class="isk-bar isk-shimmer" style="height:44px; width:60%;"></div>
+          <div class="isk-bar isk-shimmer" style="height:14px; width:95%;"></div>
+          <div class="isk-bar isk-shimmer" style="height:14px; width:70%;"></div>
+          <div class="isk-pills">
+            <div class="isk-pill isk-shimmer"></div>
+            <div class="isk-pill isk-shimmer"></div>
+            <div class="isk-pill isk-shimmer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="root"><!--app-html--></div>
     <!--app-state-->
     <script type="module" src="/src/main.tsx"></script>

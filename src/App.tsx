@@ -180,6 +180,16 @@ function AnimatedRoutes() {
 
 // The router is provided by the entry point: BrowserRouter on the client, StaticRouter on the server
 export default function App() {
+  // Hide the pure-CSS first-paint skeleton (app.html) now that React has actually taken over --
+  // fades it out, then removes it from the DOM so it never lingers or intercepts input.
+  useEffect(() => {
+    const skeleton = document.getElementById("initial-skeleton");
+    if (!skeleton) return;
+    skeleton.classList.add("initial-skeleton-hide");
+    const timeout = setTimeout(() => skeleton.remove(), 600);
+    return () => clearTimeout(timeout);
+  }, []);
+
   return (
     <ThemeProvider>
       <BackgroundProvider>

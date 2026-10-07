@@ -60,9 +60,14 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
   const [unsupported, setUnsupported] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [showTranscript, setShowTranscript] = useState(false);
-  // Set from the show_link voice tool (see chatbot/route.ts) -- a link the model wants to hand the visitor,
-  // shown as a real tappable card instead of being read aloud as speech.
-  const [linkCard, setLinkCard] = useState<{ url: string; label: string } | null>(null);
+  // Every link the show_link voice tool has handed over this call (see chatbot/route.ts), newest first, shown
+  // as real tappable cards instead of being read aloud as speech. Kept as a running list rather than a single
+  // slot -- a second link used to silently replace the first before the visitor had a chance to tap it.
+  const [linkCards, setLinkCards] = useState<{ url: string; label: string }[]>([]);
+  // Which of those links arrived during the CURRENT turn, so finalizeTurn/onInterrupted can fold them into the
+  // saved transcript text (see their calls below) -- that's what makes the link still tappable from the regular
+  // chat window after the call ends, not just fleetingly on the call screen itself.
+  const turnLinksRef = useRef<{ url: string; label: string }[]>([]);
   const energy = useRef(0);
 
   const activeRef = useRef(false); // true while the overlay is mounted & live, false once closing -- guards async callbacks
@@ -102,7 +107,15 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
 
   const finalizeTurn = useCallback(() => {
     const said = turnInputRef.current.trim();
-    const answer = turnOutputRef.current.trim();
+    let answer = turnOutputRef.current.trim();
+    // Fold in whatever links this turn showed on screen, as plain URLs the regular chat window's own link
+    // detection (see ChatWidget's extractActions) turns into real tappable buttons once this exchange lands in
+    // the saved transcript -- otherwise a link only tapped (or missed) during the call itself is gone for good
+    // the moment the call ends.
+    if (turnLinksRef.current.length > 0) {
+      answer = [answer, turnLinksRef.current.map((l) => l.url).join(" ")].filter(Boolean).join("\n\n");
+      turnLinksRef.current = [];
+    }
     turnInputRef.current = "";
     turnOutputRef.current = "";
     turnCompleteRef.current = false;
@@ -162,8 +175,14 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
           clearThinkingTimer();
           if (turnInputRef.current.trim() || turnOutputRef.current.trim()) {
             // Keep whatever the assistant had actually said before being cut off in the visible history, rather
-            // than silently dropping a real (if truncated) reply.
-            onExchange(turnInputRef.current.trim(), turnOutputRef.current.trim() || "(interrupted)");
+            // than silently dropping a real (if truncated) reply -- and don't lose any link it had already shown
+            // before being cut off either (see finalizeTurn's comment on why these get folded in as plain text).
+            let answer = turnOutputRef.current.trim() || "(interrupted)";
+            if (turnLinksRef.current.length > 0) {
+              answer = [answer, turnLinksRef.current.map((l) => l.url).join(" ")].join("\n\n");
+              turnLinksRef.current = [];
+            }
+            onExchange(turnInputRef.current.trim(), answer);
           }
           turnInputRef.current = "";
           turnOutputRef.current = "";
@@ -181,7 +200,10 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
             if (call.name === "show_link") {
               const url = typeof call.args?.url === "string" ? call.args.url : "";
               const label = typeof call.args?.label === "string" && call.args.label ? call.args.label : t("assistant.open_link", "Open");
-              if (url) setLinkCard({ url, label });
+              if (url) {
+                turnLinksRef.current = [...turnLinksRef.current, { url, label }];
+                setLinkCards((prev) => [{ url, label }, ...prev.filter((l) => l.url !== url)].slice(0, 4));
+              }
               // Client-handled -- never hits the server, nothing to validate beyond "is there a url".
               liveRef.current?.sendToolResponse(call.id, call.name, url ? "Shown on the visitor's screen." : "No url given -- nothing was shown.");
               continue;
@@ -258,7 +280,8 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
     setYouSaid("");
     setCaption("");
     setShowTranscript(false);
-    setLinkCard(null);
+    setLinkCards([]);
+    turnLinksRef.current = [];
     turnInputRef.current = "";
     turnOutputRef.current = "";
     reconnectAttemptsRef.current = 0;
@@ -376,16 +399,21 @@ export default function VoiceCallOverlay({ open, onClose, messages, onExchange, 
                 {caption && (
                   <p className="font-display text-base sm:text-lg text-white leading-relaxed whitespace-pre-wrap">{caption}</p>
                 )}
-                {linkCard && (
-                  <a
-                    href={linkCard.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ai-glass-btn interactive inline-flex items-center gap-2 rounded-full text-white px-5 py-3 text-sm font-medium"
-                  >
-                    <ExternalLink size={16} aria-hidden="true" />
-                    {linkCard.label}
-                  </a>
+                {linkCards.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {linkCards.map((card) => (
+                      <a
+                        key={card.url}
+                        href={card.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ai-glass-btn interactive inline-flex items-center gap-2 rounded-full text-white px-5 py-3 text-sm font-medium"
+                      >
+                        <ExternalLink size={16} aria-hidden="true" />
+                        {card.label}
+                      </a>
+                    ))}
+                  </div>
                 )}
                 {errorMsg && <p role="alert" className="text-xs text-red-300">{errorMsg}</p>}
               </>
