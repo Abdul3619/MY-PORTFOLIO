@@ -22,6 +22,7 @@ import { Store, type RpcClient } from './store.js';
 import { runLeadPipeline, runNoWebsiteLeadPipeline, runWithConcurrency, loadSenderProfileFromEnv, type PipelineDeps } from './pipeline.js';
 import { parseCsv } from './csv.js';
 import { searchBusinesses, knownCategories, type OsmBusinessResult } from './overpass.js';
+import { searchFoursquarePlaces } from './foursquare.js';
 import type { LeadStatus } from './types.js';
 
 export function createOutreachRouter(deps: { requireAuth: express.RequestHandler; supabaseUrl: string; supabaseServiceKey: string }) {
@@ -151,6 +152,39 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
 
   router.get('/search/categories', (_req, res) => res.json(knownCategories()));
 
+  // Two independent sources (OSM via overpass.ts, Foursquare via foursquare.ts) can both return the same
+  // real-world business -- same website, same phone number, or just the same name a few meters apart. A
+  // rough-but-cheap key (no extra geocoding/lookup calls) catches the common cases without needing either
+  // source to agree on an external ID.
+  function dedupeKey(b: OsmBusinessResult): string {
+    if (b.website) {
+      try {
+        return `web:${new URL(b.website).hostname.replace(/^www\./, '').toLowerCase()}`;
+      } catch {
+        // fall through to name-based key below
+      }
+    }
+    if (b.contactValue) {
+      const digits = b.contactValue.replace(/[^\d]/g, '');
+      if (digits.length >= 7) return `val:${digits}`;
+    }
+    const roundedLat = Math.round(b.lat * 500) / 500; // ~200m grid
+    const roundedLon = Math.round(b.lon * 500) / 500;
+    return `name:${b.name.trim().toLowerCase()}@${roundedLat},${roundedLon}`;
+  }
+
+  function mergeBusinessSources(primary: OsmBusinessResult[], secondary: OsmBusinessResult[]): OsmBusinessResult[] {
+    const seen = new Set(primary.map(dedupeKey));
+    const merged = [...primary];
+    for (const b of secondary) {
+      const key = dedupeKey(b);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(b);
+    }
+    return merged;
+  }
+
   router.get(
     '/search/history',
     asyncHandler(async (_req, res) => res.json(await store.listSearches())),
@@ -172,12 +206,24 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
         });
       }
 
-      let businesses, resolvedPlace: string, rawCount: number;
+      let businesses, resolvedPlace: string, rawCount: number, foursquareEnabled = false, foursquareRawCount = 0;
       try {
         const result = await searchBusinesses(city, category);
         businesses = result.businesses;
         resolvedPlace = result.resolvedPlace;
         rawCount = result.rawCount;
+
+        // Foursquare is a second, independent source over the same geocoded area -- additive, and never
+        // allowed to break a search that OSM alone could have served: a Foursquare failure (missing key,
+        // timeout, rate limit) is logged and otherwise ignored, not surfaced as a failed search.
+        try {
+          const fsq = await searchFoursquarePlaces(result.bbox, category);
+          foursquareEnabled = fsq.enabled;
+          foursquareRawCount = fsq.rawCount;
+          if (fsq.businesses.length > 0) businesses = mergeBusinessSources(businesses, fsq.businesses);
+        } catch (e: any) {
+          Sentry.captureException(e, { tags: { route: '/search:foursquare' }, extra: { city, category } });
+        }
       } catch (e: any) {
         Sentry.captureException(e, { tags: { route: '/search' }, extra: { city, category } });
         return void res.status(502).json({ error: `OpenStreetMap search failed: ${e.message || e}` });
@@ -209,7 +255,14 @@ export function createOutreachRouter(deps: { requireAuth: express.RequestHandler
       // (e.g. "Saki" matching Şəki, Azerbaijan instead of Saki, Nigeria) is visible, not a silent zero.
       // rawCount tells apart "OSM has nothing mapped here" from "OSM has businesses here, just none with
       // any contact info on file" -- both would otherwise show up as the same unexplained found: 0.
-      res.json({ repeat: false, found: businesses.length, rawCount, resolvedPlace, outcomes });
+      res.json({
+        repeat: false,
+        found: businesses.length,
+        rawCount: rawCount + foursquareRawCount,
+        resolvedPlace,
+        foursquareEnabled,
+        outcomes,
+      });
     }),
   );
 

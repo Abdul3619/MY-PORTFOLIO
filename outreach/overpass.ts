@@ -283,6 +283,9 @@ export interface SearchBusinessesResult {
    * nothing mapped under this category here at all (rawCount 0), vs. it has businesses mapped but none of
    * them have a website/WhatsApp/phone/Facebook/Instagram on file (rawCount > 0, businesses.length 0). */
   rawCount: number;
+  /** The geocoded area searched -- exposed so a caller can run a second, independent data source (see
+   * foursquare.ts) over the exact same area instead of re-geocoding. */
+  bbox: BoundingBox;
 }
 
 // The public Overpass service has no single point of truth -- several
@@ -348,5 +351,5 @@ export async function searchBusinesses(city: string, category: string): Promise<
       osmTags: tags,
     });
   }
-  return { businesses: results, resolvedPlace: resolvedName, rawCount: (data.elements || []).length };
+  return { businesses: results, resolvedPlace: resolvedName, rawCount: (data.elements || []).length, bbox };
 }
