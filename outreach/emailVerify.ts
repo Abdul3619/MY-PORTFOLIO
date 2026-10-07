@@ -15,7 +15,12 @@ export type EmailVerificationResult =
   | { ok: true; enabled: true; status: 'risky'; detail: string }
   | { ok: true; enabled: true; status: 'undeliverable'; detail: string }
   | { ok: true; enabled: true; status: 'unknown'; detail: string }
-  | { ok: false; enabled: false; error?: string };
+  // Not configured at all (no HUNTER_API_KEY) -- nothing was attempted.
+  | { ok: false; enabled: false; error?: string }
+  // Configured, but this particular check couldn't complete (rate limit, network error, bad
+  // input) -- distinct from "not configured" so a caller can tell "we didn't try" apart from
+  // "we tried and it didn't work."
+  | { ok: false; enabled: true; error: string };
 
 function isConfigured(): boolean {
   return Boolean(process.env.HUNTER_API_KEY && process.env.HUNTER_API_KEY.trim());
