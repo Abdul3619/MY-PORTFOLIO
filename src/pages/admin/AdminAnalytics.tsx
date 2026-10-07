@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAdmin } from '../../components/admin/AdminLayout';
-import { fetchApi } from '../../hooks/useApi';
+import { fetchApi, isSelfExcluded, EXCLUDE_SELF_KEY } from '../../hooks/useApi';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -44,6 +44,27 @@ export default function AdminAnalytics() {
   const [visitorFeed, setVisitorFeed] = useState<any[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  // Per-browser, not global: this only stops THIS browser (the one the admin is using right now) from being
+  // counted. Visiting from a different phone/computer still needs its own toggle there.
+  const [excludeSelf, setExcludeSelf] = useState(() => isSelfExcluded());
+
+  const toggleExcludeSelf = () => {
+    const next = !excludeSelf;
+    try {
+      if (next) localStorage.setItem(EXCLUDE_SELF_KEY, '1');
+      else localStorage.removeItem(EXCLUDE_SELF_KEY);
+    } catch {
+      // ignore storage failures
+    }
+    setExcludeSelf(next);
+    triggerToast(
+      next ? 'This browser is now excluded' : 'This browser is included again',
+      next
+        ? 'Visits from this browser won’t be counted in your analytics or GA4 from now on.'
+        : 'Visits from this browser will be counted again.',
+      next ? 'success' : 'info',
+    );
+  };
 
   const loadAnalytics = async () => {
     setLoading(true);
@@ -95,26 +116,41 @@ export default function AdminAnalytics() {
           <p className="text-xs font-mono text-[#00F0FF]/80">REAL-TIME PRIVACY-FRIENDLY ANALYTICS ENGINE</p>
         </div>
         
-        {/* Date scope switcher */}
-        <div className="bg-white/4 border border-white/8 rounded-md p-0.5 flex text-xs font-mono">
-          {([
-            { label: '7D', scope: '7d' },
-            { label: '30D', scope: '30d' },
-            { label: '90D', scope: '90d' },
-            { label: '1 Year', scope: '12m' }
-          ] as const).map((item) => (
-            <button
-              key={item.scope}
-              onClick={() => setTimeScope(item.scope)}
-              className={`px-3 py-1.5 font-bold uppercase tracking-wider rounded-sm transition-all ${
-                timeScope === item.scope 
-                  ? 'bg-[#00F0FF] text-black font-black' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Exclude-me toggle: this browser only */}
+          <button
+            onClick={toggleExcludeSelf}
+            title="Stops THIS browser's visits from being counted -- doesn't affect any other device."
+            className={`px-3 py-1.5 rounded-md border text-xs font-mono font-bold uppercase tracking-wider transition-all ${
+              excludeSelf
+                ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                : 'bg-white/4 border-white/8 text-gray-400 hover:text-white'
+            }`}
+          >
+            {excludeSelf ? 'This browser: excluded' : 'Exclude this browser'}
+          </button>
+
+          {/* Date scope switcher */}
+          <div className="bg-white/4 border border-white/8 rounded-md p-0.5 flex text-xs font-mono">
+            {([
+              { label: '7D', scope: '7d' },
+              { label: '30D', scope: '30d' },
+              { label: '90D', scope: '90d' },
+              { label: '1 Year', scope: '12m' }
+            ] as const).map((item) => (
+              <button
+                key={item.scope}
+                onClick={() => setTimeScope(item.scope)}
+                className={`px-3 py-1.5 font-bold uppercase tracking-wider rounded-sm transition-all ${
+                  timeScope === item.scope
+                    ? 'bg-[#00F0FF] text-black font-black'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

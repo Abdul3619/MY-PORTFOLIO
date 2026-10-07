@@ -12,15 +12,24 @@
       window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
       plausible.init()
     </script>
-    <!-- Google Analytics (GA4) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q5E0ZZMW47"></script>
+    <!-- Google Analytics (GA4) -- skipped entirely when this browser has "Exclude me" turned on from the
+         admin dashboard (src/hooks/useApi.ts' EXCLUDE_SELF_KEY), so Abdulwahab's own visits never reach
+         GA4 either, not just the in-house tracker. -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      window.gtag = gtag;
-      window.__GA_MEASUREMENT_ID__ = "G-Q5E0ZZMW47";
-      gtag("js", new Date());
-      gtag("config", "G-Q5E0ZZMW47", { send_page_view: true });
+      var __excludeSelf = false;
+      try { __excludeSelf = window.localStorage.getItem('portfolio_exclude_self') === '1'; } catch (e) {}
+      if (!__excludeSelf) {
+        var gaScript = document.createElement('script');
+        gaScript.async = true;
+        gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-Q5E0ZZMW47';
+        document.head.appendChild(gaScript);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        window.gtag = gtag;
+        window.__GA_MEASUREMENT_ID__ = "G-Q5E0ZZMW47";
+        gtag("js", new Date());
+        gtag("config", "G-Q5E0ZZMW47", { send_page_view: true });
+      }
     </script>
   </head>
   <body>

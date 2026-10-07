@@ -3,7 +3,7 @@ import { Link, useLocation, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence } from "motion/react";
 import Lenis from "lenis";
-import { trackEvent } from "./hooks/useApi";
+import { trackEvent, isSelfExcluded } from "./hooks/useApi";
 import Background from "./components/Background";
 import { Navbar } from "./components/Navbar";
 import CustomCursor from "./components/CustomCursor";
@@ -16,6 +16,7 @@ export function Layout() {
   const { t } = useTranslation();
 
   useEffect(() => {
+    if (isSelfExcluded()) return;
     trackEvent('page_view', location.pathname);
     if (typeof (window as any).gtag === 'function' && (window as any).__GA_MEASUREMENT_ID__) {
       (window as any).gtag('config', (window as any).__GA_MEASUREMENT_ID__, {

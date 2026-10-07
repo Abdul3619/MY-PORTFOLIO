@@ -207,7 +207,22 @@ export const useAdminAnalytics = () => {
 };
 
 // Analytics Tracker
+// Abdulwahab's own visits (testing the live site from his own browser) shouldn't count as a "real"
+// visitor. "Exclude me" in the admin dashboard sets this flag in *that browser's* localStorage; every
+// trackEvent call checks it first and, when set, skips both GA4 and the Supabase-backed tracker entirely
+// -- so an excluded browser leaves no trace in either system, not just a flag ignored on the read side.
+export const EXCLUDE_SELF_KEY = 'portfolio_exclude_self';
+
+export const isSelfExcluded = (): boolean => {
+  try {
+    return localStorage.getItem(EXCLUDE_SELF_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 export const trackEvent = async (eventType: string, pageUrl: string, metadata: any = {}) => {
+  if (isSelfExcluded()) return;
   try {
     let sessionId: string | null = null;
     try {
