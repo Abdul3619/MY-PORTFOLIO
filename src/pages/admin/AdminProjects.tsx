@@ -62,9 +62,10 @@ export default function AdminProjects() {
   const [formTags, setFormTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
   const [formGallery, setFormGallery] = useState<any[]>([]);
-  // Gates this project's live demo link off the public project page; the AI assistant still has the live_url and
-  // is instructed to offer it as a button in conversation (see chatbot/systemPrompt.ts). Only meant for projects
-  // whose demo includes an admin/booking dashboard -- everything else should stay unchecked and unaffected.
+  // Marks a project whose demo includes an admin/booking dashboard. The public live link stays visible; the
+  // dashboard itself shows as a locked card that the AI assistant unlocks with a one-time login link (see
+  // chatbot/knowledge.ts DASHBOARD_LINK_HANDLERS -- a handler must exist for the slug or the assistant reports it as
+  // unsupported). Leave unchecked for projects with no private dashboard.
   const [formHasDashboard, setFormHasDashboard] = useState(false);
 
   // "Build from an image" -- the admin drops a screenshot, the AI proposes a draft entry (title, description,
