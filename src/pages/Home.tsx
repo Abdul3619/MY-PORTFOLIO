@@ -96,7 +96,8 @@ export default function Home() {
   // Only real CMS entries are shown; there is no placeholder content presented as genuine
   const displayTestimonials: any[] = Array.isArray(testimonials) ? testimonials : [];
   const displayCertificates: any[] = Array.isArray(certificates) ? certificates : [];
-  const displayProjects = projects && projects.length > 0 ? projects.slice(0,4) : [];
+  const publicProjects = Array.isArray(projects) ? projects.filter(isPublicProject) : [];
+  const displayProjects = publicProjects.length > 0 ? publicProjects.slice(0, 4) : [];
   // Counted from the CMS so the stat always matches what is actually published (admin previews include drafts, so filter here too)
   const completedProjectsLabel = Array.isArray(projects) ? `${projects.filter(isPublicProject).length}+` : "—";
   const socialLinks = {
@@ -119,7 +120,7 @@ export default function Home() {
     // Silently preload project images as soon as the data is available
     // to ensure they are instantly visible when the user scrolls down
     if (projects && projects.length > 0) {
-      projects.slice(0, 4).forEach((p: any) => {
+      projects.filter(isPublicProject).slice(0, 4).forEach((p: any) => {
         const src = p.thumbnail_url || p.hero_image_url || p.image;
         if (src) {
           const img = new Image();

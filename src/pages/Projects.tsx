@@ -8,6 +8,7 @@ import { CardSkeleton } from "@/components/Skeleton";
 import { useProjects, trackEvent } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
+import { isPublicProject } from "@/lib/projectStatus";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -38,15 +39,17 @@ export default function Projects() {
 
   const filteredProjects = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (projectsData || []).filter((p: any) => {
-      if (!q) return true;
-      const tagsAndStack = [...(p.tags || []), ...(p.tech_stack || p.techStack || [])];
-      return (
-        p.title?.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q) ||
-        tagsAndStack.some((v: string) => v.toLowerCase().includes(q))
-      );
-    });
+    return (projectsData || [])
+      .filter(isPublicProject)
+      .filter((p: any) => {
+        if (!q) return true;
+        const tagsAndStack = [...(p.tags || []), ...(p.tech_stack || p.techStack || [])];
+        return (
+          p.title?.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q) ||
+          tagsAndStack.some((v: string) => v.toLowerCase().includes(q))
+        );
+      });
   }, [projectsData, query]);
 
   // Type-ahead suggestions: as the visitor types, surface the *matching word* (title, tag, or
@@ -59,6 +62,7 @@ export default function Projects() {
     const seen = new Set<string>();
     const results: { word: string; title: string; slug: string }[] = [];
     for (const p of projectsData || []) {
+      if (!isPublicProject(p)) continue;
       if (results.length >= 6) break;
       const words = [
         p.title,

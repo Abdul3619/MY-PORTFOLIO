@@ -26,6 +26,7 @@ import { useAppData } from "@/contexts/AppDataContext";
 import { getPageTitle, getSiteTitle } from "@/lib/seo";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 import { projectsData } from "@/data/projects";
+import { isPublicProject } from "@/lib/projectStatus";
 import { useTranslation } from "react-i18next";
 import { MobilePreviewBlock } from "@/components/project/MobilePreviewBlock";
 import { AtelierFitPreview } from "@/components/project/AtelierFitPreview";
@@ -100,7 +101,12 @@ export default function ProjectDetail() {
     );
   }
 
-  if (!project) {
+  // Archived/draft projects (e.g. a soft-deleted duplicate) should 404 on direct visit too,
+  // not just be hidden from listing pages. Only gate on apiProject's real status -- the static
+  // fallback data has no status field and predates this convention, so it stays visible.
+  const isHidden = !!apiProject && !isPublicProject(apiProject);
+
+  if (!project || isHidden) {
     return (
       <PageTransition className="w-full min-h-screen flex items-center justify-center flex-col gap-4">
         <div className="text-xl text-red-400 font-mono">{t("project_detail.not_found", "PROJECT NOT FOUND")}</div>
