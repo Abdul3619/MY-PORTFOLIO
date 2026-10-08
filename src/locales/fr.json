@@ -270,6 +270,7 @@
     "close": "Fermer l'assistant",
     "launcher": "Demander à l'IA",
     "error": "Une erreur s'est produite. Réessayez, ou utilisez le formulaire de contact sur /contact.",
+    "stalled": "La réponse a pris trop de temps. Réessayez, ou utilisez le formulaire de contact sur /contact.",
     "state_ready": "Prêt",
     "state_listening": "À l'écoute",
     "state_thinking": "Réflexion",

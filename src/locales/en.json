@@ -270,6 +270,7 @@
     "close": "Close the assistant",
     "launcher": "Ask AI",
     "error": "Something went wrong. Please try again, or use the contact form at /contact.",
+    "stalled": "That took too long to answer. Please try again, or use the contact form at /contact.",
     "state_ready": "Ready",
     "state_listening": "Listening",
     "state_thinking": "Thinking",

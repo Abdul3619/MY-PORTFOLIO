@@ -487,14 +487,35 @@ export default function ChatWidget() {
     abortRef.current = controller;
     let answer = "";
     const fallbackError = t("assistant.error", "Something went wrong. Please try again, or use the contact form at /contact.");
+    const stallError = t(
+      "assistant.stalled",
+      "That took too long to answer. Please try again, or use the contact form at /contact.",
+    );
+
+    // Server-side timeouts (see chatbot/route.ts's GEMINI_CALL_TIMEOUT_MS) should catch a stuck model call long
+    // before this fires, but a genuinely stalled connection -- the response headers arrive (so res.ok passes)
+    // but no SSE chunk ever follows -- would otherwise leave the visitor staring at "Thinking" indefinitely with
+    // no error, which was exactly the "sometimes it just doesn't reply at all" symptom. This is a client-side
+    // backstop, not the fix for that: it just guarantees the visitor always gets *some* answer, even a failure.
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    let timedOut = false;
+    const armStallTimer = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 35_000);
+    };
 
     try {
+      armStallTimer();
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, history }),
         signal: controller.signal,
       });
+      armStallTimer();
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error || fallbackError);
@@ -506,6 +527,7 @@ export default function ChatWidget() {
       let failed = "";
       for (;;) {
         const { value, done } = await reader.read();
+        armStallTimer();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const events = buffer.split("\n\n");
@@ -529,7 +551,7 @@ export default function ChatWidget() {
       // The phase returns to idle once the typing catches up (TypedText onDone)
       setLive({ index: next.length, streaming: false });
     } catch (err: any) {
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted && !timedOut) {
         const discard = discardAbortRef.current;
         discardAbortRef.current = false;
         if (discard) return; // clear() already reset everything itself
@@ -548,6 +570,25 @@ export default function ChatWidget() {
         }
         return;
       }
+      // A genuine stall (no server-sent error, no new data for 35s straight -- see armStallTimer above) is
+      // reported as a real, visible failure rather than silently going quiet on the visitor, even when it
+      // happened to produce a partial answer already: that partial answer is kept (same as a user-requested
+      // stop), but an explicit error also appears so it's clear *why* it stopped rather than looking finished.
+      if (timedOut) {
+        discardAbortRef.current = false;
+        if (answer) {
+          saveMessages([...next, { role: "assistant", content: answer }]);
+          setLive({ index: next.length, streaming: false });
+          setStoppedIndex(next.length);
+        } else {
+          setMessages(next.slice(0, -1));
+          saveMessages(next.slice(0, -1));
+          setLive(null);
+          setPhase("idle");
+        }
+        setError(stallError);
+        return;
+      }
       // Drop the unanswered question so the conversation still alternates, and offer it back in the input
       setMessages(next.slice(0, -1));
       saveMessages(next.slice(0, -1));
@@ -556,6 +597,7 @@ export default function ChatWidget() {
       setError(err?.message || fallbackError);
       setPhase("idle");
     } finally {
+      if (stallTimer) clearTimeout(stallTimer);
       abortRef.current = null;
     }
   };

@@ -159,6 +159,10 @@ function getGeminiClient() {
 // easily than typed chat since every turn is its own request. Treating it the same as a 503 means: one short
 // retry here, and (in runGeminiTurn's candidate loop) a chance to fall through to the next fallback model rather
 // than hard-failing the visitor's turn.
+// Also treats a request that timed out (see GEMINI_CALL_TIMEOUT_MS) the same as "busy" -- both are cases where
+// retrying, or falling through to the next candidate model in runGeminiTurn's loop, is the right move, and the
+// visitor-facing message ("getting a lot of requests, try again") is accurate for a stuck request too, not just
+// an explicit 429/503.
 function isProviderOverloaded(err: any): boolean {
   const status = err?.status ?? err?.error?.code;
   const message = String(err?.message ?? err?.error?.message ?? '');
@@ -168,7 +172,8 @@ function isProviderOverloaded(err: any): boolean {
     String(status) === '429' ||
     status === 'UNAVAILABLE' ||
     status === 'RESOURCE_EXHAUSTED' ||
-    /\bUNAVAILABLE\b|\bRESOURCE_EXHAUSTED\b|overloaded|high demand|quota|rate limit/i.test(message)
+    /\bUNAVAILABLE\b|\bRESOURCE_EXHAUSTED\b|overloaded|high demand|quota|rate limit/i.test(message) ||
+    /\btimeout\b|\bETIMEDOUT\b|\bdeadline exceeded\b/i.test(message)
   );
 }
 
@@ -598,6 +603,16 @@ function isModelUnavailable(err: any): boolean {
   return status === 404 || /is no longer available|not found|not supported/i.test(message);
 }
 
+// Neither the Anthropic client nor the Gemini one bounds an individual streaming call on its own for this path:
+// Anthropic's getClient() sets a 45s timeout, but the Gemini SDK (@google/genai) has no such default, so a
+// request that Google's servers accept but never actually answer (not an error, just silence) can sit open for
+// the full Vercel function duration (300s) with the visitor staring at "Thinking" the whole time and no error
+// ever reaching the browser -- a real, confirmed candidate for "sometimes it just doesn't reply at all": nothing
+// in the code path ever times out on its own, so the visitor has to give up and leave rather than the assistant
+// failing fast with a retry-able error. httpOptions.timeout (milliseconds) is a real, documented field in this
+// SDK family (mirrors the Python/Java/Kotlin/.NET genai SDKs) and can be set per-call via config.httpOptions.
+const GEMINI_CALL_TIMEOUT_MS = 25_000;
+
 // Gemini's "thinking" models (2.5 and 3.x) spend part of the response budget reasoning silently before the first
 // visible token comes out -- fine for a hard question, but it's most of why the chat (and especially the voice
 // call, where every extra second of silence is felt directly) was slow to start replying to something as simple
@@ -638,6 +653,7 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
             systemInstruction,
             maxOutputTokens: MAX_OUTPUT_TOKENS,
             tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
+            httpOptions: { timeout: GEMINI_CALL_TIMEOUT_MS },
             ...(thinkingConfigFor(candidate) ? { thinkingConfig: thinkingConfigFor(candidate) } : {}),
           },
         }),
@@ -683,6 +699,7 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
       config: {
         systemInstruction,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
+        httpOptions: { timeout: GEMINI_CALL_TIMEOUT_MS },
         ...(thinkingConfigFor(model) ? { thinkingConfig: thinkingConfigFor(model) } : {}),
       },
     });
