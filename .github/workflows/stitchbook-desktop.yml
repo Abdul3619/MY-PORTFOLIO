@@ -9,6 +9,15 @@ name: StitchBook Desktop
 # final "Build and release" step with "Resource not accessible by integration" because the
 # workflow never granted GITHUB_TOKEN permission to create a release. Fixed with the
 # `permissions: contents: write` block below.
+#
+# Second real run (2026-10-08, workflow_dispatch) with that fix: the build succeeded on all
+# three platforms and real installers (.msi/.exe, .dmg, .AppImage/.deb/.rpm) were attached to
+# a release -- but it landed as a DRAFT with an auto-generated "untagged-..." name, invisible
+# on the repo's public Releases page, because releaseDraft was true and workflow_dispatch has
+# no real tag to attach it to. Fixed by setting releaseDraft to false below; a real
+# `stitchbook-v*` tag push now publishes immediately instead of leaving a draft to approve by
+# hand (this session's own GitHub access can't edit/publish an existing release directly, so a
+# fresh tagged run is the fix, not a one-off API call).
 
 on:
   push:
@@ -73,6 +82,6 @@ jobs:
           tagName: stitchbook-v__VERSION__
           releaseName: 'StitchBook Desktop v__VERSION__'
           releaseBody: 'Installable StitchBook desktop build. Download the installer for your OS below.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
