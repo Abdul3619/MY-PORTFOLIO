@@ -4,17 +4,20 @@ name: StitchBook Desktop
 # .AppImage/.deb on Linux) with Tauri, and attaches them to a GitHub Release. The app itself
 # is a thin shell that loads the real, live StitchBook page -- see desktop/stitchbook/README.md.
 #
-# This workflow has not been run yet (written from Tauri's documented CI pattern -- see
-# https://tauri.app/distribute/pipelines/github -- without a local Rust/Cargo toolchain or npm
-# registry access to verify it end-to-end in the sandbox this was authored in). The first real
-# signal on whether it actually builds is its own run in the Actions tab, not anything claimed
-# here. If it fails, the run's own logs are the place to start, not this comment.
+# Verified by a real run (2026-10-07, workflow_dispatch): the actual Tauri build succeeded on
+# all three platforms (icons generated, Rust compiled, app bundled) -- it only failed at the
+# final "Build and release" step with "Resource not accessible by integration" because the
+# workflow never granted GITHUB_TOKEN permission to create a release. Fixed with the
+# `permissions: contents: write` block below.
 
 on:
   push:
     tags:
       - 'stitchbook-v*'
   workflow_dispatch: {}
+
+permissions:
+  contents: write
 
 jobs:
   build:
