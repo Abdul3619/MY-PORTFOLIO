@@ -54,9 +54,17 @@ jobs:
           if grep -q "stitchbook-check-$STAMP@example.com" live-af.json live-noir.json; then echo "Unmasked email leaked"; exit 1; fi
           echo "Emails are masked"
 
-          echo "== Owner-only writes to Real Inventory"
-          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$SITE/api/stitchbook/manage/inventory" -H 'Content-Type: application/json' -d '{"itemName":"x","quantity":1}')
-          echo "anonymous POST -> $code"; [ "$code" = "401" ]
+          echo "== Visitor stock item: add, adjust, delete"
+          item=$(curl -sS -f -X POST "$SITE/api/stitchbook/manage/inventory" -H 'Content-Type: application/json' \
+            -d "{\"itemName\":\"Live check fabric $STAMP\",\"quantity\":3}")
+          echo "$item"; echo "$item" | grep -q '"visitor_created":true'
+          id=$(echo "$item" | sed -E 's/.*"id":"([^"]+)".*/\1/')
+          curl -sS -f -X PATCH "$SITE/api/stitchbook/manage/inventory/$id" -H 'Content-Type: application/json' -d '{"quantity":4}' | grep -q '"quantity":4'
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$SITE/api/stitchbook/manage/inventory/$id"); echo "delete -> $code"; [ "$code" = "204" ]
+
+          echo "== Manage order list keeps customer details masked"
+          if curl -sS "$SITE/api/stitchbook/manage/orders" | grep -q "stitchbook-check-$STAMP@example.com"; then echo "Unmasked email in Manage"; exit 1; fi
+          echo "Manage orders are masked"
 
           echo "== Old admin inventory API is gone"
           code=$(curl -sS -o /dev/null -w '%{http_code}' "$SITE/api/admin/inventory"); echo "/api/admin/inventory -> $code"
