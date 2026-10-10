@@ -18,5 +18,6 @@ for (const slug of ['shin-orne', 'atelier-noir', 'h-orizon-hotel']) {
   if (j.url) { const p = await fetch(j.url, { redirect: 'manual' }); landed = p.status + ' ' + (p.headers.get('location') || ''); j.url = j.url.replace(/[^/]+$/, '<token>'); }
   out.push({ slug, status: r.status, body: j, landed });
 }
+for (const u of ['https://horizon-br6n.vercel.app/admin','https://horizon-br6n.vercel.app/admin/magic/test123','https://shin-orne.vercel.app/admin/magic/test123','https://atelier-noir-official.vercel.app/admin/magic/test123']) { const r = await fetch(u); out.push({ u, status: r.status, server: r.headers.get('server'), xvc: r.headers.get('x-vercel-error'), body: (await r.text()).slice(0, 200) }); }
 fs.writeFileSync(`${OUT}/chat.json`, JSON.stringify(out, null, 2));
 console.log(JSON.stringify(out, null, 2));
