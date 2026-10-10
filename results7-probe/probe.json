@@ -1,0 +1,74 @@
+[
+ {
+  "p": "/",
+  "status": 200,
+  "loc": null,
+  "xvc": null,
+  "cache": "MISS",
+  "len": 50136
+ },
+ {
+  "p": "/rooms",
+  "status": 200,
+  "loc": null,
+  "xvc": null,
+  "cache": "MISS",
+  "len": 73629
+ },
+ {
+  "p": "/index.html",
+  "status": 308,
+  "loc": "/",
+  "xvc": null,
+  "cache": null,
+  "len": 15
+ },
+ {
+  "p": "/index",
+  "status": 308,
+  "loc": "/",
+  "xvc": null,
+  "cache": null,
+  "len": 15
+ },
+ {
+  "p": "/admin",
+  "status": 404,
+  "loc": null,
+  "xvc": "NOT_FOUND",
+  "cache": null,
+  "len": 79
+ },
+ {
+  "p": "/admin/",
+  "status": 404,
+  "loc": null,
+  "xvc": "NOT_FOUND",
+  "cache": null,
+  "len": 79
+ },
+ {
+  "p": "/foo",
+  "status": 404,
+  "loc": null,
+  "xvc": "NOT_FOUND",
+  "cache": null,
+  "len": 79
+ },
+ {
+  "p": "/admin/magic/test123",
+  "status": 404,
+  "loc": null,
+  "xvc": "NOT_FOUND",
+  "cache": null,
+  "len": 79
+ },
+ {
+  "p": "/booking",
+  "status": 200,
+  "loc": null,
+  "xvc": null,
+  "cache": "MISS",
+  "len": 24150
+ }
+]
