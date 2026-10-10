@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User, Lock, Bell, Package } from "lucide-react";
+import { Camera, Ruler, ShieldCheck, Loader2, CheckCircle2, ArrowLeft, Sparkles, ArrowRight, Scan, Palette, Images, Home as HomeIcon, User, Lock, Bell, Package, Download, Share } from "lucide-react";
 import { estimateMeasurements, type EstimatedMeasurements } from "@/lib/atelierfit/measure";
 import { LiveCameraStage, type CapturedPose } from "@/components/atelierfit/LiveCameraStage";
 import { openPaystackCheckout } from "@/lib/atelierfit/paystack";
@@ -292,59 +292,50 @@ export default function AtelierFit() {
   const [sideCapture, setSideCapture] = useState<CapturedPose | null>(null);
 
   // Installable PWA shell: manifest + service worker only for this route, so the rest of the portfolio keeps
-  // its own identity. Registering the SW is also what makes "Add to Home Screen" show up on Android/Chrome.
-  //
-  // Also where the real "doesn't fit every phone screen" bug gets fixed: the shared app.html viewport tag
-  // (used by every other page on the site) has no `viewport-fit=cover`, so on a notched/Dynamic-Island or
-  // home-indicator iPhone the browser keeps the whole page letterboxed inside the *safe* area instead of
-  // drawing edge-to-edge -- on some screen sizes that's exactly the "doesn't properly fit" symptom. Scoped
-  // the same way theme-color/manifest already are here: only changed while AtelierFit is mounted, restored
-  // on unmount, so the rest of the portfolio's pages are unaffected. iOS specifically also needs its own
-  // apple-mobile-web-app-* tags and an apple-touch-icon to render standalone/edge-to-edge at all -- the
-  // manifest alone (an Android/Chrome mechanism) does nothing for "Add to Home Screen" on iOS Safari.
+  // its own identity. iOS Safari needs the apple-mobile-web-app-* tags and apple-touch-icon; Chrome uses the
+  // manifest and the service worker.
   useEffect(() => {
-    const link = document.createElement("link");
-    link.rel = "manifest";
-    link.href = "/atelierfit-manifest.webmanifest";
-    document.head.appendChild(link);
-    const prevThemeColor = document.querySelector('meta[name="theme-color"]')?.getAttribute("content");
-    let themeMeta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
-    if (!themeMeta) {
-      themeMeta = document.createElement("meta");
-      themeMeta.name = "theme-color";
-      document.head.appendChild(themeMeta);
-    }
-    themeMeta.content = "#0B0A08";
+    // The server already sends these tags for /atelierfit (see atelierFitShell in server.ts); this only adds
+    // the ones that are missing, e.g. after navigating here from another page, and removes just those again.
+    const added: Element[] = [];
+    const ensure = (selector: string, make: () => HTMLElement) => {
+      if (document.head.querySelector(selector)) return;
+      const el = make();
+      document.head.appendChild(el);
+      added.push(el);
+    };
+    const meta = (name: string, content: string) => () => Object.assign(document.createElement("meta"), { name, content });
+    const link = (rel: string, href: string) => () => Object.assign(document.createElement("link"), { rel, href });
+    ensure('link[rel="manifest"]', link("manifest", "/atelierfit-manifest.webmanifest"));
+    ensure('meta[name="apple-mobile-web-app-capable"]', meta("apple-mobile-web-app-capable", "yes"));
+    ensure('meta[name="apple-mobile-web-app-status-bar-style"]', meta("apple-mobile-web-app-status-bar-style", "black-translucent"));
+    ensure('meta[name="apple-mobile-web-app-title"]', meta("apple-mobile-web-app-title", "AtelierFit"));
+    ensure('link[rel="apple-touch-icon"]', link("apple-touch-icon", "/icons/atelierfit-180.png"));
 
+    const prevThemeColor = document.querySelector('meta[name="theme-color"]')?.getAttribute("content");
+    ensure('meta[name="theme-color"]', meta("theme-color", "#0B0A08"));
+    const themeMeta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    if (themeMeta) themeMeta.content = "#0B0A08";
+
+    // viewport-fit=cover lets notched iPhones draw edge to edge instead of letterboxing the app.
     const viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
     const prevViewportContent = viewportMeta?.getAttribute("content") ?? null;
     if (viewportMeta) viewportMeta.content = "width=device-width, initial-scale=1.0, viewport-fit=cover";
 
-    const extraTags: HTMLMetaElement[] = [];
-    const addMeta = (name: string, content: string) => {
-      const m = document.createElement("meta");
-      m.name = name;
-      m.content = content;
-      document.head.appendChild(m);
-      extraTags.push(m);
-    };
-    addMeta("apple-mobile-web-app-capable", "yes");
-    addMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
-    addMeta("apple-mobile-web-app-title", "AtelierFit");
-    const appleIconLink = document.createElement("link");
-    appleIconLink.rel = "apple-touch-icon";
-    appleIconLink.href = "/icons/atelierfit-192.png";
-    document.head.appendChild(appleIconLink);
+    const prevTitle = document.title;
+    document.title = "AtelierFit — Tailor Orders";
+    const prevBodyBg = document.body.style.background;
+    document.body.style.background = "#0B0A08";
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/atelierfit-sw.js", { scope: "/atelierfit" }).catch(() => {});
     }
     return () => {
-      link.remove();
+      added.forEach((el) => el.remove());
       if (themeMeta && prevThemeColor) themeMeta.content = prevThemeColor;
       if (viewportMeta && prevViewportContent !== null) viewportMeta.content = prevViewportContent;
-      extraTags.forEach((m) => m.remove());
-      appleIconLink.remove();
+      document.title = prevTitle;
+      document.body.style.background = prevBodyBg;
     };
   }, []);
 
@@ -545,7 +536,19 @@ export default function AtelierFit() {
     }
   }, [order, config, customer.email]);
 
+  // Each step starts at the top, whichever element scrolls (the page on a phone, the frame on a laptop).
+  const shellScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    shellScrollRef.current?.scrollTo(0, 0);
+    window.scrollTo(0, 0);
+  }, [step]);
+
   return (
+    // Phone-sized shell: fills the screen on a phone; on wider screens the CSS in atelierfit-glass.css shows it
+    // as a centred phone-width app, with the app's fixed layers (background, bottom nav) kept inside the frame.
+    <div className="af-shell">
+      <div className="af-shell-frame">
+      <div className="af-shell-scroll" ref={shellScrollRef}>
     <div className="atelierfit-root relative min-h-dvh w-full text-[#F5F0E6] font-sans flex flex-col items-center px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
       <BackgroundGlow glowPositions={["top-right", "top-left", "bottom-left", "bottom-right"]} intensity="vibrant" />
       <div className="w-full max-w-md relative z-10">
@@ -613,6 +616,8 @@ export default function AtelierFit() {
                 Signing in just saves you retyping your name and email later -- nothing is locked behind it.
               </p>
             </div>
+
+            <InstallAppButton />
           </section>
         )}
 
@@ -714,6 +719,8 @@ export default function AtelierFit() {
                 ))}
               </div>
             </div>
+
+            <InstallAppButton />
           </section>
         )}
 
@@ -1302,6 +1309,9 @@ export default function AtelierFit() {
         </nav>
       )}
     </div>
+      </div>
+      </div>
+    </div>
   );
 }
 
@@ -1382,6 +1392,78 @@ function CardNetworkLogos() {
         </text>
       </svg>
       <span className="text-[10px] font-semibold tracking-wide text-emerald-300/90">Paystack</span>
+    </div>
+  );
+}
+
+// "Install / Add to Home Screen". Chrome and Edge hand over a real install prompt (beforeinstallprompt,
+// caught early by the inline script in server.ts); iPhone and iPad have no such prompt, so Safari gets the
+// two-tap Share instructions instead. Hidden once the app is running from the home screen.
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+
+function InstallAppButton() {
+  const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [env, setEnv] = useState({ standalone: true, ios: false, phone: false });
+
+  useEffect(() => {
+    const nav = navigator as Navigator & { standalone?: boolean };
+    const ua = navigator.userAgent;
+    setEnv({
+      standalone: window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true,
+      ios: /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1),
+      phone: window.matchMedia("(pointer: coarse)").matches,
+    });
+    const early = (window as any).__afInstallPrompt as InstallPromptEvent | undefined;
+    if (early) setPromptEvent(early);
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setPromptEvent(e as InstallPromptEvent);
+    };
+    const onInstalled = () => setInstalled(true);
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  if (env.standalone || installed) return null;
+  // On a laptop with no install prompt there's nothing useful to offer; phones always get a way to install.
+  if (!promptEvent && !env.ios && !env.phone) return null;
+
+  const onClick = async () => {
+    if (promptEvent) {
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice.catch(() => null);
+      (window as any).__afInstallPrompt = undefined;
+      setPromptEvent(null);
+      if (choice?.outcome === "accepted") setInstalled(true);
+      return;
+    }
+    setShowHelp((v) => !v);
+  };
+
+  return (
+    <div className="w-full max-w-xs mx-auto text-center">
+      <button
+        onClick={onClick}
+        className="w-full flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 text-white/85 text-sm font-medium py-2.5 px-5 hover:bg-white/10 transition-colors"
+      >
+        <Download size={16} className="text-[#D6397D]" />
+        <span>{env.ios ? "Add to Home Screen" : "Install app"}</span>
+      </button>
+      {showHelp && (
+        <p className="text-[12px] text-white/60 mt-2 leading-relaxed">
+          {env.ios ? (
+            <>Tap <Share size={13} className="inline -mt-0.5" /> Share in the browser bar, then choose <b>Add to Home Screen</b>.</>
+          ) : (
+            <>Open your browser menu (⋮) and choose <b>Install app</b> or <b>Add to Home screen</b>.</>
+          )}
+        </p>
+      )}
     </div>
   );
 }

@@ -2724,6 +2724,31 @@ app.get('/robots.txt', async (req, res) => {
   res.status(200).set({ 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=0, s-maxage=3600' }).send(body);
 });
 
+const isAtelierFitPath = (p: string) => p === '/atelierfit' || p.startsWith('/atelierfit/');
+
+// AtelierFit is an installable app, so its install tags go in the HTML itself rather than only after
+// React mounts: iOS Safari's "Add to Home Screen" and Chrome's install check both read the first response.
+// The inline script keeps Chrome's install prompt if it fires before the page's own code is ready, and the
+// portfolio's first-paint skeleton is swapped for the app's plain dark background.
+function atelierFitShell(template: string): string {
+  const head = [
+    '<meta name="description" content="Order a tailored garment, get measured by camera or by hand, and pay your deposit." />',
+    '<link rel="manifest" href="/atelierfit-manifest.webmanifest" />',
+    '<meta name="theme-color" content="#0B0A08" />',
+    '<meta name="mobile-web-app-capable" content="yes" />',
+    '<meta name="apple-mobile-web-app-capable" content="yes" />',
+    '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />',
+    '<meta name="apple-mobile-web-app-title" content="AtelierFit" />',
+    '<link rel="apple-touch-icon" sizes="180x180" href="/icons/atelierfit-180.png" />',
+    '<script>window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__afInstallPrompt=e;});</script>',
+    '<style>html,body{background:#0B0A08}#initial-skeleton{background:#0B0A08}#initial-skeleton .isk-card{display:none}</style>',
+  ].join('\n    ');
+  return template
+    .replace(/<title>[\s\S]*?<\/title>/, '<title>AtelierFit — Tailor Orders</title>')
+    .replace(/<meta name="viewport"[^>]*>/, '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />')
+    .replace('</head>', `    ${head}\n  </head>`);
+}
+
 async function renderPage(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   // Missing static files (robots.txt, stale asset hashes, ...) get a plain 404 instead of a full page render
@@ -2737,7 +2762,8 @@ async function renderPage(req: express.Request, res: express.Response, next: exp
     const plan = renderer.getRoutePlan(req.path);
 
     if (plan.kind === 'client') {
-      res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).send(fillTemplate(template, null));
+      const page = isAtelierFitPath(req.path) ? atelierFitShell(template) : template;
+      res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).send(fillTemplate(page, null));
       return;
     }
 

@@ -275,3 +275,41 @@
   --ai-glow: rgba(248, 160, 200, 0.55);
   --ai-swirl: 0.85;
 }
+
+/* Phone-sized app shell (see the wrapper in src/pages/AtelierFit/index.tsx). On a phone it is just the
+   page, filling the screen. From 600px up it becomes a centred phone-width frame: the transform makes the
+   frame the containing block for the app's position:fixed layers (background glow, bottom nav), so they
+   stay inside it, and the inner element scrolls instead of the page. */
+.af-shell {
+  min-height: 100dvh;
+  background: #0B0A08;
+}
+
+@media (min-width: 600px) {
+  .af-shell {
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 0%, #1d0f1a 0%, #0B0A08 55%, #050404 100%);
+  }
+  .af-shell-frame {
+    position: relative;
+    width: 430px;
+    height: min(932px, calc(100dvh - 48px));
+    border-radius: 36px;
+    overflow: hidden;
+    transform: translateZ(0);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 8px #141116, 0 30px 80px -20px rgba(0, 0, 0, 0.85);
+  }
+  .af-shell-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .af-shell-scroll::-webkit-scrollbar { display: none; }
+  .af-shell-scroll > .atelierfit-root { min-height: 100%; }
+}

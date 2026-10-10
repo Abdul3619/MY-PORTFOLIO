@@ -67,9 +67,10 @@ function AnimatedRoutes() {
   }, []);
 
   // Keep the tab title in step with the page (the server renders the same titles; see src/lib/seo.ts).
-  // Project pages set their own title in ProjectDetail.
+  // Project pages set their own title in ProjectDetail, and AtelierFit (an installable app) keeps its own.
   useEffect(() => {
     if (!seo && !profile) return;
+    if (/^\/atelierfit(\/|$)/.test(location.pathname)) return;
     const meta = getRouteMeta(location.pathname, seo, profile);
     if (meta) document.title = meta.title;
     else if (!/^\/projects\/[^/]+\/?$/.test(location.pathname)) document.title = getSiteTitle(seo, profile);

@@ -2,6 +2,8 @@
   "name": "AtelierFit — Tailor Orders",
   "short_name": "AtelierFit",
   "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+  "id": "/atelierfit",
+  "lang": "en",
   "start_url": "/atelierfit",
   "scope": "/atelierfit",
   "display": "standalone",
