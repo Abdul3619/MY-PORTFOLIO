@@ -162,7 +162,10 @@ export function Navbar() {
         <nav
           id="mobile-menu"
           aria-label="Main navigation"
-          className="lg:hidden fixed left-4 right-4 top-[76px] glass-panel rounded-3xl p-4 flex flex-col gap-1 bg-[#0b0b10]/95 backdrop-blur-xl max-h-[calc(100vh-96px)] overflow-y-auto"
+          className="lg:hidden fixed left-4 right-4 top-[76px] rounded-3xl p-4 flex flex-col gap-1 border border-white/10 shadow-2xl max-h-[calc(100vh-96px)] overflow-y-auto"
+          // Solid background set inline: .glass-panel's translucent fill sits in a later CSS layer and let the page
+          // behind show through the links.
+          style={{ backgroundColor: "rgba(11, 11, 16, 0.98)" }}
         >
           {visibleLinks.map((link) => {
             const isActive = isActivePath(link.path);
