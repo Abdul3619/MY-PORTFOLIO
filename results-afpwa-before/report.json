@@ -1,0 +1,344 @@
+{
+  "when": "2026-10-10T16:01:33.637Z",
+  "qr": {
+    "status": 200,
+    "decoded": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit"
+  },
+  "raw": {
+    "status": 200,
+    "finalUrl": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "headManifest": false,
+    "headTitle": "My Portfolio",
+    "appleCapable": false
+  },
+  "asset /atelierfit-manifest.webmanifest": {
+    "status": 200,
+    "type": "application/manifest+json; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /atelierfit-sw.js": {
+    "status": 200,
+    "type": "application/javascript; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /icons/atelierfit-192.png": {
+    "status": 200,
+    "type": "image/png",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /icons/atelierfit-512.png": {
+    "status": 200,
+    "type": "image/png",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /icons/atelierfit-180.png": {
+    "status": 404,
+    "type": "text/plain; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "chromium android360": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "Abdulwahab Abdullahi | Full-Stack Developer & Tailor",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-192.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 360,
+    "innerHeight": 780,
+    "scrollWidth": 360,
+    "rootBox": {
+      "x": 0,
+      "w": 360,
+      "h": 780
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "status": 200,
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "chromium android390": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "Abdulwahab Abdullahi | Full-Stack Developer & Tailor",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-192.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "scrollWidth": 390,
+    "rootBox": {
+      "x": 0,
+      "w": 390,
+      "h": 844
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "status": 200,
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "chromium android430": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "Abdulwahab Abdullahi | Full-Stack Developer & Tailor",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-192.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 430,
+    "innerHeight": 932,
+    "scrollWidth": 430,
+    "rootBox": {
+      "x": 0,
+      "w": 430,
+      "h": 932
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "status": 200,
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "chromium desktop1440": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "Abdulwahab Abdullahi | Full-Stack Developer & Tailor",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-192.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "scrollWidth": 1440,
+    "rootBox": {
+      "x": 0,
+      "w": 1440,
+      "h": 900
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "status": 200,
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "stitchbook": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/stitchbook?tab=manage",
+    "qrShown": 1,
+    "qrText": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit"
+  },
+  "webkit iPhone 13": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "Abdulwahab Abdullahi | Full-Stack Developer & Tailor",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-192.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 390,
+    "innerHeight": 664,
+    "scrollWidth": 390,
+    "rootBox": {
+      "x": 0,
+      "w": 390,
+      "h": 664
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\n\nContinue as guest\nSigning in just saves you retyping your name and email later"
+  },
+  "webkit iPhone 15 Pro Max": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "Abdulwahab Abdullahi | Full-Stack Developer & Tailor",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-192.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 430,
+    "innerHeight": 739,
+    "scrollWidth": 430,
+    "rootBox": {
+      "x": 0,
+      "w": 430,
+      "h": 739
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\n\nContinue as guest\nSigning in just saves you retyping your name and email later"
+  },
+  "webkit iPhone SE": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "Abdulwahab Abdullahi | Full-Stack Developer & Tailor",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-192.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 320,
+    "innerHeight": 568,
+    "scrollWidth": 328,
+    "rootBox": {
+      "x": 0,
+      "w": 320,
+      "h": 568
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\n\nContinue as guest\nSigning in just saves you retyping your name and email later"
+  }
+}
