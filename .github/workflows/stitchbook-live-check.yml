@@ -1,0 +1,102 @@
+name: StitchBook live check
+
+# End-to-end check against the live site, run by hand. Places one test order in AtelierFit (no payment) and
+# one test booking in Atelier Noir through the same public calls their forms use, then confirms both show
+# up in StitchBook's Live API and screenshots the StitchBook tabs. Screenshots are uploaded as an artifact.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SITE: https://abdulwahab-portfolio-tau.vercel.app
+      # Atelier Noir's public (publishable) Supabase key, the same one its site ships in its own JS.
+      NOIR_SUPABASE_URL: https://aqilclozwukdnogqcmsy.supabase.co
+      NOIR_PUBLISHABLE_KEY: sb_publishable_WxRQU6rp23egBw82BowR0Q_87CaKcsS
+    steps:
+      - name: Place test orders and confirm they reach StitchBook
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%Y%m%d%H%M%S)
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+
+          echo "== AtelierFit test order"
+          curl -sS -f -X POST "$SITE/api/atelierfit/orders" -H 'Content-Type: application/json' -d "{
+            \"customerName\": \"Test Visitor $STAMP\",
+            \"customerEmail\": \"stitchbook-check-$STAMP@example.com\",
+            \"garment\": \"kaftan\",
+            \"fabric\": \"cotton\",
+            \"occasion\": \"Casual\",
+            \"notes\": \"Automated StitchBook live check. Not a real order.\",
+            \"measurements\": {\"heightCm\": 175, \"chestCm\": 96, \"waistCm\": 82},
+            \"measurementMethod\": \"manual\",
+            \"deliveryMethod\": \"pickup\"
+          }" | tee af.json; echo
+
+          echo "== Atelier Noir test booking"
+          curl -sS -f -X POST "$NOIR_SUPABASE_URL/rest/v1/rpc/agbada_submit_booking" \
+            -H "apikey: $NOIR_PUBLISHABLE_KEY" -H "Authorization: Bearer $NOIR_PUBLISHABLE_KEY" -H 'Content-Type: application/json' \
+            -d "{\"p_kind\":\"inquiry\",\"p_full_name\":\"Test Visitor $STAMP\",\"p_email\":\"stitchbook-check-$STAMP@example.com\",\"p_phone\":null,\"p_service\":\"Automated StitchBook live check\",\"p_preferred_date\":null,\"p_message\":\"Automated StitchBook live check. Not a real booking.\"}" | tee noir.json; echo
+
+          echo "== StitchBook Live"
+          curl -sS -f "$SITE/api/stitchbook/live/atelierfit-orders" > live-af.json
+          curl -sS -f "$SITE/api/stitchbook/live/atelier-noir" > live-noir.json
+          curl -sS -f "$SITE/api/stitchbook/live/overview"; echo
+          curl -sS -f "$SITE/api/stitchbook/manage/inventory"; echo
+
+          grep -q "st\*\*\*@example.com" live-af.json \
+            && echo "AtelierFit order is in StitchBook" || { echo "AtelierFit order NOT found"; exit 1; }
+          grep -q "st\*\*\*@example.com" live-noir.json && echo "Atelier Noir booking is in StitchBook" || { echo "Atelier Noir booking NOT found"; exit 1; }
+
+          echo "== Privacy: visitors must not see real customer emails"
+          if grep -q "stitchbook-check-$STAMP@example.com" live-af.json live-noir.json; then echo "Unmasked email leaked"; exit 1; fi
+          echo "Emails are masked"
+
+          echo "== Owner-only writes to Real Inventory"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$SITE/api/stitchbook/manage/inventory" -H 'Content-Type: application/json' -d '{"itemName":"x","quantity":1}')
+          echo "anonymous POST -> $code"; [ "$code" = "401" ]
+
+          echo "== Old admin inventory API is gone"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "$SITE/api/admin/inventory"); echo "/api/admin/inventory -> $code"
+
+          echo "== Desktop installers download"
+          for f in StitchBook_0.1.0_x64-setup.exe StitchBook_0.1.0_universal.dmg StitchBook_0.1.0_amd64.AppImage; do
+            code=$(curl -sS -L -o /dev/null -r 0-0 -w '%{http_code}' "https://github.com/Abdul3619/MY-PORTFOLIO/releases/download/stitchbook-v0.1.0/$f")
+            echo "$f -> $code"; [ "$code" = "206" ] || [ "$code" = "200" ]
+          done
+
+      - name: Screenshot StitchBook
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.48.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cat > shots.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const site = process.env.SITE;
+          const browser = await chromium.launch();
+          const views = [
+            { name: 'desktop', viewport: { width: 1440, height: 900 } },
+            { name: 'mobile', viewport: { width: 390, height: 844 }, isMobile: true },
+          ];
+          for (const v of views) {
+            const page = await browser.newPage({ viewport: v.viewport, isMobile: v.isMobile });
+            for (const tab of ['dashboard', 'live', 'manage']) {
+              await page.goto(`${site}/stitchbook?tab=${tab}`, { waitUntil: 'networkidle' });
+              await page.waitForTimeout(2500);
+              await page.screenshot({ path: `shots/${v.name}-${tab}.png`, fullPage: true });
+            }
+            await page.close();
+          }
+          const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+          await page.goto(`${site}/admin/inventory`, { waitUntil: 'networkidle' });
+          console.log('/admin/inventory now lands on', page.url());
+          await browser.close();
+          EOF
+          mkdir -p shots && node shots.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stitchbook-screenshots
+          path: shots/
