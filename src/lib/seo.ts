@@ -18,13 +18,13 @@ export function getPageTitle(pageTitle: string | null | undefined, seo: any, pro
 // Open Graph tags in the initial HTML) and by the client when navigating, so both always agree.
 // Project pages use the project's own title/description instead.
 const PAGE_META: Record<string, { title: string; description: (who: string) => string }> = {
-  '/about': { title: 'About', description: (who) => `About ${who}: background, experience and how I work across web development and solar energy.` },
-  '/skills': { title: 'Skills', description: (who) => `Technical skills of ${who}: frontend and full-stack web development, tools, and solar system design.` },
+  '/about': { title: 'About', description: (who) => `About ${who}: background and how I work as a web developer.` },
+  '/skills': { title: 'Skills', description: (who) => `Technical skills of ${who}: frontend and web development skills and tools.` },
   '/projects': { title: 'Projects', description: (who) => `Selected projects by ${who}: websites and web apps built for real businesses, with live demos.` },
   '/certificates': { title: 'Certificates', description: (who) => `Certificates and credentials earned by ${who}.` },
   '/testimonials': { title: 'Testimonials', description: (who) => `What clients say about working with ${who}, and a form to leave your own review.` },
   '/resume': { title: 'Resume', description: (who) => `Resume of ${who}: experience, education and skills.` },
-  '/contact': { title: 'Contact', description: (who) => `Get in touch with ${who} about a website, web app or solar project.` },
+  '/contact': { title: 'Contact', description: (who) => `Get in touch with ${who} about a website or web app.` },
 };
 
 export const STATIC_ROUTES = ['/', ...Object.keys(PAGE_META)];
@@ -49,7 +49,7 @@ export function getSiteDescription(seo: any, profile: any): string {
   if (custom) return clip(custom);
   const who = plainText(profile?.name) || 'this developer';
   const role = plainText(profile?.title);
-  return clip(`${role ? `${who}, ${role}.` : `${who}.`} Portfolio of websites and web apps built for real clients, plus solar energy work.`);
+  return clip(`${role ? `${who}, ${role}.` : `${who}.`} Portfolio of websites and web apps built for real businesses.`);
 }
 
 // Title and description for a static route (null for routes without their own meta, such as project pages).

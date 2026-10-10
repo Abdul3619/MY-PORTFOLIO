@@ -9,16 +9,10 @@ import { useTranslation } from "react-i18next";
 
 const experience = [
   {
-    role: "Freelance Full Stack Developer",
+    role: "Freelance Web Developer",
     company: "Self-Employed",
     period: "2023 - Present",
     description: "Designing and developing premium web applications for clients across various industries, focusing on performance, aesthetics, and scalable architectures."
-  },
-  {
-    role: "Solar Engineering Technician",
-    company: "GreenEnergy Solutions",
-    period: "2020 - 2023",
-    description: "Led installation teams for residential and commercial solar arrays. Conducted system diagnostics, inverter configurations, and battery storage setups."
   }
 ];
 
@@ -28,12 +22,6 @@ const education = [
     institution: "Various Platforms (Coursera, Udemy, Docs)",
     period: "2022 - Present",
     description: "Rigorous self-directed study covering data structures, algorithms, system design, and modern web frameworks."
-  },
-  {
-    degree: "Diploma in Renewable Energy",
-    institution: "Technical Institute of Engineering",
-    period: "2018 - 2020",
-    description: "Specialized in solar photovoltaics, electrical fundamentals, and sustainable energy grid integration."
   }
 ];
 
@@ -45,8 +33,9 @@ export default function Resume() {
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   
-  const displayExperience = experienceData && experienceData.length > 0 ? experienceData : experience;
-  const displayEducation = educationData && educationData.length > 0 ? educationData : education;
+  const notSolar = (r: any) => !/solar|renewable/i.test(JSON.stringify(r));
+  const displayExperience = experienceData && experienceData.length > 0 ? experienceData.filter(notSolar) : experience;
+  const displayEducation = educationData && educationData.length > 0 ? educationData.filter(notSolar) : education;
   const resumeUrl = profile?.resume_url;
 
   useEffect(() => {

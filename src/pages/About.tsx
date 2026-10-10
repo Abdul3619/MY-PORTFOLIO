@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
-import { Sun, Code, Target, Rocket, Lightbulb } from "lucide-react";
+import { Code, Target, Rocket, Lightbulb } from "lucide-react";
 import * as Icons from "lucide-react";
 import { useAbout, useProfile } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
@@ -12,21 +12,14 @@ const timelineEvents = [
     id: "start",
     title: "How I Started",
     icon: Lightbulb,
-    content: "I'm Abdul Wahab, a self-taught web developer who loves creating software that solves real-world problems. My path wasn't traditional—I started with hands-on hardware and physical systems, always driven by an intense curiosity to understand how things work beneath the surface and how they can be optimized to serve people better.",
+    content: "I'm Abdul Wahab, a self-taught web developer who loves creating software that solves real-world problems. My path wasn't traditional—I started by teaching myself, always driven by an intense curiosity to understand how things work beneath the surface and how they can be optimized to serve people better.",
     date: "Introduction",
-  },
-  {
-    id: "solar",
-    title: "Solar Engineering",
-    icon: Sun,
-    content: "Before writing a single line of code, I spent my days working with solar installations at Teenergy Solar Solutions. Dealing with battery storage setups, power inverters, and complex electrical troubleshooting on-site taught me how to think systematically. In solar power, there is no room for error; you learn real-world problem-solving, meticulous attention to detail, and absolute reliability under pressure.",
-    date: "Background",
   },
   {
     id: "web",
     title: "Discovering Software",
     icon: Code,
-    content: "My curiosity eventually led me from physical circuits to digital ones. I became fascinated by how logic structures could create fully interactive systems. I spent countless hours parsing documentation, building raw prototypes, and experimenting late into the night. Step by step, I taught myself modern technologies like HTML, CSS, JavaScript, and TypeScript, eventually moving into building powerful interfaces with React, Next.js, and Tailwind CSS.",
+    content: "My curiosity led me into software. I became fascinated by how logic structures could create fully interactive systems. I spent countless hours parsing documentation, building raw prototypes, and experimenting late into the night. Step by step, I taught myself modern technologies like HTML, CSS, JavaScript, and TypeScript, eventually moving into building powerful interfaces with React, Next.js, and Tailwind CSS.",
     date: "The Pivot",
   },
   {
@@ -40,7 +33,7 @@ const timelineEvents = [
     id: "vision",
     title: "Looking Ahead",
     icon: Rocket,
-    content: "Learning is a daily habit for me. The web evolves constantly, and I evolve with it. My ultimate goal is to become a world-class Full Stack Engineer, capable of owning the entire lifecycle of complex digital products—taking them from initial concept all the way to secure, production-ready cloud deployment.",
+    content: "Learning is a daily habit for me. The web evolves constantly, and I evolve with it. My ultimate goal is to become a world-class software engineer, capable of owning the entire lifecycle of complex digital products—taking them from initial concept all the way to secure, production-ready cloud deployment.",
     date: "Future Vision",
   }
 ];
@@ -138,7 +131,7 @@ export default function About() {
             {t("about.title_part1", "MY")} <span className="text-gradient">{t("about.title_part2", "JOURNEY")}</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            {profile?.tagline || t("about.subtitle", "From solar engineering to full-stack software development—a story of self-taught learning and practical problem solving.")}
+            {profile?.tagline || t("about.subtitle", "A self-taught web developer's story of learning by shipping real projects.")}
           </p>
         </motion.div>
 

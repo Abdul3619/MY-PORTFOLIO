@@ -1,6 +1,6 @@
 # Abdul Wahab — Portfolio
 
-This is my personal portfolio and the CMS behind it. I am a web developer and solar technician, and the site shows my projects, skills, certificates, client testimonials, my resume and an interactive solar sizing calculator. I manage all of that content from a private admin dashboard.
+This is my personal portfolio and the CMS behind it. I am a web developer, and the site shows my projects, skills, certificates, client testimonials and my resume. I manage all of that content from a private admin dashboard.
 
 ## Stack
 

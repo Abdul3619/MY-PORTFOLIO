@@ -508,7 +508,7 @@ export function ClientReviewsSection() {
                         value={formData.job_title}
                         onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
                         className="w-full bg-white/[0.02] border border-white/8 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-gold/50"
-                        placeholder="e.g. Solar Operations Director (Optional)"
+                        placeholder="e.g. Operations Director (Optional)"
                       />
                     </div>
                   </div>

@@ -217,7 +217,7 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.6 }}
               >
-                {t("home.hero_offer", "I'm a full-stack developer. I build booking sites, online stores and admin dashboards, and every project below is live for you to try.")}
+                {t("home.hero_offer", "I'm a web developer. I build booking sites, online stores and admin dashboards, and every project below is live for you to try.")}
               </motion.p>
               
               <motion.div 
@@ -512,7 +512,7 @@ export default function Home() {
                   {t("contact.lets_build_part1", "LET'S BUILD")} <br />{t("contact.lets_build_part2", "SOMETHING")} <span className="text-gradient font-extrabold">{t("contact.lets_build_part3", "GREAT.")}</span>
                 </h2>
                 <p className="text-gray-400 max-w-lg mx-auto lg:mx-0 text-sm md:text-base">
-                  {t("contact.subtitle", "Have an outstanding digital software project, an off-grid solar installation design, or a complex technical problem that needs a reliable solver? Let's cooperate.")}
+                  {t("contact.subtitle", "Have a website, a booking system, an online store or a web app in mind? Tell me about it and let's work together.")}
                 </p>
               </div>
 
@@ -545,7 +545,7 @@ export default function Home() {
                 {profile?.name ? profile.name.split(' ')[0] : 'Abdul'} <span className="text-gradient font-extrabold">{profile?.name ? profile.name.split(' ').slice(1).join(' ') : 'Wahab'}</span>
               </h3>
               <p className="text-xs text-gray-400 leading-relaxed max-w-sm">
-                {profile?.bio || t("common.footer_bio", "Self-taught full-stack developer with a background in solar engineering, dedicated to building fast, reliable, and premium web experiences.")}
+                {profile?.bio || t("common.footer_bio", "Self-taught web developer building fast, reliable, and polished websites and web apps for real businesses.")}
               </p>
             </div>
 

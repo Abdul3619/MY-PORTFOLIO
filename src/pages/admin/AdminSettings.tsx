@@ -26,15 +26,15 @@ export default function AdminSettings() {
 
   // 1. Profile States
   const [formName, setFormName] = useState('Abdulwahab Abdullah');
-  const [formRole, setFormRole] = useState('Senior Full-Stack Cloud & CRM Architect');
-  const [formBio, setFormBio] = useState('Building premium enterprise solar solutions, responsive full-stack dashboards, and secure automated CRM engines.');
+  const [formRole, setFormRole] = useState('Web Developer');
+  const [formBio, setFormBio] = useState('Building booking systems, online stores and admin dashboards for real businesses.');
   const [formEmail, setFormEmail] = useState('abdulwahababdullah3619@gmail.com');
   const [formGithub, setFormGithub] = useState('https://github.com');
   const [formLinkedin, setFormLinkedin] = useState('https://linkedin.com');
 
   // 2. SEO Meta States (With character limits)
   const [seoTitle, setSeoTitle] = useState('Abdulwahab Abdullah | Senior CRM Architect');
-  const [seoDesc, setSeoDesc] = useState('Senior full-stack developer specializing in bespoke solar energy CRM applications, premium portfolio dashboards, and modern cloud database sync workflows.');
+  const [seoDesc, setSeoDesc] = useState('Self-taught web developer building booking systems, online stores and admin dashboards for businesses.');
   const [seoSlug, setSeoSlug] = useState('abdulwahab-architect');
 
   // 3. Automated Notification switches
@@ -440,7 +440,7 @@ export default function AdminSettings() {
               </h4>
               {/* Description snippet */}
               <p className="text-[12px] text-[#4d5156] leading-normal font-sans line-clamp-2 break-words">
-                {seoDesc || 'Senior full-stack developer specializing in bespoke solar energy CRM applications...'}
+                {seoDesc || 'Self-taught web developer building booking systems, online stores and admin dashboards...'}
               </p>
             </div>
 

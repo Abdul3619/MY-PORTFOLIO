@@ -7,7 +7,6 @@ import { CardSkeleton } from "@/components/Skeleton";
 import { useTranslation } from "react-i18next";
 import { 
   Code2, 
-  Sun, 
   Wrench,
   Palette,
   Terminal,
@@ -169,19 +168,6 @@ const skillCategories = [
       "Client Collaboration",
       "Requirement Analysis",
       "Time Management"
-    ]
-  },
-  {
-    title: "Solar & Electrical",
-    icon: Sun,
-    skills: [
-      "Solar Installation",
-      "Battery Systems",
-      "Inverter Setup",
-      "Load Calculation",
-      "Maintenance",
-      "Troubleshooting",
-      "System Design"
     ]
   }
 ];

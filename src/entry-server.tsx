@@ -117,7 +117,7 @@ function buildPersonJsonLd(siteUrl: string, profile: any, contact: any, seo: any
     description,
     url: siteUrl,
     image: profile?.profile_image_url || undefined,
-    knowsAbout: ['Web development', 'Frontend development', 'React', 'Solar energy systems'],
+    knowsAbout: ['Web development', 'Frontend development', 'React', 'Booking systems', 'E-commerce'],
     sameAs: sameAs.length ? sameAs : undefined,
   };
   return {
