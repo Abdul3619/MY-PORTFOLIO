@@ -577,6 +577,15 @@ export function createStitchBookRouter(deps: {
         res.status(500).json({ error: error.message });
         return;
       }
+      if (owner) {
+        // The owner's change is the new baseline: drop any pending visitor snapshot so the 24-hour clean-up
+        // doesn't roll this order back to its pre-visitor state.
+        await db
+          .from('stitchbook_visitor_edits')
+          .update({ reverted_at: new Date().toISOString() })
+          .eq('order_id', req.params.id)
+          .is('reverted_at', null);
+      }
       res.json(data);
     }),
   );
