@@ -644,6 +644,7 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
   let model = candidates[0];
   let stream: Awaited<ReturnType<typeof client.models.generateContentStream>> | undefined;
   let lastErr: any;
+  const attempts: string[] = [];
   for (const candidate of candidates) {
     try {
       stream = await withOverloadRetry(() =>
@@ -662,12 +663,19 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
       model = candidate;
       break;
     } catch (err: any) {
-      lastErr = err;
+      attempts.push(`${candidate}: ${err?.status ?? err?.error?.code ?? ''} ${String(err?.message ?? '').slice(0, 300)}`);
+      // Keep the most useful error to report: a model that exists but refused (quota, bad request) says more
+      // than "this retired model is not found".
+      if (!lastErr || (isModelUnavailable(lastErr) && !isModelUnavailable(err))) lastErr = err;
       if (isModelUnavailable(err) || isProviderOverloaded(err)) continue; // try the next candidate
-      throw err; // some other error (bad key, etc.) -- no point trying more models
+      break; // some other error (bad key, bad request, etc.) -- no point trying more models
     }
   }
-  if (!stream) throw lastErr;
+  if (!stream) {
+    console.error('Gemini: every model failed:', attempts.join(' | '));
+    if (lastErr && typeof lastErr === 'object') lastErr.geminiAttempts = attempts;
+    throw lastErr;
+  }
 
   let sentText = false;
   let functionCall: { name: ToolName; args: Record<string, unknown> } | undefined;
@@ -933,13 +941,13 @@ export function createChatRouter() {
         const backupKey = backup === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY';
         if (closed || streamed || !env(backupKey)) throw primaryErr;
         console.error(`Chat ${provider} failed, falling back to ${backup}:`, primaryErr?.status ?? '', primaryErr?.message);
-        Sentry.captureException(primaryErr, { tags: { area: 'chat', provider: provider ?? 'none', fallback: backup } });
+        Sentry.captureException(primaryErr, { tags: { area: 'chat', provider: provider ?? 'none', fallback: backup }, extra: { attempts: primaryErr?.geminiAttempts } });
         await runWith(backup);
       }
       send({ type: 'done' });
     } catch (err: any) {
       if (closed) return;
-      Sentry.captureException(err, { tags: { area: 'chat', provider: provider ?? 'none' } });
+      Sentry.captureException(err, { tags: { area: 'chat', provider: provider ?? 'none' }, extra: { attempts: err?.geminiAttempts } });
       if (err instanceof Anthropic.RateLimitError || err instanceof Anthropic.InternalServerError) {
         console.error('Chat model busy:', err.status);
       } else {
