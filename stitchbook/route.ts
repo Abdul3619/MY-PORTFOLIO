@@ -585,8 +585,17 @@ export function createStitchBookRouter(deps: {
           .update({ reverted_at: new Date().toISOString() })
           .eq('order_id', req.params.id)
           .is('reverted_at', null);
+        res.json(data);
+        return;
       }
-      res.json(data);
+      res.json({
+        ...data,
+        customer_name: maskName(data.customer_name),
+        customer_email: maskEmail(data.customer_email),
+        customer_phone: maskPhone(data.customer_phone),
+        shipping_address: null,
+        measurements: null,
+      });
     }),
   );
 
