@@ -107,7 +107,7 @@ export default function Home() {
     instagram: contact?.instagram_url || "#",
     upwork: contact?.upwork_url || "#",
     contra: contact?.contra_url || "#",
-    email: contact?.email || "abdulwahababdullahi3619@gmail.com",
+    email: contact?.email || "abdulwahababdullah3619@gmail.com",
     whatsapp: contact?.whatsapp ? `https://wa.me/${contact.whatsapp.replace(/\D/g, '')}` : "#"
   };
 
