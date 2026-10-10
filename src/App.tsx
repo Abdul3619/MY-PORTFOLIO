@@ -148,6 +148,11 @@ function AnimatedRoutes() {
           component itself, same full-screen/no-<Layout> treatment as AtelierFit/StitchBook. */}
       <Route path="/phoneframe" element={adminPage(PhoneFrameShowcase)} />
 
+      {/* Folded into StitchBook's own Manage tab, which visitors can open too -- redirect any old bookmark/link
+          there before the admin login gate. */}
+      <Route path="/admin/atelierfit" element={<Navigate to="/stitchbook?tab=manage" replace />} />
+      <Route path="/admin/inventory" element={<Navigate to="/stitchbook?tab=manage" replace />} />
+
       {/* Admin Login */}
       <Route path="/admin/login" element={<AdminLogin />} />
 
@@ -168,9 +173,6 @@ function AnimatedRoutes() {
           <Route path="/admin/resume" element={adminPage(AdminResume)} />
           <Route path="/admin/media" element={adminPage(AdminMedia)} />
           <Route path="/admin/account" element={adminPage(AdminAccount)} />
-          {/* Folded into StitchBook's own Manage tab -- redirect any old bookmark/link there. */}
-          <Route path="/admin/atelierfit" element={<Navigate to="/stitchbook?tab=manage" replace />} />
-          <Route path="/admin/inventory" element={<Navigate to="/stitchbook?tab=manage" replace />} />
         </Route>
       </Route>
     </Routes>
