@@ -1,0 +1,11 @@
+import { chromium, devices } from 'playwright';
+import fs from 'fs';
+const dir = process.env.OUT; fs.mkdirSync(dir, { recursive: true });
+const b = await chromium.launch(); const c = await b.newContext({ ...devices['iPhone 13'] }); const p = await c.newPage();
+await p.goto('https://abdulwahab-portfolio-tau.vercel.app/', { waitUntil: 'networkidle' });
+await p.click('button[aria-controls="mobile-menu"]'); await p.waitForTimeout(600);
+await p.screenshot({ path: dir + '/pf_mobile_menu_open.jpg', quality: 70, type: 'jpeg' });
+await p.goto('https://abdulwahab-portfolio-tau.vercel.app/contact', { waitUntil: 'networkidle' });
+await p.mouse.wheel(0, 700); await p.waitForTimeout(800);
+await p.screenshot({ path: dir + '/pf_contact_scrolled.jpg', quality: 70, type: 'jpeg' });
+await b.close();
