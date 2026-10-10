@@ -248,7 +248,11 @@
     "live_deployment": "Live Deployment",
     "source_code": "Source Code",
     "restricted_codebase": "Restricted codebase.",
-    "cold_start_note": "Hosted on a free server that sleeps when idle. The first visit can take up to a minute to load."
+    "cold_start_note": "Hosted on a free server that sleeps when idle. The first visit can take up to a minute to load.",
+    "dashboard_open_title": "Open the admin dashboard",
+    "dashboard_opening": "Opening the dashboard...",
+    "dashboard_open_desc": "Try the real admin panel with a one-time test login. No sign-up needed.",
+    "dashboard_failed": "It didn't open this time. Try again, or ask the assistant for a test login."
   },
   "maintenance": {
     "title": "System Update",

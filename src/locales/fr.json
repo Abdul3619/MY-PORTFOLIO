@@ -248,7 +248,11 @@
     "live_deployment": "Déploiement en Direct",
     "source_code": "Code Source",
     "restricted_codebase": "Code source restreint.",
-    "cold_start_note": "Hébergé sur un serveur gratuit qui se met en veille. La première visite peut prendre jusqu'à une minute."
+    "cold_start_note": "Hébergé sur un serveur gratuit qui se met en veille. La première visite peut prendre jusqu'à une minute.",
+    "dashboard_open_title": "Ouvrir le tableau de bord",
+    "dashboard_opening": "Ouverture du tableau de bord...",
+    "dashboard_open_desc": "Essayez le vrai espace d'administration avec un accès de test à usage unique. Aucune inscription.",
+    "dashboard_failed": "L'ouverture a échoué. Réessayez ou demandez un accès de test à l'assistant."
   },
   "maintenance": {
     "title": "Mise à Jour du Système",

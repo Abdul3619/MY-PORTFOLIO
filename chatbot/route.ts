@@ -959,6 +959,34 @@ export function createChatRouter() {
     }
   });
 
+  // Direct "open the demo dashboard" button on a project page. Same one-time magic link the assistant's
+  // get_dashboard_access tool hands out, but without needing the AI model, so the button still works when the
+  // model is down. Uses the same per-visitor quota as chat messages, plus its own short burst limit.
+  const dashboardLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 3,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    validate: { xForwardedForHeader: false, trustProxy: false, default: false },
+    message: { error: 'Too many requests. Please wait a minute and try again.' },
+  });
+  router.post('/dashboard-link', dashboardLimiter, express.json({ limit: '2kb' }), async (req, res) => {
+    if (!originAllowed(req)) return res.status(403).json({ error: 'Not allowed.' });
+    const slug = typeof req.body?.slug === 'string' ? req.body.slug.slice(0, 64) : '';
+    if (!slug) return res.status(400).json({ error: 'Missing project.' });
+    try {
+      const quota = await takeQuota(visitorKey(req.ip || req.socket.remoteAddress || 'unknown'));
+      if (quota !== 'ok') return res.status(429).json({ error: LIMIT_MESSAGES[quota] ?? LIMIT_MESSAGES.global_day });
+      const result = await createDashboardLink(slug);
+      if (!result.ok) return res.status((result as { error: string }).error === 'not_supported' ? 404 : 503).json({ error: 'The demo dashboard could not be opened right now.' });
+      return res.json({ url: result.url });
+    } catch (err: any) {
+      console.error('Dashboard link route error:', err?.message);
+      Sentry.captureException(err, { tags: { area: 'dashboard-link', slug } });
+      return res.status(503).json({ error: 'The demo dashboard could not be opened right now.' });
+    }
+  });
+
   router.all('/', (_req, res) => res.status(405).json({ error: 'Method not allowed.' }));
   return router;
 }

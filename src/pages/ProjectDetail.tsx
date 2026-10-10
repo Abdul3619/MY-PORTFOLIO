@@ -14,8 +14,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Lock,
-  MessageCircle
+  LayoutDashboard
 } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
@@ -62,6 +61,30 @@ export default function ProjectDetail() {
     if (!sleepsWhenIdle || !project?.live_url) return;
     fetch(project.live_url, { mode: "no-cors", cache: "no-store" }).catch(() => {});
   }, [sleepsWhenIdle, project?.live_url]);
+
+  // "Open the admin dashboard": ask the server for a one-time demo login and open it in a new tab. The tab is
+  // opened first (synchronously, inside the click) so popup blockers allow it, then pointed at the link.
+  const [dashboardState, setDashboardState] = useState<"idle" | "opening" | "failed">("idle");
+  const openDemoDashboard = async () => {
+    if (!project?.slug) return;
+    setDashboardState("opening");
+    const tab = window.open("about:blank", "_blank");
+    try {
+      const res = await fetch("/api/chat/dashboard-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: project.slug }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.url !== "string") throw new Error(data.error || "failed");
+      if (tab) tab.location.href = data.url;
+      else window.location.href = data.url;
+      setDashboardState("idle");
+    } catch {
+      tab?.close();
+      setDashboardState("failed");
+    }
+  };
 
   // Keyboard support for the lightbox: Escape closes, arrow keys navigate
   useEffect(() => {
@@ -384,31 +407,26 @@ export default function ProjectDetail() {
                 {project.has_dashboard && (
                   <button
                     type="button"
-                    onClick={() =>
-                      window.dispatchEvent(
-                        new CustomEvent("portfolio:ask-assistant", {
-                          detail: { message: `Can I get a live test login for ${project.title}'s dashboard?` },
-                        }),
-                      )
-                    }
-                    className="w-full interactive flex items-center gap-3 rounded-xl border border-[#00F0FF]/20 bg-[#00F0FF]/5 px-4 py-3 text-left transition-colors hover:border-[#00F0FF]/50 hover:bg-[#00F0FF]/10"
+                    disabled={dashboardState === "opening"}
+                    onClick={openDemoDashboard}
+                    className="w-full interactive flex items-center gap-3 rounded-xl border border-[#00F0FF]/20 bg-[#00F0FF]/5 px-4 py-3 text-left transition-colors hover:border-[#00F0FF]/50 hover:bg-[#00F0FF]/10 disabled:opacity-60"
                   >
                     <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#00F0FF]/10">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00F0FF]/20" />
-                      <Lock size={14} className="relative text-[#00F0FF]" />
+                      <LayoutDashboard size={14} className="relative text-[#00F0FF]" />
                     </span>
                     <span className="flex-1">
                       <span className="block text-xs font-mono uppercase tracking-wider text-[#00F0FF]">
-                        {t("project_detail.dashboard_locked_title", "Admin dashboard -- locked")}
+                        {dashboardState === "opening"
+                          ? t("project_detail.dashboard_opening", "Opening the dashboard...")
+                          : t("project_detail.dashboard_open_title", "Open the admin dashboard")}
                       </span>
                       <span className="mt-1 block text-xs text-gray-400 leading-relaxed">
-                        {t(
-                          "project_detail.dashboard_gated",
-                          "Live and private. Chat with the assistant and it'll hand you a real test login instantly.",
-                        )}
+                        {dashboardState === "failed"
+                          ? t("project_detail.dashboard_failed", "It didn't open this time. Try again, or ask the assistant for a test login.")
+                          : t("project_detail.dashboard_open_desc", "Try the real admin panel with a one-time test login. No sign-up needed.")}
                       </span>
                     </span>
-                    <MessageCircle size={16} className="flex-shrink-0 text-[#00F0FF]" />
+                    <ExternalLink size={16} className="flex-shrink-0 text-[#00F0FF]" />
                   </button>
                 )}
 
