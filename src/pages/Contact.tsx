@@ -11,6 +11,8 @@ export default function Contact() {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
   const [success, setSuccess] = useState(false);
+  // The Send button turns gold once every field is filled in, so it's clear the form is ready.
+  const formReady = !!formData.name.trim() && /^\S+@\S+\.\S+$/.test(formData.email.trim()) && !!formData.subject.trim() && !!formData.message.trim();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const submitContact = useSubmitContact();
   const { data: contactInfo } = useContactInfo();
@@ -252,7 +254,7 @@ export default function Contact() {
                     <p role="alert" className="text-sm text-red-400">{submitError}</p>
                   )}
 
-                  <button disabled={submitContact.isPending} className="w-full py-4 interactive glass-button bg-gold text-black rounded-lg font-bold flex justify-center items-center gap-2 disabled:opacity-50" type="submit">
+                  <button disabled={submitContact.isPending} className={`w-full py-4 interactive glass-button rounded-lg font-bold flex justify-center items-center gap-2 disabled:opacity-50 transition-colors duration-300 ${formReady ? "bg-gold text-black" : "bg-white/10 text-gray-400"}`} type="submit">
                     <span>{submitContact.isPending ? t("contact.button_sending", "Sending...") : t("contact.button_send", "Send Message")}</span>
                     <Send size={18} />
                   </button>
