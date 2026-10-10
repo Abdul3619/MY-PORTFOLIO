@@ -15,7 +15,7 @@ export default function Contact() {
   const formReady = !!formData.name.trim() && /^\S+@\S+\.\S+$/.test(formData.email.trim()) && !!formData.subject.trim() && !!formData.message.trim();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const submitContact = useSubmitContact();
-  const { data: contactInfo } = useContactInfo();
+  const { data: contactInfo, isLoading: contactLoading } = useContactInfo();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +38,7 @@ export default function Contact() {
   const whatsappLink = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}`;
 
   return (
-    <PageTransition className="w-full flex-1 flex flex-col justify-center min-h-[calc(100vh-12rem)]">
+    <PageTransition className={`w-full flex-1 flex flex-col justify-center min-h-[calc(100vh-12rem)]${contactLoading ? " auto-skeleton" : ""}`}>
       <div className="max-w-6xl mx-auto w-full">
         <motion.div 
           className="text-center mb-16 mt-12"

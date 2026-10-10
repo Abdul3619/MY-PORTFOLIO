@@ -2741,7 +2741,7 @@ function atelierFitShell(template: string): string {
     '<meta name="apple-mobile-web-app-title" content="AtelierFit" />',
     '<link rel="apple-touch-icon" sizes="180x180" href="/icons/atelierfit-180.png" />',
     '<script>window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__afInstallPrompt=e;});</script>',
-    '<style>html,body{background:#0B0A08}#initial-skeleton{background:#0B0A08}#initial-skeleton .isk-card{display:none}</style>',
+    '<style>html,body{background:#0B0A08}#initial-skeleton{background:#0B0A08}</style>',
   ].join('\n    ');
   return template
     .replace(/<title>[\s\S]*?<\/title>/, '<title>AtelierFit — Tailor Orders</title>')

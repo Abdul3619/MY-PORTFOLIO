@@ -4,7 +4,8 @@
  */
 
 import { Routes, Route, useLocation, Outlet, Navigate } from "react-router-dom";
-import { lazy, Suspense, useEffect, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from "react";
+import { AtelierFitSkeleton, StitchBookSkeleton, PhoneFrameSkeleton, AdminPageSkeleton } from "./components/skeletons/AppSkeletons";
 import { useTranslation } from "react-i18next";
 import { AppDataProvider, useAppData } from "./contexts/AppDataContext";
 import { BackgroundProvider } from "./contexts/BackgroundContext";
@@ -43,15 +44,9 @@ const AdminSiteSettings = lazy(() => import("./pages/admin/AdminSiteSettings"));
 const AdminSkills = lazy(() => import("./pages/admin/AdminSkills"));
 const AdminAccount = lazy(() => import("./pages/admin/AdminAccount"));
 
-function adminPage(Page: ComponentType) {
+function adminPage(Page: ComponentType, fallback: ReactNode = <AdminPageSkeleton />) {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-[50vh] flex items-center justify-center">
-          <div className="w-10 h-10 border-2 border-[#00F0FF]/20 border-t-[#00F0FF] rounded-full animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={fallback}>
       <Page />
     </Suspense>
   );
@@ -142,12 +137,12 @@ function AnimatedRoutes() {
 
       {/* AtelierFit: a full-screen app-like route, intentionally outside the main site's <Layout /> (no header/
           footer) so the QR-scanned experience reads as its own app rather than a page on the portfolio. */}
-      <Route path="/atelierfit" element={adminPage(AtelierFit)} />
+      <Route path="/atelierfit" element={adminPage(AtelierFit, <AtelierFitSkeleton />)} />
       {/* StitchBook: the desktop-app project, same full-screen/no-<Layout> treatment as AtelierFit. */}
-      <Route path="/stitchbook" element={adminPage(StitchBook)} />
+      <Route path="/stitchbook" element={adminPage(StitchBook, <StitchBookSkeleton />)} />
       {/* PhoneFrame showcase: an interactive configurator project for the realistic iPhone mockup
           component itself, same full-screen/no-<Layout> treatment as AtelierFit/StitchBook. */}
-      <Route path="/phoneframe" element={adminPage(PhoneFrameShowcase)} />
+      <Route path="/phoneframe" element={adminPage(PhoneFrameShowcase, <PhoneFrameSkeleton />)} />
 
       {/* Folded into StitchBook's own Manage tab, which visitors can open too -- redirect any old bookmark/link
           there before the admin login gate. */}

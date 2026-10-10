@@ -32,90 +32,106 @@
       }
     </script>
     <style>
-      /* First-paint skeleton, self-contained (no Tailwind/JS dependency) so it shows instantly on the very
-         first byte, before React hydrates -- the real content underneath is already server-rendered, but
-         several hero elements fade in via framer-motion once the page's JS takes over, which can otherwise
-         leave a brief gap where only the page's ambient background is visible. This masks that gap with a
-         deliberate, on-brand loading state instead of an accidental blank one, then fades itself out once
-         App.tsx's first client-side effect fires (see its useEffect calling hideInitialSkeleton below).
-         Removed entirely by that effect, so it never lingers or blocks input even if something goes wrong. */
-      #initial-skeleton {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        background: #050505;
-        transition: opacity 0.5s ease-out;
+      /* First-paint skeleton. It is chosen by the page's address and mirrors that page's real layout (same
+         container widths, same blocks, same sizes), drawn by the inline script in <body> before any other code
+         runs. It is removed by App.tsx's first effect (hideInitialSkeleton) once React has taken over. */
+      #initial-skeleton { position: fixed; inset: 0; z-index: 9999; overflow: hidden; background: #050505; transition: opacity 0.5s ease-out; }
+      #initial-skeleton.initial-skeleton-hide { opacity: 0; pointer-events: none; }
+      #initial-skeleton * { box-sizing: border-box; }
+      #initial-skeleton .isk-b { display: block; flex-shrink: 0;
+        background: linear-gradient(90deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.1) 20%, rgba(212,175,55,.2) 40%, rgba(255,255,255,.1) 60%, rgba(255,255,255,.04) 100%);
+        background-size: 200% 100%; animation: isk-sweep 1.8s infinite linear; }
+      #initial-skeleton .isk-glass { border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); }
+      #initial-skeleton .isk-nav { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: center; padding: 16px; }
+      #initial-skeleton .isk-pill { display: none; align-items: center; gap: 10px; padding: 12px 24px; border-radius: 999px; }
+      #initial-skeleton .isk-bar-m { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 999px; }
+      #initial-skeleton .isk-wrap { max-width: 1280px; margin: 0 auto; padding: 128px 16px 40px; }
+      #initial-skeleton .isk-col { display: flex; flex-direction: column; }
+      #initial-skeleton .isk-row { display: flex; align-items: center; }
+      #initial-skeleton .isk-center { align-items: center; text-align: center; }
+      #initial-skeleton .isk-grid { display: grid; gap: 32px; grid-template-columns: 1fr; }
+      @media (min-width: 768px) {
+        #initial-skeleton .isk-wrap { padding-left: 32px; padding-right: 32px; }
+        #initial-skeleton .isk-g2 { grid-template-columns: repeat(2, 1fr); }
       }
-      #initial-skeleton.initial-skeleton-hide {
-        opacity: 0;
-        pointer-events: none;
+      @media (min-width: 1024px) {
+        #initial-skeleton .isk-pill { display: flex; }
+        #initial-skeleton .isk-bar-m { display: none; }
+        #initial-skeleton .isk-g3 { grid-template-columns: repeat(3, 1fr); }
+        #initial-skeleton .isk-wrap { padding-top: 140px; }
       }
-      #initial-skeleton .isk-card {
-        width: 100%;
-        max-width: 880px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 48px;
-        padding: 48px;
-        border-radius: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.04);
-      }
-      #initial-skeleton .isk-avatar {
-        width: 220px;
-        height: 240px;
-        border-radius: 40px;
-        flex-shrink: 0;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-      #initial-skeleton .isk-lines { flex: 1; min-width: 240px; }
-      #initial-skeleton .isk-bar { border-radius: 8px; margin-bottom: 16px; }
-      #initial-skeleton .isk-pills { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
-      #initial-skeleton .isk-pill { height: 46px; width: 150px; border-radius: 999px; }
-      #initial-skeleton .isk-shimmer {
-        background: linear-gradient(
-          90deg,
-          rgba(255, 255, 255, 0.04) 0%,
-          rgba(255, 255, 255, 0.1) 20%,
-          rgba(212, 175, 55, 0.22) 40%,
-          rgba(255, 255, 255, 0.1) 60%,
-          rgba(255, 255, 255, 0.04) 100%
-        );
-        background-size: 200% 100%;
-        animation: isk-sweep 1.8s infinite linear;
-      }
-      @keyframes isk-sweep {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        #initial-skeleton .isk-shimmer { animation: none; background: rgba(255, 255, 255, 0.08); }
-      }
+      @keyframes isk-sweep { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+      @media (prefers-reduced-motion: reduce) { #initial-skeleton .isk-b { animation: none; background: rgba(255,255,255,.08); } }
     </style>
   </head>
   <body>
-    <div id="initial-skeleton" aria-hidden="true">
-      <div class="isk-card">
-        <div class="isk-avatar isk-shimmer"></div>
-        <div class="isk-lines">
-          <div class="isk-bar isk-shimmer" style="height:14px; width:140px;"></div>
-          <div class="isk-bar isk-shimmer" style="height:44px; width:85%;"></div>
-          <div class="isk-bar isk-shimmer" style="height:44px; width:60%;"></div>
-          <div class="isk-bar isk-shimmer" style="height:14px; width:95%;"></div>
-          <div class="isk-bar isk-shimmer" style="height:14px; width:70%;"></div>
-          <div class="isk-pills">
-            <div class="isk-pill isk-shimmer"></div>
-            <div class="isk-pill isk-shimmer"></div>
-            <div class="isk-pill isk-shimmer"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="initial-skeleton" aria-hidden="true"></div>
+    <script>
+      (function () {
+        var host = document.getElementById("initial-skeleton");
+        if (!host) return;
+        var path = (location.pathname.replace(/\/+$/, "") || "/").toLowerCase();
+        function b(w, h, r, x) { if (typeof w === "number") w = w + "px"; return '<i class="isk-b" style="width:' + w + ";height:" + h + "px;border-radius:" + (r == null ? 8 : r) + "px;" + (x || "") + '"></i>'; }
+        function lines(n, last) { var o = ""; for (var i = 0; i < n; i++) o += b(i === n - 1 ? last : "100%", 14, 6, "margin-top:10px"); return o; }
+        function glass(inner, style) { return '<div class="isk-glass" style="border-radius:24px;' + (style || "") + '">' + inner + "</div>"; }
+        function nav() {
+          var pills = ""; var w = [48, 52, 52, 64, 88, 96, 60, 64];
+          for (var i = 0; i < w.length; i++) pills += b(w[i], 14, 6);
+          return '<div class="isk-nav"><div class="isk-glass isk-pill" style="gap:22px">' + b(26, 26, 999) + pills + b(54, 22, 999) + '</div>' +
+            '<div class="isk-glass isk-bar-m">' + b(110, 20, 6) + b(36, 36, 999) + "</div></div>";
+        }
+        function title(sub) { return '<div class="isk-col isk-center" style="margin-top:48px;margin-bottom:' + (sub === 0 ? 48 : 80) + 'px">' + b("min(720px,86%)", 60, 10) + (sub === 0 ? "" : b("min(560px,70%)", 22, 6, "margin-top:24px")) + "</div>"; }
+        function wrap(inner, max) { return nav() + '<div class="isk-wrap" style="' + (max ? "max-width:" + max + "px" : "") + '">' + inner + "</div>"; }
+        function projCard() { return glass(b("100%", 256, 0, "border-radius:24px 24px 0 0") + '<div style="padding:24px">' + b("70%", 28, 8) + lines(3, "60%") + '<div class="isk-row" style="gap:16px;margin-top:28px">' + b("100%", 48, 12, "flex:1") + b(48, 48, 12) + "</div></div>", "overflow:hidden"); }
+        function skillCard() { var chips = ""; var cw = [72, 96, 110, 84, 70, 100, 90, 64]; for (var i = 0; i < cw.length; i++) chips += b(cw[i], 34, 10); return glass('<div style="padding:32px">' + b(56, 56, 16) + b("60%", 28, 8, "margin-top:24px") + '<div class="isk-row" style="flex-wrap:wrap;gap:8px;margin-top:24px">' + chips + "</div></div>"); }
+        function certCard() { return glass(b("100%", 192, 0, "border-radius:24px 24px 0 0") + '<div style="padding:24px">' + b(90, 12, 6) + b("80%", 22, 8, "margin-top:12px") + b("50%", 14, 6, "margin-top:12px") + "</div>", "overflow:hidden"); }
+        function times(n, fn) { var o = ""; for (var i = 0; i < n; i++) o += fn(i); return o; }
+
+        var html;
+        if (path === "/") {
+          html = wrap('<div style="min-height:70vh;display:flex;align-items:center;justify-content:center"><div style="width:100%;max-width:1024px">' +
+            glass('<div class="isk-row" style="flex-wrap:wrap;gap:48px;padding:clamp(28px,6vw,64px);justify-content:center">' +
+              b(288, 320, 40) +
+              '<div class="isk-col" style="flex:1;min-width:260px;gap:0">' + b(250, 30, 999) + b(150, 16, 6, "margin-top:24px") + b("88%", 52, 10, "margin-top:20px") + b("64%", 52, 10, "margin-top:12px") + lines(3, "55%") +
+              '<div class="isk-row" style="gap:16px;margin-top:32px;flex-wrap:wrap">' + b(170, 52, 999) + b(170, 52, 999) + "</div></div></div>", "border-radius:28px") +
+            "</div></div>" +
+            '<div class="isk-col isk-center" style="margin-top:96px">' + b(300, 44, 10) + b(420, 16, 6, "margin-top:20px;max-width:80%") + "</div>" +
+            '<div class="isk-grid isk-g3" style="margin-top:48px;gap:24px;max-width:1024px;margin-left:auto;margin-right:auto">' + times(3, function () { return glass('<div style="padding:28px">' + b(48, 48, 14) + b("70%", 24, 8, "margin-top:20px") + lines(3, "60%") + "</div>"); }) + "</div>", 1280);
+        } else if (path === "/about") {
+          html = wrap(title(1) + times(3, function (i) { return '<div class="isk-row" style="justify-content:' + (i % 2 ? "flex-start" : "flex-end") + ';padding:48px 0">' + glass('<div style="padding:32px;width:min(512px,100%)">' + b(110, 12, 6) + b("55%", 26, 8, "margin-top:14px") + lines(5, "70%") + "</div>") + "</div>"; }), 1024);
+        } else if (path === "/skills") {
+          html = wrap(title(1) + '<div class="isk-grid isk-g2 isk-g3">' + times(6, skillCard) + "</div>", 1152);
+        } else if (path === "/projects") {
+          html = wrap(title(1) + '<div class="isk-col isk-center" style="margin-bottom:40px">' + b("min(448px,100%)", 48, 12) + b(260, 12, 6, "margin-top:18px") + "</div>" + '<div class="isk-grid isk-g2 isk-g3">' + times(6, projCard) + "</div>");
+        } else if (path.indexOf("/projects/") === 0) {
+          html = wrap(b(130, 16, 6, "margin-bottom:32px") + b("100%", 420, 24, "margin-bottom:48px") + '<div class="isk-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:48px"><div style="grid-column:span 2;min-width:0">' +
+            b(200, 30, 8) + lines(4, "70%") + b(260, 30, 8, "margin-top:48px") + lines(5, "60%") + '</div><div class="isk-col" style="gap:24px">' + b("100%", 190, 16) + b("100%", 130, 16) + b("100%", 160, 16) + "</div></div>", 1024);
+        } else if (path === "/resume") {
+          html = wrap('<div class="isk-row" style="justify-content:space-between;flex-wrap:wrap;gap:32px;margin-top:24px;margin-bottom:56px"><div class="isk-col">' + b(360, 64, 10) + b(300, 22, 6, "margin-top:16px") + '</div><div class="isk-row" style="gap:16px">' + b(150, 52, 12) + b(190, 52, 12) + "</div></div>" +
+            '<div class="isk-row" style="flex-wrap:wrap;gap:48px;margin-bottom:64px;justify-content:center"><i class="isk-b" style="width:min(320px,100%);height:440px;border-radius:6px"></i><div class="isk-col" style="flex:1;min-width:260px">' + b(150, 12, 6) + b("70%", 38, 8, "margin-top:16px") + lines(3, "60%") + "</div></div>" +
+            '<div class="isk-grid isk-g2" style="gap:48px">' + times(2, function () { return '<div class="isk-col" style="gap:24px">' + b("50%", 40, 10) + times(2, function () { return glass('<div style="padding:24px">' + b(90, 12, 6) + b("65%", 22, 8, "margin-top:12px") + lines(3, "60%") + "</div>", "border-radius:16px"); }) + "</div>"; }) + "</div>", 1024);
+        } else if (path === "/contact") {
+          html = wrap(title(1) + '<div class="isk-grid isk-g2" style="gap:40px">' + '<div class="isk-col" style="gap:16px">' + times(4, function () { return glass('<div class="isk-row" style="padding:20px;gap:16px">' + b(48, 48, 14) + '<div class="isk-col" style="flex:1">' + b(90, 12, 6) + b("65%", 18, 6, "margin-top:10px") + "</div></div>", "border-radius:16px"); }) + "</div>" +
+            glass('<div class="isk-col" style="padding:32px;gap:16px">' + times(3, function () { return b("100%", 52, 12); }) + b("100%", 140, 12) + b("100%", 54, 12) + "</div>") + "</div>", 1152);
+        } else if (path === "/certificates") {
+          html = wrap(title(1) + '<div class="isk-grid isk-g2 isk-g3">' + times(3, certCard) + "</div>", 1152);
+        } else if (path === "/testimonials") {
+          html = wrap(title(1) + '<div class="isk-row" style="justify-content:center">' + glass('<div class="isk-col isk-center" style="padding:48px;width:min(672px,100%)">' + lines(4, "60%") + '<div class="isk-row" style="gap:16px;margin-top:32px">' + b(56, 56, 999) + '<div class="isk-col">' + b(120, 18, 6) + b(90, 14, 6, "margin-top:8px") + "</div></div></div>") + "</div>", 896);
+        } else if (path === "/atelierfit") {
+          html = '<div style="min-height:100%;display:flex;justify-content:center;background:#0B0A08"><div class="isk-col isk-center" style="width:100%;max-width:430px;min-height:100vh;justify-content:center;gap:32px;padding:0 24px 40px"><div class="isk-col isk-center" style="gap:14px;width:100%">' +
+            b(128, 128, 999) + b(150, 12, 6, "margin-top:8px") + b(190, 34, 8) + b(260, 14, 6) + b(210, 14, 6) + '</div><div class="isk-col" style="gap:12px;width:100%;max-width:320px">' + b("100%", 52, 999) + b("100%", 52, 999) + "</div></div></div>";
+        } else if (path === "/stitchbook") {
+          html = '<div style="display:flex;height:100%;background:#0B0A08"><div class="isk-col" style="width:240px;padding:20px;gap:12px;border-right:1px solid rgba(255,255,255,.1);display:none" id="isk-side">' + b(140, 28, 8, "margin-bottom:20px") + times(6, function () { return b("100%", 40, 12); }) + '</div><div class="isk-col" style="flex:1;padding:24px;gap:24px;min-width:0"><div class="isk-row" style="justify-content:space-between">' + b(220, 32, 8) + b(110, 40, 999) + '</div><div class="isk-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">' +
+            times(4, function () { return glass('<div style="padding:20px">' + b(90, 12, 6) + b(110, 30, 8, "margin-top:12px") + b(70, 10, 6, "margin-top:12px") + "</div>", "border-radius:16px"); }) + "</div>" + glass('<div class="isk-col" style="padding:20px;gap:16px">' + times(7, function () { return '<div class="isk-row" style="gap:12px">' + b(36, 36, 999) + b("22%", 14, 6) + b("30%", 14, 6) + b("14%", 14, 6) + "</div>"; }) + "</div>", "border-radius:16px") + "</div></div>";
+          if (window.innerWidth >= 768) html = html.replace('display:none" id="isk-side"', 'display:flex" id="isk-side"');
+        } else if (path === "/phoneframe") {
+          html = '<div style="display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;min-height:100%;padding:24px">' + b(300, 620, 52) + '<div class="isk-col" style="gap:16px;width:min(384px,100%)">' + b(200, 34, 8) + b("100%", 14, 6) + b("85%", 14, 6) + times(4, function () { return b("100%", 48, 14); }) + "</div></div>";
+        } else {
+          html = wrap(title(1) + '<div class="isk-col" style="max-width:720px;margin:0 auto;width:100%">' + lines(4, "70%") + lines(5, "55%") + "</div>", 1024);
+        }
+        host.innerHTML = html;
+      })();
+    </script>
     <div id="root"><!--app-html--></div>
     <!--app-state-->
     <script type="module" src="/src/main.tsx"></script>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Star, MessageSquare, Plus, X, Send, Filter, CheckCircle2, AlertTriangle, HelpCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { CardSkeleton } from "./Skeleton";
+import { GHOST_REVIEWS } from "@/lib/skeletonGhosts";
 
 interface Review {
   id: string;
@@ -288,13 +288,7 @@ export function ClientReviewsSection() {
           </div>
 
           {/* Loader or Feed */}
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <CardSkeleton key={i} />
-              ))}
-            </div>
-          ) : reviews.length === 0 ? (
+          {!loading && reviews.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border border-white/5 bg-white/[0.01] max-w-lg mx-auto">
               <MessageSquare className="text-gray-600 mx-auto mb-4" size={32} />
               <h3 className="font-bold text-white text-sm uppercase tracking-wide">{t("reviews.no_reviews", "No reviews published yet")}</h3>
@@ -305,9 +299,9 @@ export function ClientReviewsSection() {
           ) : (
             <>
               {/* Review Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6${loading ? " auto-skeleton" : ""}`}>
                 <AnimatePresence mode="popLayout">
-                  {reviews.map((item, idx) => (
+                  {(loading ? GHOST_REVIEWS : reviews).map((item, idx) => (
                     <motion.div
                       key={item.id}
                       initial={{ opacity: 0, y: 15 }}
@@ -367,7 +361,7 @@ export function ClientReviewsSection() {
               </div>
 
               {/* Pagination controls */}
-              {totalPages > 1 && (
+              {!loading && totalPages > 1 && (
                 <div className="flex justify-center items-center gap-4 pt-4 text-xs font-mono">
                   <button
                     disabled={currentPage === 1}

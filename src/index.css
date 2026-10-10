@@ -114,3 +114,51 @@ html.lenis, html.lenis body {
 .animate-oled-sweep {
   animation: oled-refresh-sweep 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
+/* ---------------------------------------------------------------------------------------------------------
+   Auto-skeleton. While a page's data is loading, the page renders its REAL layout with ghost content and this
+   class on its root. Every text block, chip, button, icon and image then turns into a shimmering block of its
+   own real size and position, so the skeleton is the page itself and can never drift from it.
+   --------------------------------------------------------------------------------------------------------- */
+@keyframes autoSkeletonSweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.auto-skeleton {
+  pointer-events: none;
+  user-select: none;
+  cursor: progress;
+}
+.auto-skeleton :is(h1, h2, h3, h4, h5, h6, p, li, dt, dd, label, figcaption, blockquote, time, small, textarea, select, input),
+.auto-skeleton :is(a, button):not(:has(div, p, h1, h2, h3, h4, img, ul)),
+.auto-skeleton span:not(:has(*)):not(:is(p, h1, h2, h3, h4, h5, h6, li, a, button, label) span),
+.auto-skeleton :has(> img),
+.auto-skeleton div:has(> svg:only-child) {
+  color: transparent !important;
+  text-shadow: none !important;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.13) 25%,
+    rgba(230, 235, 245, 0.26) 50%,
+    rgba(255, 255, 255, 0.13) 75%,
+    rgba(255, 255, 255, 0.05) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: autoSkeletonSweep 2.2s linear infinite;
+  border-radius: 0.5rem;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* Headings and short text hug their words, like the real text does; paragraphs keep their full width. */
+.auto-skeleton :is(h1, h2, h3, h4, h5, h6, dt, dd, label, small, time) { width: fit-content; max-width: 100%; }
+.auto-skeleton .text-center:not([class*="lg:text-left"]):not([class*="md:text-left"]) > :is(h1, h2, h3, p, span, div:not(:has(*))) { margin-left: auto; margin-right: auto; }
+.auto-skeleton :is(img, video, canvas, iframe) { opacity: 0 !important; }
+.auto-skeleton svg { opacity: 0 !important; }
+.auto-skeleton ::placeholder { color: transparent !important; }
+.auto-skeleton .text-gradient { background-clip: border-box !important; }
+@media (prefers-reduced-motion: reduce) {
+  .auto-skeleton :is(h1, h2, h3, h4, h5, h6, p, li, dt, dd, label, a, button, span, :has(> img)) {
+    animation: silverFade 2.4s ease-in-out infinite !important;
+  }
+}

@@ -3,7 +3,7 @@ import { useSkills } from "@/hooks/useApi";
 import { motion } from "motion/react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
-import { CardSkeleton } from "@/components/Skeleton";
+import { GHOST_SKILL_CATEGORIES } from "@/lib/skeletonGhosts";
 import { useTranslation } from "react-i18next";
 import { 
   Code2, 
@@ -17,159 +17,34 @@ import {
   BarChart3,
   Cloud,
   Sparkles,
-  Brain
+  Brain,
+  Layers,
+  Plug
 } from "lucide-react";
 
 const skillCategories = [
+  { title: "Frontend (by hand)", icon: Monitor, skills: ["HTML5", "CSS3", "JavaScript (ES6+)", "React"] },
   {
-    title: "Frontend Development",
-    icon: Monitor,
-    skills: [
-      "HTML5",
-      "CSS3",
-      "JavaScript (ES6+)",
-      "TypeScript",
-      "React",
-      "Next.js",
-      "Tailwind CSS",
-      "Framer Motion",
-      "Responsive Design",
-      "Accessibility",
-      "Component Architecture",
-      "Modern CSS"
-    ]
+    title: "Frontend (working knowledge)",
+    icon: Layers,
+    skills: ["TypeScript", "Tailwind CSS", "Vite", "Framer Motion", "Responsive Design", "PWA & Service Workers", "react-i18next (multi-language sites)"],
   },
   {
-    title: "Backend Development",
+    title: "Back end & Data (with AI help)",
     icon: Server,
-    skills: [
-      "Node.js",
-      "Express.js",
-      "REST APIs",
-      "Authentication",
-      "Authorization",
-      "JWT",
-      "CRUD Operations",
-      "API Integration",
-      "Server-side Logic"
-    ]
+    skills: ["Node.js", "Express.js", "REST APIs", "Authentication", "Supabase", "PostgreSQL", "Firebase"],
   },
   {
-    title: "Database",
-    icon: Database,
-    skills: [
-      "Supabase",
-      "PostgreSQL",
-      "Firebase",
-      "Database Design",
-      "Relational Databases",
-      "Storage",
-      "Row Level Security"
-    ]
+    title: "Integrations & APIs",
+    icon: Plug,
+    skills: ["Paystack Payments", "Gemini API", "MediaPipe (on-device pose detection)", "OpenStreetMap"],
   },
+  { title: "Tools & Hosting", icon: Wrench, skills: ["Git", "GitHub", "Vercel", "Render", "Figma", "AI coding tools"] },
   {
-    title: "Dashboard & CMS",
-    icon: BarChart3,
-    skills: [
-      "Admin Dashboards",
-      "Role Management",
-      "Booking Management",
-      "Content Management",
-      "Analytics",
-      "Tables",
-      "Filtering",
-      "Search",
-      "Pagination",
-      "Reporting"
-    ]
-  },
-  {
-    title: "Deployment",
-    icon: Cloud,
-    skills: [
-      "Git",
-      "GitHub",
-      "GitHub Pages",
-      "Vercel",
-      "Netlify",
-      "Environment Variables",
-      "Deployment Pipelines"
-    ]
-  },
-  {
-    title: "Design",
-    icon: Palette,
-    skills: [
-      "Figma",
-      "Canva",
-      "UI Design",
-      "UX Design",
-      "Wireframing",
-      "Glassmorphism",
-      "Typography",
-      "Color Systems",
-      "Design Systems",
-      "Responsive Layout"
-    ]
-  },
-  {
-    title: "Animation & Motion",
-    icon: Sparkles,
-    skills: [
-      "Framer Motion",
-      "CSS Animations",
-      "Micro Interactions",
-      "Hover Effects",
-      "Page Transitions",
-      "Loading Animations",
-      "Scroll Animations",
-      "3D UI Elements",
-      "Interactive Components",
-      "Smooth Motion Design"
-    ]
-  },
-  {
-    title: "Development Tools",
-    icon: Terminal,
-    skills: [
-      "VS Code",
-      "Cursor AI",
-      "Claude",
-      "ChatGPT",
-      "Gemini",
-      "GitHub Copilot",
-      "Chrome DevTools",
-      "npm",
-      "Vite"
-    ]
-  },
-  {
-    title: "AI Assisted Development",
-    icon: Cpu,
-    skills: [
-      "Prompt Engineering",
-      "AI-assisted Coding",
-      "Rapid Prototyping",
-      "Code Review",
-      "Debugging with AI",
-      "UI Generation",
-      "Workflow Optimization"
-    ]
-  },
-  {
-    title: "Professional Skills",
+    title: "How I Work",
     icon: Brain,
-    skills: [
-      "Problem Solving",
-      "Communication",
-      "Project Planning",
-      "Attention to Detail",
-      "Continuous Learning",
-      "Client Collaboration",
-      "Requirement Analysis",
-      "Time Management"
-    ]
-  }
+    skills: ["Problem solving", "Learning unfamiliar domains fast", "Reading and testing what ships", "Client communication"],
+  },
 ];
 
 const containerVariants = {
@@ -195,28 +70,6 @@ export default function Skills() {
   const { t } = useTranslation();
   const { data: skillsData, isLoading } = useSkills();
   
-  if (isLoading) {
-    return (
-      <PageTransition className="w-full">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16 md:mb-24 mt-12">
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
-              {t("skills.arsenal_title_part1", "TECHNICAL")} <span className="text-gradient">{t("skills.arsenal_title_part2", "ARSENAL")}</span>
-            </h1>
-            <p className="text-xl text-gray-400 max-w-2xl mx-auto opacity-0">
-              {t("skills.arsenal_subtitle", "A diverse toolkit combining digital engineering with physical energy systems.")}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-        </div>
-      </PageTransition>
-    );
-  }
-
   let displayCategories = skillCategories;
   if (skillsData && skillsData.length > 0) {
     const grouped = skillsData.reduce((acc: any, skill: any) => {
@@ -238,9 +91,11 @@ export default function Skills() {
     }));
   }
 
+  if (isLoading) displayCategories = GHOST_SKILL_CATEGORIES.map((c) => ({ ...c, icon: Monitor })) as typeof skillCategories;
+
   return (
-    <PageTransition className="w-full">
-      <div className="max-w-6xl mx-auto">
+    <PageTransition className={isLoading ? "w-full auto-skeleton" : "w-full"}>
+      <div className="max-w-6xl mx-auto" aria-busy={isLoading || undefined}>
         <motion.div 
           className="text-center mb-16 md:mb-24 mt-12"
           initial={{ opacity: 0, y: 20 }}
@@ -251,7 +106,7 @@ export default function Skills() {
             {t("skills.arsenal_title_part1", "TECHNICAL")} <span className="text-gradient">{t("skills.arsenal_title_part2", "ARSENAL")}</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            {t("skills.arsenal_subtitle", "A diverse toolkit combining digital engineering with physical energy systems.")}
+            {t("skills.arsenal_subtitle", "What I use, grouped by how I really work with it: by hand, with working knowledge, or with AI help.")}
           </p>
         </motion.div>
 

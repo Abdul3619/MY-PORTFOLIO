@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { ExternalLink, ArrowRight, Search, X, Smartphone, Lock } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
-import { CardSkeleton } from "@/components/Skeleton";
+import { GHOST_PROJECTS } from "@/lib/skeletonGhosts";
 import { useProjects, trackEvent } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
@@ -32,7 +32,9 @@ const itemVariants = {
 export default function Projects() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: projectsData, isLoading, error } = useProjects();
+  const { data: realProjectsData, isLoading, error } = useProjects();
+  // While loading, the real layout renders with ghost cards and the auto-skeleton CSS shimmers every part of it.
+  const projectsData = isLoading ? GHOST_PROJECTS : realProjectsData;
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,29 +83,7 @@ export default function Projects() {
     return results;
   }, [projectsData, query]);
 
-  if (isLoading) {
-    return (
-      <PageTransition className="w-full">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 md:mb-24 mt-12">
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
-              {t("projects.title_part1", "FEATURED")} <span className="text-gradient">{t("projects.title_part2", "PROJECTS")}</span>
-            </h1>
-            <p className="text-xl text-gray-400 max-w-2xl mx-auto opacity-0">
-              {t("projects.subtitle", "A curated selection of digital experiences built with precision and intent.")}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-        </div>
-      </PageTransition>
-    );
-  }
-
-  if (error) {
+  if (error && !isLoading) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     // Detailed diagnostics are only useful to the site owner during development
     const showDiagnostics = import.meta.env.DEV;
@@ -129,7 +109,7 @@ export default function Projects() {
     );
   }
 
-  if (!projectsData || projectsData.length === 0) {
+  if (!isLoading && (!projectsData || projectsData.length === 0)) {
     return (
       <PageTransition className="w-full min-h-[50vh] flex items-center justify-center">
         <div className="text-center space-y-4 max-w-sm px-4">
@@ -143,8 +123,8 @@ export default function Projects() {
   }
 
   return (
-    <PageTransition className="w-full">
-      <div className="max-w-7xl mx-auto">
+    <PageTransition className={isLoading ? "w-full auto-skeleton" : "w-full"}>
+      <div className="max-w-7xl mx-auto" aria-busy={isLoading || undefined}>
         <motion.div 
           className="text-center mb-16 md:mb-24 mt-12"
           initial={{ opacity: 0, y: 20 }}
@@ -293,7 +273,7 @@ export default function Projects() {
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={`Open live site for ${project.title}`}
-                        onClick={() => trackEvent('project_live_click', '/projects', { slug: project.slug, title: project.title })}
+                        onClick={() => !isLoading && trackEvent('project_live_click', '/projects', { slug: project.slug, title: project.title })}
                         className="p-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-gold hover:border-gold/50 transition-all duration-300 interactive"
                       >
                         <ExternalLink size={20} />

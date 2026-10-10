@@ -113,9 +113,10 @@ const PROJECTS = [
 
 export default function Resume() {
   const { t } = useTranslation();
-  const { data: profile } = useProfile();
-  const { data: experienceData } = useResumeExperience();
-  const { data: educationData } = useResumeEducation();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: experienceData, isLoading: expLoading } = useResumeExperience();
+  const { data: educationData, isLoading: eduLoading } = useResumeEducation();
+  const isLoading = profileLoading || expLoading || eduLoading;
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [view, setView] = useState<"quick" | "story">("story");
@@ -141,8 +142,8 @@ export default function Resume() {
   }, [isPreviewOpen]);
 
   return (
-    <PageTransition className="w-full">
-      <div className="max-w-5xl mx-auto px-4 py-8">
+    <PageTransition className={isLoading ? "w-full auto-skeleton" : "w-full"}>
+      <div className="max-w-5xl mx-auto px-4 py-8" aria-busy={isLoading || undefined}>
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-16 md:mb-24 mt-6 gap-8">
           <motion.div 

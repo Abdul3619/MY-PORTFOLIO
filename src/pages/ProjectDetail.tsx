@@ -19,7 +19,7 @@ import {
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
-import { Skeleton } from "@/components/Skeleton";
+import { GHOST_PROJECT_DETAIL } from "@/lib/skeletonGhosts";
 import { useProject } from "@/hooks/useApi";
 import { useAppData } from "@/contexts/AppDataContext";
 import { getPageTitle, getSiteTitle } from "@/lib/seo";
@@ -42,16 +42,18 @@ export default function ProjectDetail() {
 
   // Locate fallback static project if database is not fully populated yet
   const fallbackProject = projectsData.find(p => p.id === id);
-  const project = apiProject || fallbackProject;
+  const ghostLoading = isLoading && !fallbackProject;
+  // While loading, the real page layout renders with ghost content and the auto-skeleton CSS shimmers it.
+  const project = apiProject || fallbackProject || (ghostLoading ? GHOST_PROJECT_DETAIL : undefined);
   const galleryCount = (project?.gallery_images || project?.gallery || []).length;
 
   useEffect(() => {
-    if (!project?.title) return;
+    if (!project?.title || ghostLoading) return;
     document.title = getPageTitle(project.seo_title || project.title, seo, profile);
     return () => {
       document.title = getSiteTitle(seo, profile);
     };
-  }, [project?.title, project?.seo_title, seo, profile]);
+  }, [project?.title, project?.seo_title, seo, profile, ghostLoading]);
 
   // Sites on Render's free plan go to sleep after a quiet spell and take close to a minute to start again. When a
   // visitor opens one of those project pages, start waking the site straight away so it is ready (or nearly)
@@ -98,45 +100,10 @@ export default function ProjectDetail() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeImgIndex, galleryCount]);
 
-  if (isLoading && !fallbackProject) {
-    return (
-      <PageTransition className="w-full">
-        <div className="max-w-5xl mx-auto mt-8 px-4">
-          <div className="mb-8">
-            <Skeleton className="h-4 w-32" />
-          </div>
-          <Skeleton className="w-full h-[40vh] md:h-[50vh] rounded-3xl mb-12" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
-            <div className="md:col-span-2 space-y-12">
-              <div className="space-y-4">
-                <Skeleton className="h-8 w-48 mb-6" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-              </div>
-              <div className="space-y-4">
-                <Skeleton className="h-8 w-64 mb-6" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-4/5" />
-                <Skeleton className="h-4 w-full" />
-              </div>
-            </div>
-            <div className="space-y-8">
-              <Skeleton className="h-48 w-full rounded-xl" />
-              <Skeleton className="h-32 w-full rounded-xl" />
-              <Skeleton className="h-40 w-full rounded-xl" />
-            </div>
-          </div>
-        </div>
-      </PageTransition>
-    );
-  }
-
   // Archived/draft projects (e.g. a soft-deleted duplicate) should 404 on direct visit too,
   // not just be hidden from listing pages. Only gate on apiProject's real status -- the static
   // fallback data has no status field and predates this convention, so it stays visible.
-  const isHidden = !!apiProject && !isPublicProject(apiProject);
+  const isHidden = !ghostLoading && !!apiProject && !isPublicProject(apiProject);
 
   if (!project || isHidden) {
     return (
@@ -196,7 +163,7 @@ export default function ProjectDetail() {
   };
 
   return (
-    <PageTransition className="w-full">
+    <PageTransition className={ghostLoading ? "w-full auto-skeleton" : "w-full"}>
       <div className="max-w-5xl mx-auto mt-8 px-4">
         
         <Link to="/projects" className="inline-flex items-center gap-2 text-gray-400 hover:text-gold transition-colors mb-8 interactive group font-mono text-sm">

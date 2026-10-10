@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Quote, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
-import { CardSkeleton } from "@/components/Skeleton";
+import { GHOST_TESTIMONIALS } from "@/lib/skeletonGhosts";
 import { useTestimonials } from "@/hooks/useApi";
 import { useTranslation } from "react-i18next";
 import { ClientReviewsSection } from "@/components/ClientReviewsSection";
@@ -16,7 +16,7 @@ export default function Testimonials() {
   const [direction, setDirection] = useState(0);
 
   // Only real CMS entries are shown; there is no placeholder content presented as genuine
-  const displayTestimonials: any[] = Array.isArray(testimonialsData) ? testimonialsData : [];
+  const displayTestimonials: any[] = isLoading ? GHOST_TESTIMONIALS : Array.isArray(testimonialsData) ? testimonialsData : [];
   const count = displayTestimonials.length;
 
   useEffect(() => {
@@ -28,24 +28,6 @@ export default function Testimonials() {
     }, 8000);
     return () => clearInterval(interval);
   }, [count]);
-
-  if (isLoading) {
-    return (
-      <PageTransition className="w-full">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16 md:mb-24 mt-12">
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6">
-              {t("testimonials.title_part1", "CLIENT")} <span className="text-gradient">{t("testimonials.title_part2", "FEEDBACK")}</span>
-            </h1>
-            <p className="text-xl text-gray-400 max-w-2xl mx-auto opacity-0">
-              {t("testimonials.subtitle", "Words of recommendation from colleagues, clients, and collaborators.")}
-            </p>
-          </div>
-          <CardSkeleton />
-        </div>
-      </PageTransition>
-    );
-  }
 
   const nextTestimonial = () => {
     setDirection(1);
@@ -84,7 +66,7 @@ export default function Testimonials() {
   };
 
   return (
-    <PageTransition className="w-full h-full flex flex-col justify-center min-h-[70vh]">
+    <PageTransition className={`w-full h-full flex flex-col justify-center min-h-[70vh]${isLoading ? " auto-skeleton" : ""}`}>
       <div className="max-w-4xl mx-auto w-full">
         <motion.div 
           className="text-center mb-16"

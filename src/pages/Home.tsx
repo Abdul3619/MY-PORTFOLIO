@@ -34,6 +34,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { GlassCard } from "@/components/GlassCard";
 import { MagneticButton } from "@/components/MagneticButton";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
+import { GHOST_PROJECTS, GHOST_CERTS, GHOST_TESTIMONIALS } from "@/lib/skeletonGhosts";
 import { isPublicProject } from "@/lib/projectStatus";
 import * as Icons from "lucide-react";
 import { useProfile, useTestimonials, useCertificates, useContactInfo, useProjects } from "@/hooks/useApi";
@@ -78,6 +79,12 @@ export default function Home() {
   const displayCertificates: any[] = Array.isArray(certificates) ? certificates : [];
   const publicProjects = Array.isArray(projects) ? projects.filter(isPublicProject) : [];
   const displayProjects = publicProjects.length > 0 ? publicProjects.slice(0, 4) : [];
+  // While a section is loading it renders its REAL cards with ghost content; the auto-skeleton CSS shimmers every part.
+  const projectsToShow: any[] = isProjectsLoading ? GHOST_PROJECTS : displayProjects;
+  const certsToShow: any[] = isCertificatesLoading ? GHOST_CERTS : displayCertificates;
+  const testimonialsToShow: any[] = isTestimonialsLoading
+    ? [GHOST_TESTIMONIALS[0], { ...GHOST_TESTIMONIALS[0], id: "ghost-testimonial-2" }].map((g) => ({ ...g, rating: 5 }))
+    : displayTestimonials;
   // Counted from the CMS so the stat always matches what is actually published (admin previews include drafts, so filter here too)
   const completedProjectsLabel = Array.isArray(projects) ? `${projects.filter(isPublicProject).length}+` : "—";
   const socialLinks = {
@@ -139,7 +146,7 @@ export default function Home() {
       {/* 1. HERO SECTION */}
       <section data-assistant-section="hero" className="min-h-[80vh] flex flex-col justify-center items-center py-12 relative">
         <div className="w-full max-w-5xl mx-auto">
-          <GlassCard className="p-8 md:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12 border-gold/15" glowOnHover>
+          <GlassCard className={`p-8 md:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12 border-gold/15${isProfileLoading ? " auto-skeleton" : ""}`} glowOnHover>
             
             {/* Gen-Z Modern Image Container */}
             <motion.div 
@@ -189,7 +196,7 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-xs font-semibold tracking-wider uppercase mb-6"
               >
                 <Zap size={12} className="animate-pulse" />
-                <span>{t("home.available_tag", "Available for new projects")}</span>
+                <span>{t("home.available_tag", "Open to jobs, contracts and client projects")}</span>
               </motion.div>
               
               <motion.p 
@@ -207,8 +214,8 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
               >
-                {t("home.headline_part1", "Websites and web apps")}{" "}
-                <span className="text-gradient font-extrabold">{t("home.headline_part2", "for growing businesses")}</span>
+                {t("home.headline_part1", "Front-end developer")}{" "}
+                <span className="text-gradient font-extrabold">{t("home.headline_part2", "who ships real products")}</span>
               </motion.h1>
 
               <motion.p
@@ -217,7 +224,7 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.6 }}
               >
-                {t("home.hero_offer", "I'm a web developer. I build booking sites, online stores and admin dashboards, and every project below is live for you to try.")}
+                {t("home.hero_offer", "I'm Abdulwahab, a front-end developer building React and TypeScript products: booking systems, online stores, dashboards and installable apps. I'm open to full-time roles, contracts and client work. Every project below is live for you to try.")}
               </motion.p>
               
               <motion.div 
@@ -291,33 +298,10 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {isProjectsLoading ? (
-              <>
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col h-full" aria-hidden="true">
-                    <div className="relative h-60 silver-shimmer w-full">
-                      <div className="absolute top-4 right-4 flex gap-2">
-                        <div className="w-16 h-6 silver-shimmer rounded-md" />
-                        <div className="w-12 h-6 silver-shimmer rounded-md" />
-                      </div>
-                    </div>
-                    <div className="p-6 md:p-8 flex flex-col flex-grow space-y-4">
-                      <div className="h-7 silver-shimmer rounded-lg w-3/4" />
-                      <div className="space-y-2 flex-grow">
-                        <div className="h-4 silver-shimmer rounded w-full" />
-                        <div className="h-4 silver-shimmer rounded w-5/6" />
-                      </div>
-                      <div className="pt-4 mt-auto">
-                        <div className="h-5 silver-shimmer rounded w-48" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              displayProjects.slice(0, 4).map((project, index) => (
-                <div key={project.id || project.slug} className="gsap-projects-animate opacity-0">
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-8${isProjectsLoading ? " auto-skeleton" : ""}`}>
+            {(
+              projectsToShow.slice(0, 4).map((project, index) => (
+                <div key={project.id || project.slug} className={isProjectsLoading ? "" : "gsap-projects-animate opacity-0"}>
                   <GlassCard className="group flex flex-col h-full border-white/10" glowOnHover>
                     <div className="relative h-60 overflow-hidden rounded-t-2xl">
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors duration-500 z-10" />
@@ -380,20 +364,8 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {isCertificatesLoading ? (
-              [1, 2, 3].map((i) => (
-                <div key={i} className="p-6 rounded-2xl border border-white/10 bg-white/5 space-y-4" aria-hidden="true">
-                  <div className="w-10 h-10 rounded-lg silver-shimmer mb-3" />
-                  <div className="h-4 w-4/5 silver-shimmer rounded" />
-                  <div className="h-3 w-1/2 silver-shimmer rounded" />
-                  <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                    <div className="h-3 w-16 silver-shimmer rounded" />
-                    <div className="h-3 w-12 silver-shimmer rounded" />
-                  </div>
-                </div>
-              ))
-            ) : displayCertificates.map((cert, index) => (
+          <div className={`grid grid-cols-1 md:grid-cols-3 gap-6${isCertificatesLoading ? " auto-skeleton" : ""}`}>
+            {certsToShow.map((cert, index) => (
               <GlassCard key={index} className="p-6 border-white/10 space-y-4 flex flex-col justify-between" glowOnHover>
                 <div className="space-y-2">
                   <div className="w-10 h-10 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center text-gold mb-3">
@@ -435,30 +407,8 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {isTestimonialsLoading ? (
-              [1, 2].map((i) => (
-                <div key={i} className="p-8 space-y-6 rounded-2xl border border-white/15 bg-white/5" aria-hidden="true">
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <div key={s} className="w-3.5 h-3.5 silver-shimmer rounded-sm" />
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-full silver-shimmer rounded" />
-                    <div className="h-3 w-full silver-shimmer rounded" />
-                    <div className="h-3 w-2/3 silver-shimmer rounded" />
-                  </div>
-                  <div className="flex items-center gap-4 pt-4 border-t border-white/5">
-                    <div className="w-12 h-12 rounded-full silver-shimmer" />
-                    <div className="space-y-1.5">
-                      <div className="h-3 w-24 silver-shimmer rounded" />
-                      <div className="h-3 w-16 silver-shimmer rounded" />
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : displayTestimonials.map((tItem, index) => {
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-8${isTestimonialsLoading ? " auto-skeleton" : ""}`}>
+            {testimonialsToShow.map((tItem, index) => {
               // CMS testimonials use content/image_url/company; the built-in ones use review/avatar
               const reviewText = tItem.review || tItem.content;
               const avatar = tItem.avatar || tItem.image_url || tItem.photo;

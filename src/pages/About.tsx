@@ -92,17 +92,18 @@ function TimelineItem({ event, index }: { event: any; index: number }) {
 }
 
 export default function About() {
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const { t } = useTranslation();
-  const { data: aboutData } = useAbout();
+  const { data: aboutData, isLoading: aboutLoading } = useAbout();
+  const isLoading = profileLoading || aboutLoading;
   
   const displayEvents = (profile?.journey_events && profile.journey_events.length > 0)
     ? profile.journey_events
     : (aboutData && aboutData.length > 0 ? [...aboutData].sort((a: any, b: any) => a.order_index - b.order_index) : timelineEvents);
 
   return (
-    <PageTransition className="w-full">
-      <div className="max-w-5xl mx-auto px-4">
+    <PageTransition className={isLoading ? "w-full auto-skeleton" : "w-full"}>
+      <div className="max-w-5xl mx-auto px-4" aria-busy={isLoading || undefined}>
         {profile?.cover_image_url && (
           <div className="mb-12 rounded-2xl overflow-hidden h-64 md:h-80 relative border border-white/10 shadow-2xl mt-8">
             <img 
