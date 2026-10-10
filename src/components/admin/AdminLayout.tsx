@@ -32,9 +32,7 @@ import {
   ArrowLeft,
   Star,
   KeyRound,
-  Radar,
-  Ruler,
-  Package
+  Radar
 } from 'lucide-react';
 
 // Real-time Toast Notification Type
@@ -318,9 +316,7 @@ export const AdminLayout: React.FC = () => {
       items: [
         { name: 'Leads / CRM Engine', path: '/admin/leads', icon: <Users size={18} /> },
         { name: 'Inbox Messages', path: '/admin/messages', icon: <Mail size={18} /> },
-        { name: 'AI Outreach', path: '/admin/outreach', icon: <Radar size={18} /> },
-        { name: 'StitchBook (Manage)', path: '/stitchbook?tab=manage', icon: <Ruler size={18} /> },
-        { name: 'Real Inventory', path: '/admin/inventory', icon: <Package size={18} /> }
+        { name: 'AI Outreach', path: '/admin/outreach', icon: <Radar size={18} /> }
       ]
     },
     {
