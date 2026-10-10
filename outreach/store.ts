@@ -9,7 +9,7 @@
 // test/fakeRpcClient.ts) without needing a real Supabase project, a
 // network connection, or the @supabase/supabase-js package installed.
 
-import type { Business, ContactChannel, Lead, LeadSource, LeadStatus, RegistryEntry, SearchRecord, CrawlEvidence } from './types.js';
+import type { Business, ContactChannel, DraftTranslation, Lead, LeadSource, LeadStatus, RegistryEntry, SearchRecord, CrawlEvidence } from './types.js';
 
 export interface RpcResult<T> {
   data: T | null;
@@ -86,6 +86,7 @@ export class Store {
       evidence: CrawlEvidence | null;
       draftSubject: string | null;
       draftBody: string | null;
+      draftTranslation: DraftTranslation | null;
       visualAudit: { summary: string; issues: string[]; strengths: string[] } | null;
     }>,
   ): Promise<void> {
@@ -216,6 +217,7 @@ function rowToLead(row: any): Lead {
     evidence: row.evidence ?? null,
     draftSubject: row.draftSubject,
     draftBody: row.draftBody,
+    draftTranslation: row.draftTranslation ?? null,
     visualAudit: row.visualAudit ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

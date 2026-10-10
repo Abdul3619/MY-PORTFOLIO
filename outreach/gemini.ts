@@ -14,6 +14,7 @@
 // clear error instead of crashing the whole process at import time.
 
 import type { CrawlEvidence, DraftResult } from './types.js';
+import type { OutreachLanguage } from './language.js';
 
 export interface SenderProfile {
   businessName: string;
@@ -43,6 +44,8 @@ export interface DraftLeadInput {
    * specific, concrete design issues, never generic filler. Undefined when the automatic visual audit
    * couldn't run or failed (e.g. no Chromium, navigation timeout) -- the draft still works fine without it. */
   visualFindings?: { issues: string[]; strengths: string[] };
+  /** The language the business should be written to in (null/undefined = English). See language.ts. */
+  language?: OutreachLanguage | null;
 }
 
 // Technical crawl findings are real, but a business owner has never heard of a "meta description" and
@@ -100,6 +103,24 @@ assistant writes a sales email. Concretely:
 - Sign off plainly with just the sender's name, nothing more ornate.
 `.trim();
 
+// When the recipient is not English-speaking, the draft is written in their language and a faithful English
+// copy is returned next to it, so the sender (who may not read that language) can check exactly what is being
+// sent. The English copy is for the sender only and is never sent to the business.
+function languageInstructions(language: OutreachLanguage | null | undefined): { rules: string; shape: string } {
+  if (!language || language.code === 'en') {
+    return { rules: '', shape: '{"subject": string, "body": string, "observations": string[]}' };
+  }
+  return {
+    rules: `
+LANGUAGE: The recipient is in a ${language.name}-speaking market. Write the subject and the body in natural,
+polite, native-sounding ${language.name}, the way a courteous local professional would write to a business
+owner they do not know yet (${language.code === 'fr' ? 'use "vous", never "tu"' : 'use the formal form of address'}). Do not translate word for word from English. The style rules above still apply.
+Also return "subjectEnglish" and "bodyEnglish": a faithful English translation of the subject and body, for the
+sender to read and check. Keep "observations" in English.`,
+    shape: '{"subject": string, "body": string, "subjectEnglish": string, "bodyEnglish": string, "observations": string[]}',
+  };
+}
+
 function buildPrompt(input: DraftLeadInput): string {
   const { businessName, website, evidence, sender } = input;
   const plainFacts = translateEvidence(evidence);
@@ -107,6 +128,7 @@ function buildPrompt(input: DraftLeadInput): string {
   const compulsoryMissing = input.compulsoryMissing || [];
   const reputationIssues = input.reputationIssues || [];
   const visualIssues = input.visualFindings?.issues || [];
+  const lang = languageInstructions(input.language);
   return `
 You are drafting a short, honest cold outreach email from a freelance web
 developer to a real local business, based ONLY on the evidence below. Do not
@@ -137,6 +159,7 @@ Sender (who this email is from):
 - Requested tone: ${sender.tone || 'friendly, direct, not salesy'}
 
 ${STYLE_RULES}
+${lang.rules}
 
 Write:
 1. 2-3 specific observations about THIS business's actual site, each one
@@ -156,7 +179,7 @@ ${siteLooksOld
 3. A short subject line (under 60 characters, no clickbait, no ALL CAPS, no hashtags).
 
 Return strict JSON with this shape and nothing else:
-{"subject": string, "body": string, "observations": string[]}
+${lang.shape}
 `.trim();
 }
 
@@ -181,7 +204,7 @@ function extractJson(text: string): any {
   return JSON.parse(jsonText);
 }
 
-async function callGemini(prompt: string): Promise<DraftResult> {
+async function callGemini(prompt: string, language?: OutreachLanguage | null): Promise<DraftResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return { ok: false, error: 'GEMINI_API_KEY is not set. Add it to your .env file (see .env.example) — no draft can be generated without it.' };
@@ -238,6 +261,14 @@ async function callGemini(prompt: string): Promise<DraftResult> {
       subject: sanitizeDraftText(String(parsed.subject)),
       body: sanitizeDraftText(String(parsed.body)),
       observations: Array.isArray(parsed.observations) ? parsed.observations.map(String) : [],
+      ...(language && language.code !== 'en'
+        ? {
+            language: language.name,
+            languageCode: language.code,
+            subjectEnglish: parsed.subjectEnglish ? sanitizeDraftText(String(parsed.subjectEnglish)) : undefined,
+            bodyEnglish: parsed.bodyEnglish ? sanitizeDraftText(String(parsed.bodyEnglish)) : undefined,
+          }
+        : {}),
     };
   } catch (e: any) {
     const message = e?.message || String(e);
@@ -246,7 +277,7 @@ async function callGemini(prompt: string): Promise<DraftResult> {
 }
 
 export async function draftEmail(input: DraftLeadInput): Promise<DraftResult> {
-  return callGemini(buildPrompt(input));
+  return callGemini(buildPrompt(input), input.language);
 }
 
 export interface DraftNoWebsiteLeadInput {
@@ -257,11 +288,14 @@ export interface DraftNoWebsiteLeadInput {
   sender: SenderProfile;
   /** Real, specific complaints found by live web search (see reputation.ts) -- never invented. */
   reputationIssues?: string[];
+  /** The language the business should be written to in (null/undefined = English). See language.ts. */
+  language?: OutreachLanguage | null;
 }
 
 function buildNoWebsitePrompt(input: DraftNoWebsiteLeadInput): string {
   const { businessName, category, city, contactChannel, sender } = input;
   const reputationIssues = input.reputationIssues || [];
+  const lang = languageInstructions(input.language);
   const channelLabel: Record<DraftNoWebsiteLeadInput['contactChannel'], string> = {
     whatsapp: 'WhatsApp',
     facebook: 'Facebook',
@@ -289,6 +323,7 @@ Sender (who this message is from):
 - Requested tone: ${sender.tone || 'friendly, direct, not salesy'}
 
 ${STYLE_RULES}
+${lang.rules}
 
 Write:
 1. A complete message body (not a template with placeholders) that:
@@ -308,11 +343,11 @@ Write:
 2. A short subject line (under 60 characters, no clickbait, no ALL CAPS, no hashtags).
 
 Return strict JSON with this shape and nothing else:
-{"subject": string, "body": string, "observations": string[]}
+${lang.shape}
 (leave "observations" as an empty array -- there's no site evidence to list)
 `.trim();
 }
 
 export async function draftNoWebsiteEmail(input: DraftNoWebsiteLeadInput): Promise<DraftResult> {
-  return callGemini(buildNoWebsitePrompt(input));
+  return callGemini(buildNoWebsitePrompt(input), input.language);
 }

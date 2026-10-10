@@ -11,6 +11,7 @@ import {
   XCircle,
   Mail,
   Copy,
+  Download,
   AlertTriangle,
   Ban,
   RefreshCw,
@@ -63,6 +64,7 @@ interface Lead {
   evidence: CrawlEvidence | null;
   draftSubject: string | null;
   draftBody: string | null;
+  draftTranslation?: { language: string; languageCode: string; subjectEnglish: string | null; bodyEnglish: string | null } | null;
   visualAudit: { summary: string; issues: string[]; strengths: string[] } | null;
   createdAt: string;
   updatedAt: string;
@@ -583,6 +585,33 @@ export default function AdminOutreach() {
     return `${opts[0].label}: ${opts[0].display}`;
   };
 
+  // A .txt with the draft exactly as it will be sent, the English copy under it (when the draft is in another
+  // language), and every way to reach the business -- so it can be saved or sent from a phone as-is.
+  const downloadDraft = (lead: Lead) => {
+    const name = lead.businessName || lead.domain;
+    const contacts = getContactOptions(lead).map((o) => `${o.label}: ${o.display}`);
+    const t = lead.draftTranslation;
+    const parts = [
+      `BUSINESS: ${name}${lead.city ? ` (${lead.city}${lead.country ? ', ' + lead.country : ''})` : ''}`,
+      `CONTACT: ${contacts.length ? contacts.join(' | ') : 'none found'}`,
+      '',
+      t ? `=== MESSAGE TO SEND (${t.language}) ===` : '=== MESSAGE TO SEND ===',
+      `Subject: ${lead.draftSubject}`,
+      '',
+      `${lead.draftBody}`,
+    ];
+    if (t?.bodyEnglish) {
+      parts.push('', '=== ENGLISH COPY (for you to read, not to send) ===', `Subject: ${t.subjectEnglish || ''}`, '', t.bodyEnglish);
+    }
+    const blob = new Blob([parts.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `draft-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 40)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const copyDraft = (lead: Lead) => {
     const text = `Subject: ${lead.draftSubject}\n\n${lead.draftBody}`;
     navigator.clipboard?.writeText(text).then(
@@ -1056,6 +1085,17 @@ export default function AdminOutreach() {
                               onChange={(e) => setDraftEdits((prev) => ({ ...prev, [lead.id]: { ...edit, body: e.target.value } }))}
                               className="w-full bg-[#161616] border border-white/8 rounded p-2 text-white outline-none focus:border-[#00F0FF]/40 text-xs h-40 resize-y"
                             />
+                            {lead.draftTranslation?.bodyEnglish && (
+                              <div className="rounded border border-white/8 bg-white/[0.02] p-3 space-y-1.5">
+                                <p className="text-[10px] font-mono uppercase text-amber-300 tracking-wider">
+                                  Written in {lead.draftTranslation.language}. English copy below is for you to read, it is not sent.
+                                </p>
+                                {lead.draftTranslation.subjectEnglish && (
+                                  <p className="text-[11px] text-gray-300"><span className="text-gray-500">Subject:</span> {lead.draftTranslation.subjectEnglish}</p>
+                                )}
+                                <p className="text-[11px] text-gray-400 whitespace-pre-wrap">{lead.draftTranslation.bodyEnglish}</p>
+                              </div>
+                            )}
                             <div className="flex flex-wrap gap-2 pt-1">
                               <button onClick={() => handleSaveDraft(lead)} className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase">Save edits</button>
                               {contactOptions.map((opt) =>
@@ -1082,6 +1122,9 @@ export default function AdminOutreach() {
                               )}
                               <button onClick={() => copyDraft(lead)} className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase">
                                 <Copy size={12} /> Copy text
+                              </button>
+                              <button onClick={() => downloadDraft(lead)} className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/8 text-white font-mono text-[10px] uppercase">
+                                <Download size={12} /> Download .txt
                               </button>
                               {lead.status === 'drafted' && (
                                 <>

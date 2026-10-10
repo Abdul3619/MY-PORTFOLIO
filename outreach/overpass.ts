@@ -255,10 +255,14 @@ export interface GeocodedPlace {
    * text search ranks higher. Surfacing this lets the caller notice a
    * wrong-place match instead of just seeing an unexplained zero results. */
   resolvedName: string;
+  /** Lower-case ISO country code and country name of the resolved place (from Nominatim's address details),
+   * used to pick the language drafts are written in. Null when Nominatim didn't return one. */
+  countryCode: string | null;
+  country: string | null;
 }
 
 export async function geocodeCity(city: string): Promise<GeocodedPlace> {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=${encodeURIComponent(city)}`;
   const res = await fetchWithTimeout(url, { headers: { 'User-Agent': contactHeader() } }, 15000);
   if (!res.ok) throw new Error(`Nominatim geocoding failed: HTTP ${res.status}`);
   const data = (await res.json()) as any[];
@@ -272,6 +276,8 @@ export async function geocodeCity(city: string): Promise<GeocodedPlace> {
       east: Number(bb[3]),
     },
     resolvedName: data[0].display_name || city,
+    countryCode: typeof data[0].address?.country_code === 'string' ? data[0].address.country_code.toLowerCase() : null,
+    country: typeof data[0].address?.country === 'string' ? data[0].address.country : null,
   };
 }
 
@@ -286,6 +292,9 @@ export interface SearchBusinessesResult {
   /** The geocoded area searched -- exposed so a caller can run a second, independent data source (see
    * foursquare.ts) over the exact same area instead of re-geocoding. */
   bbox: BoundingBox;
+  /** Country of the resolved place (ISO code, lower case) and its name, for language selection and records. */
+  countryCode: string | null;
+  country: string | null;
 }
 
 // The public Overpass service has no single point of truth -- several
@@ -329,7 +338,7 @@ async function queryOverpass(query: string): Promise<{ elements: any[] }> {
 }
 
 export async function searchBusinesses(city: string, category: string): Promise<SearchBusinessesResult> {
-  const { bbox, resolvedName } = await geocodeCity(city);
+  const { bbox, resolvedName, countryCode, country } = await geocodeCity(city);
   const query = buildOverpassQuery(category, bbox);
   const data = await queryOverpass(query);
 
@@ -351,5 +360,5 @@ export async function searchBusinesses(city: string, category: string): Promise<
       osmTags: tags,
     });
   }
-  return { businesses: results, resolvedPlace: resolvedName, rawCount: (data.elements || []).length, bbox };
+  return { businesses: results, resolvedPlace: resolvedName, rawCount: (data.elements || []).length, bbox, countryCode, country };
 }

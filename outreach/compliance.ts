@@ -4,6 +4,8 @@
 // target market open); see README.md "Compliance" for the real differences
 // between markets (CAN-SPAM, UK/EU, Nigeria's NDPA) before scaling up.
 
+import { footerStrings, type OutreachLanguage } from './language.js';
+
 export interface SenderProfile {
   businessName: string;
   address: string;
@@ -15,7 +17,8 @@ export interface SenderProfile {
   portfolioUrl?: string;
 }
 
-export function buildComplianceFooter(sender: SenderProfile): string {
+export function buildComplianceFooter(sender: SenderProfile, language: OutreachLanguage | null = null): string {
+  const words = footerStrings(language);
   const business = sender.businessName?.trim() || '[Your business name — set SENDER_BUSINESS_NAME in .env]';
   const address = sender.address?.trim() || '[Your mailing address — set SENDER_ADDRESS in .env]';
   const portfolioUrl = sender.portfolioUrl?.trim();
@@ -24,18 +27,18 @@ export function buildComplianceFooter(sender: SenderProfile): string {
     '--',
     business,
     address,
-    ...(portfolioUrl ? [`See more of my work: ${portfolioUrl}`] : []),
-    "If you'd rather not hear from me again, just reply with \"unsubscribe\" and I won't contact you again.",
+    ...(portfolioUrl ? [`${words.moreWork} ${portfolioUrl}`] : []),
+    words.unsubscribe,
   ].join('\n');
 }
 
-export function appendComplianceFooter(body: string, sender: SenderProfile): string {
-  return `${body.trimEnd()}\n${buildComplianceFooter(sender)}`;
+export function appendComplianceFooter(body: string, sender: SenderProfile, language: OutreachLanguage | null = null): string {
+  return `${body.trimEnd()}\n${buildComplianceFooter(sender, language)}`;
 }
 
 /** Very small heuristic for detecting an opt-out reply/instruction in text
  * the user pastes in (e.g. a bounce or reply). Used by the /api/optouts
  * endpoint's free-text mode; the primary path is the explicit opt-out form. */
 export function looksLikeOptOutRequest(text: string): boolean {
-  return /unsubscribe|opt[- ]?out|remove me|stop (contacting|emailing)/i.test(text);
+  return /unsubscribe|opt[- ]?out|remove me|stop (contacting|emailing)|d[ée]sinscri|d[ée]sabonn|dar de baja|cancelar inscri/i.test(text);
 }

@@ -13,7 +13,8 @@ import { runVisualAudit } from './visualAudit.js';
 import { appendComplianceFooter } from './compliance.js';
 import { domainKey, normalizeUrl, contactKey } from './domain.js';
 import { getMissingCompulsoryItems } from './businessRequirements.js';
-import type { Lead, LeadSource } from './types.js';
+import { languageForCountry, type OutreachLanguage } from './language.js';
+import type { DraftResult, DraftTranslation, Lead, LeadSource } from './types.js';
 
 /** Best-effort: a reputation-search failure (no key, no results, a flaky search) should never block a lead
  * from being drafted on crawl evidence alone, so this always resolves, never throws or returns undefined. */
@@ -43,11 +44,25 @@ async function safeRunVisualAudit(website: string, businessName: string): Promis
   }
 }
 
+/** The English copy that sits next to a non-English draft (null when the draft is already English). The English
+ * copy gets the same English footer so what the sender reads matches what the recipient sees. */
+function translationFor(result: DraftResult, sender: SenderProfile, language: OutreachLanguage | null): DraftTranslation | null {
+  if (!language || language.code === 'en' || !result.bodyEnglish) return null;
+  return {
+    language: language.name,
+    languageCode: language.code,
+    subjectEnglish: result.subjectEnglish ?? null,
+    bodyEnglish: appendComplianceFooter(result.bodyEnglish, sender, null),
+  };
+}
+
 export interface PipelineInput {
   website: string;
   businessName?: string | null;
   city?: string | null;
   country?: string | null;
+  /** ISO country code when known (auto-search knows it from the geocoded place); more reliable than the name. */
+  countryCode?: string | null;
   source: LeadSource;
   /** A phone number OSM had on file for this business even though it also has a website (see
    * overpass.ts's extractContact). Carried onto the business record as a bonus contact method, never
@@ -186,6 +201,7 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     return { kind: 'opted_out', leadId, domain };
   }
 
+  const language = languageForCountry(input.countryCode || input.country);
   const draftResult = await draft({
     businessName: input.businessName || business.name || domain,
     website: business.website,
@@ -194,6 +210,7 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     compulsoryMissing: missingCompulsory,
     reputationIssues,
     visualFindings: visualAudit ?? undefined,
+    language,
   });
 
   if (!draftResult.ok || !draftResult.subject || !draftResult.body) {
@@ -204,8 +221,8 @@ export async function runLeadPipeline(input: PipelineInput, deps: PipelineDeps):
     return { kind: 'draft_error', leadId, domain, error };
   }
 
-  const finalBody = appendComplianceFooter(draftResult.body, deps.sender);
-  await store.updateLead(leadId, { status: 'drafted', draftSubject: draftResult.subject, draftBody: finalBody, error: null });
+  const finalBody = appendComplianceFooter(draftResult.body, deps.sender, language);
+  await store.updateLead(leadId, { status: 'drafted', draftSubject: draftResult.subject, draftBody: finalBody, draftTranslation: translationFor(draftResult, deps.sender, language), error: null });
   await store.recordRegistryAction({ domain, businessName: input.businessName || business.name, status: 'drafted', city: input.city, country: input.country });
 
   return { kind: 'drafted', leadId, domain };
@@ -216,6 +233,7 @@ export interface NoWebsitePipelineInput {
   category: string;
   city?: string | null;
   country?: string | null;
+  countryCode?: string | null;
   contactChannel: 'whatsapp' | 'facebook' | 'instagram' | 'phone';
   contactValue: string;
   source: LeadSource;
@@ -264,6 +282,7 @@ export async function runNoWebsiteLeadPipeline(input: NoWebsitePipelineInput, de
 
   const reputationIssues = await safeFindReputationIssues(input.businessName || business.name, input.city, input.country);
 
+  const language = languageForCountry(input.countryCode || input.country);
   const draftResult = await draft({
     businessName: input.businessName || business.name || key,
     category: input.category,
@@ -271,6 +290,7 @@ export async function runNoWebsiteLeadPipeline(input: NoWebsitePipelineInput, de
     contactChannel: input.contactChannel,
     sender: deps.sender,
     reputationIssues,
+    language,
   });
 
   if (!draftResult.ok || !draftResult.subject || !draftResult.body) {
@@ -279,8 +299,8 @@ export async function runNoWebsiteLeadPipeline(input: NoWebsitePipelineInput, de
     return { kind: 'draft_error', leadId, domain: key, error };
   }
 
-  const finalBody = appendComplianceFooter(draftResult.body, deps.sender);
-  await store.updateLead(leadId, { status: 'drafted', draftSubject: draftResult.subject, draftBody: finalBody, error: null });
+  const finalBody = appendComplianceFooter(draftResult.body, deps.sender, language);
+  await store.updateLead(leadId, { status: 'drafted', draftSubject: draftResult.subject, draftBody: finalBody, draftTranslation: translationFor(draftResult, deps.sender, language), error: null });
   await store.recordRegistryAction({ domain: key, businessName: input.businessName || business.name, status: 'drafted', city: input.city, country: input.country });
 
   return { kind: 'drafted', leadId, domain: key };

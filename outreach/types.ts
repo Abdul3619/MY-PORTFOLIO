@@ -64,6 +64,11 @@ export interface DraftResult {
   subject?: string;
   body?: string;
   observations?: string[];
+  /** Set when the draft was written in a language other than English (see language.ts). */
+  language?: string;
+  languageCode?: string;
+  subjectEnglish?: string;
+  bodyEnglish?: string;
 }
 
 // How a business can be reached. 'website' is the original, richest path
@@ -107,12 +112,21 @@ export interface Lead {
   evidence: CrawlEvidence | null;
   draftSubject: string | null;
   draftBody: string | null;
+  /** Language the draft is written in plus its English copy, or null when the draft is in English. */
+  draftTranslation: DraftTranslation | null;
   /** The human-eye design critique (see visualAudit.ts) -- null until someone runs it from the Review Queue.
    * Opt-in and per-lead, not run automatically during auto-search (it launches a real browser, which is slow
    * and the one part of this pipeline with real infrastructure risk). */
   visualAudit: { summary: string; issues: string[]; strengths: string[] } | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DraftTranslation {
+  language: string;
+  languageCode: string;
+  subjectEnglish: string | null;
+  bodyEnglish: string | null;
 }
 
 export interface RegistryEntry {
