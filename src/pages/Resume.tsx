@@ -197,47 +197,53 @@ export default function Resume() {
           </motion.div>
         </div>
 
-        {/* Embedded Resume Preview Section */}
-        {resumeUrl && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-16 bg-black/40 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-2xl"
+        {/* The resume as a paper sheet: tilted, lifts on hover, opens full size */}
+        <div className="grid md:grid-cols-[minmax(0,320px)_1fr] gap-10 md:gap-14 items-center mb-16">
+          <motion.button
+            type="button"
+            onClick={() => setIsPreviewOpen(true)}
+            initial={{ opacity: 0, y: 30, rotate: -3 }}
+            animate={{ opacity: 1, y: 0, rotate: -2 }}
+            whileHover={{ rotate: 0, y: -6, scale: 1.02 }}
+            transition={{ type: "spring", stiffness: 120, damping: 16 }}
+            className="relative mx-auto w-full max-w-[320px] rounded-md p-1.5 bg-gradient-to-br from-gold/70 to-bronze/40 shadow-[0_30px_70px_rgba(0,0,0,0.6)] cursor-zoom-in"
+            aria-label="Open the resume full size"
           >
-            <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#00F0FF]/10 rounded-lg text-[#00F0FF]">
-                  <FileText size={20} />
+            <img
+              src="/resume-preview.jpg"
+              alt="Preview of Abdulwahab Abdullahi's one-page resume"
+              width={1240}
+              height={1754}
+              loading="lazy"
+              className="w-full h-auto rounded-sm bg-white"
+            />
+            <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/90 border border-gold/40 text-[10px] font-mono tracking-widest text-gold whitespace-nowrap">
+              TAP TO READ
+            </span>
+          </motion.button>
+
+          <div>
+            <p className="text-gold font-mono text-xs tracking-widest mb-4">ONE PAGE, NO FILLER</p>
+            <h2 className="text-3xl md:text-4xl font-display font-bold text-white mb-4">The short version of me.</h2>
+            <p className="text-gray-300 leading-relaxed mb-8">
+              I write my front end myself and use AI to go faster on the back end, then read and test everything before it ships.
+              This page and the PDF say the same thing, in the same words.
+            </p>
+            <dl className="grid grid-cols-3 gap-4 mb-8 max-w-md">
+              {[
+                ["13", "projects since 2024"],
+                ["4", "tools I write by hand"],
+                ["0", "paid clients yet. Honest."],
+              ].map(([n, l]) => (
+                <div key={l} className="border-l-2 border-gold/60 pl-3">
+                  <dt className="text-3xl font-display font-bold text-white">{n}</dt>
+                  <dd className="text-xs text-gray-400 leading-snug">{l}</dd>
                 </div>
-                <div>
-                  <h3 className="text-lg font-display font-bold text-white">Live Resume Document</h3>
-                  <p className="text-xs text-gray-400">View document directly or download a copy for offline review</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <a 
-                  href={resumeUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition-colors"
-                  title="Open in new tab"
-                  aria-label="Open resume in new tab"
-                >
-                  <ExternalLink size={16} />
-                </a>
-              </div>
-            </div>
-            
-            <div className="w-full h-[500px] rounded-xl overflow-hidden bg-black/60 border border-white/10 relative flex items-center justify-center">
-              <iframe 
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(resumeUrl)}&embedded=true`} 
-                title="Resume Preview"
-                loading="lazy"
-                className="w-full h-full border-0"
-              />
-            </div>
-          </motion.div>
-        )}
+              ))}
+            </dl>
+            <p className="text-xs text-gray-500 font-mono">Cinkassé, Togo · remote, West Africa · GMT</p>
+          </div>
+        </div>
 
         {/* A running stitch that draws itself under the title */}
         <svg viewBox="0 0 600 14" className="w-full max-w-xl h-3 -mt-10 mb-10" aria-hidden="true">
@@ -480,11 +486,11 @@ export default function Resume() {
               </button>
             </div>
           </div>
-          <div className="flex-1 w-full bg-black/50 rounded-2xl border border-white/10 overflow-hidden">
-            <iframe 
-              src={`https://docs.google.com/gview?url=${encodeURIComponent(resumeUrl)}&embedded=true`} 
-              title="Resume Fullscreen Preview"
-              className="w-full h-full border-0"
+          <div className="flex-1 w-full bg-black/50 rounded-2xl border border-white/10 overflow-auto p-4 md:p-8">
+            <img
+              src="/resume-preview.jpg"
+              alt="Resume, full size"
+              className="mx-auto w-full max-w-[860px] h-auto bg-white rounded shadow-2xl"
             />
           </div>
         </div>
