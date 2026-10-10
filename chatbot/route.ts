@@ -183,6 +183,8 @@ async function withOverloadRetry<T>(fn: () => Promise<T>): Promise<T> {
     return await fn();
   } catch (err) {
     if (!isProviderOverloaded(err)) throw err;
+    // A daily quota won't clear in under a second, so waiting and retrying the same model only adds delay.
+    if (/PerDay|per day/i.test(String((err as any)?.message ?? ''))) throw err;
     await new Promise((resolve) => setTimeout(resolve, 900));
     return fn();
   }
@@ -596,7 +598,9 @@ async function runAnthropicTurn({ entries, projects, history, message, visitorKe
 // reshuffles, this tries an explicitly-configured model first (if CHAT_MODEL is set), then a short list of other
 // current, stable, non-preview models, moving to the next only when a model is rejected outright (retired/unknown)
 // or is itself overloaded -- never mid-stream, since by then text may already be on its way to the visitor.
-const GEMINI_FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+// gemini-2.5-flash and gemini-2.0-flash were dropped: Google now answers 404 for both on this account. The lite
+// alias has its own free-tier daily quota, so it can still answer when the flash models have used theirs up.
+const GEMINI_FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 
 function isModelUnavailable(err: any): boolean {
   const status = err?.status ?? err?.error?.code;
