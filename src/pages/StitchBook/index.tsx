@@ -4,9 +4,8 @@
 // adjusting stock right away; see stitchbook/route.ts for why that's safe here.
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard, Radio, ExternalLink, Lock, Download, ClipboardList } from "lucide-react";
+import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard, Radio, ExternalLink, Download, ClipboardList } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { ADMIN_EMAIL } from "../../components/admin/AdminLayout";
 import { supabase } from "../../lib/supabase";
@@ -153,7 +152,7 @@ export default function StitchBook() {
   };
   const [tab, setTab] = useState<Tab>(initialTab);
   // Manage holds the real AtelierFit order management and the Real Inventory (both used to be pages in the
-  // portfolio /admin). Everyone can open it; the write controls only appear for the signed-in owner, and the
+  // portfolio /admin). Open to everyone; visitor changes are limited to what can be undone, and the
   // server checks the same thing on every write.
   const { user: adminUser, loading: adminLoading } = useAuth();
   const desktopDownload = useMemo(desktopDownloadFor, []);
@@ -720,24 +719,7 @@ export default function StitchBook() {
 
         {tab === "manage" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
-            {isRealAdmin ? (
-              <ManageOrders />
-            ) : (
-              <div className="p-5 rounded-xl bg-white/[0.03] border border-white/10 flex flex-col sm:flex-row sm:items-center gap-4">
-                <Lock size={22} className="text-gray-500 shrink-0" />
-                <div className="flex-1">
-                  <h2 className="text-lg font-display font-semibold">AtelierFit orders</h2>
-                  <p className="text-sm text-gray-400">
-                    Moving real customer orders through their stages is for the shop owner. You can see every
-                    order, including your own test order, in the{" "}
-                    <button onClick={() => setTab("live")} className="text-gold underline underline-offset-2">Live tab</button>.
-                  </p>
-                </div>
-                <Link to="/admin/login" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm">
-                  Owner sign-in
-                </Link>
-              </div>
-            )}
+            <ManageOrders />
             {!adminLoading && <RealInventory isOwner={isRealAdmin} />}
           </motion.div>
         )}

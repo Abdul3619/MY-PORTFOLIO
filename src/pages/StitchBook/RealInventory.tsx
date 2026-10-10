@@ -18,6 +18,7 @@ interface InventoryItem {
   supplier: string | null;
   notes: string | null;
   updated_at: string;
+  visitor_created?: boolean;
 }
 
 const CATEGORIES = ["Fabric", "Thread", "Button/Zip", "Lining", "Embroidery Supplies", "Other"];
@@ -91,7 +92,7 @@ export default function RealInventory({ isOwner }: { isOwner: boolean }) {
       <p className="text-sm text-gray-400">
         {isOwner
           ? "Your actual fabric and supplies stock. Changes here show up in the Live tab straight away."
-          : "The shop's actual fabric and supplies stock. Only the shop owner can change these numbers."}
+          : "Try it: add your own item, adjust its quantity or delete it. Items you add are cleared automatically after 24 hours. The shop's own sample stock is read-only."}
       </p>
 
       {lowStock.length > 0 && (
@@ -101,7 +102,7 @@ export default function RealInventory({ isOwner }: { isOwner: boolean }) {
         </div>
       )}
 
-      {isOwner && (
+      {true && (
       <GlassCard className="p-5 border-white/10">
         <div className="flex flex-wrap gap-2">
           <input
@@ -173,7 +174,7 @@ export default function RealInventory({ isOwner }: { isOwner: boolean }) {
                 <td className="px-4 py-3 text-gray-400">{i.category}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    {isOwner && (
+                    {(isOwner || i.visitor_created) && (
                       <button onClick={() => adjustStock(i.id, -1)} className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white interactive">
                         &minus;
                       </button>
@@ -181,7 +182,7 @@ export default function RealInventory({ isOwner }: { isOwner: boolean }) {
                     <span className={i.quantity <= i.reorder_level ? "text-amber-300 font-medium" : "text-white"}>
                       {i.quantity} {i.unit}
                     </span>
-                    {isOwner && (
+                    {(isOwner || i.visitor_created) && (
                       <button onClick={() => adjustStock(i.id, 1)} className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white interactive">
                         +
                       </button>
@@ -190,7 +191,7 @@ export default function RealInventory({ isOwner }: { isOwner: boolean }) {
                 </td>
                 <td className="px-4 py-3 text-gray-400">{i.supplier || "—"}</td>
                 <td className="px-4 py-3">
-                  {isOwner && (
+                  {(isOwner || i.visitor_created) && (
                     <button onClick={() => deleteItem(i.id)} className="text-gray-500 hover:text-red-400 interactive">
                       <Trash2 size={14} />
                     </button>
@@ -201,7 +202,7 @@ export default function RealInventory({ isOwner }: { isOwner: boolean }) {
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  {isOwner ? "No real stock tracked yet -- add an item above." : "No real stock tracked yet."}
+                  No stock tracked yet -- add an item above.
                 </td>
               </tr>
             )}

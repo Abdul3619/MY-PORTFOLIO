@@ -57,7 +57,7 @@ export default function ManageOrders() {
 
   const load = async () => {
     setLoading(true);
-    const res = await authedFetch("/api/atelierfit/admin/orders");
+    const res = await authedFetch("/api/stitchbook/manage/orders");
     if (res.ok) setOrders(await res.json());
     setLoading(false);
   };
@@ -66,7 +66,7 @@ export default function ManageOrders() {
 
   const updateStatus = async (id: string, status: string, trackingNumber?: string) => {
     setUpdating(id);
-    await authedFetch(`/api/atelierfit/admin/orders/${id}`, {
+    await authedFetch(`/api/stitchbook/manage/orders/${id}`, {
       method: "PATCH",
       body: JSON.stringify(trackingNumber ? { status, trackingNumber } : { status }),
     });
@@ -95,6 +95,9 @@ export default function ManageOrders() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-display font-semibold text-white">AtelierFit Orders</h1>
+      <p className="text-sm text-gray-400">
+        Try it: move any order through its stages. Customer details are masked for visitors, and your changes are put back automatically after 24 hours.
+      </p>
 
       {/* Real, scannable QR code -- opens /atelierfit, which installs like an app (Add to Home Screen) on
           a phone's own browser. Useful to print on a flyer, business card, or show at the shop counter. */}

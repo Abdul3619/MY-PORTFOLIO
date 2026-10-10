@@ -10,7 +10,7 @@
 // phones and addresses are masked unless the signed-in owner is asking.
 //
 // The /manage/* routes are the Real Inventory (workshop_inventory), which used to live in the portfolio /admin.
-// Anyone can read it; only the signed-in owner can change it.
+// Open to visitors: they can add their own stock and move orders through stages (undone after 24 hours).
 
 import express from 'express';
 import rateLimit from 'express-rate-limit';
@@ -377,19 +377,46 @@ export function createStitchBookRouter(deps: {
     notes: z.string().max(2000).optional().nullable(),
   });
 
-  const requireOwner: express.RequestHandler = (req, res, next) => {
-    deps
-      .getOwner(req)
-      .then((owner) => (owner ? next() : res.status(401).json({ error: 'Sign in as the shop owner to change real stock.' })))
-      .catch(() => res.status(503).json({ error: 'Authentication service unavailable' }));
-  };
+  // Visitors can use the Manage tab freely. Their changes are limited to rows/orders they can safely undo:
+  // stock rows they add themselves (flagged visitor_created) and order stages (original saved, restored after
+  // 24 hours). The signed-in owner can change anything and is never snapshotted.
+  const VISITOR_TTL_MS = 24 * 60 * 60 * 1000;
+  let lastCleanup = 0;
+
+  async function isOwner(req: express.Request): Promise<boolean> {
+    try {
+      return !!(await deps.getOwner(req));
+    } catch {
+      return false;
+    }
+  }
+
+  // Throttled clean-up, run on Manage requests: removes visitor-added stock older than 24h and puts back any
+  // order a visitor moved, using the state saved before their first change.
+  async function cleanupVisitorData() {
+    if (Date.now() - lastCleanup < 5 * 60 * 1000) return;
+    lastCleanup = Date.now();
+    const cutoff = new Date(Date.now() - VISITOR_TTL_MS).toISOString();
+    await db.from('workshop_inventory').delete().eq('visitor_created', true).lt('created_at', cutoff);
+    const { data: edits } = await db
+      .from('stitchbook_visitor_edits')
+      .select('id, order_id, original')
+      .is('reverted_at', null)
+      .lt('created_at', cutoff)
+      .limit(100);
+    for (const e of edits || []) {
+      await db.from('atelierfit_orders').update(e.original).eq('id', e.order_id);
+      await db.from('stitchbook_visitor_edits').update({ reverted_at: new Date().toISOString() }).eq('id', e.id);
+    }
+  }
 
   router.get(
     '/manage/inventory',
     asyncHandler(async (_req, res) => {
+      await cleanupVisitorData().catch((e) => console.error('cleanup', e?.message));
       const { data, error } = await db
         .from('workshop_inventory')
-        .select('id, item_name, category, quantity, unit, reorder_level, cost_naira, supplier, notes, updated_at')
+        .select('id, item_name, category, quantity, unit, reorder_level, cost_naira, supplier, notes, updated_at, visitor_created')
         .order('item_name', { ascending: true });
       if (error) {
         res.status(500).json({ error: error.message });
@@ -401,8 +428,8 @@ export function createStitchBookRouter(deps: {
 
   router.post(
     '/manage/inventory',
-    requireOwner,
     asyncHandler(async (req, res) => {
+      const owner = await isOwner(req);
       const parsed = realInventorySchema.safeParse(req.body);
       if (!parsed.success) {
         res.status(400).json({ error: parsed.error.issues.map((i: { message: string }) => i.message).join(', ') });
@@ -420,6 +447,7 @@ export function createStitchBookRouter(deps: {
           cost_naira: b.costNaira ?? null,
           supplier: b.supplier || null,
           notes: b.notes || null,
+          visitor_created: !owner,
         })
         .select()
         .single();
@@ -427,14 +455,25 @@ export function createStitchBookRouter(deps: {
         res.status(500).json({ error: error.message });
         return;
       }
+      if (!owner) {
+        // Keep visitor-added stock bounded.
+        const { data: old } = await db.from('workshop_inventory').select('id').eq('visitor_created', true).order('created_at', { ascending: false }).range(50, 100);
+        if (old && old.length) await db.from('workshop_inventory').delete().in('id', old.map((r: { id: string }) => r.id));
+      }
       res.status(201).json(data);
     }),
   );
 
   router.patch(
     '/manage/inventory/:id',
-    requireOwner,
     asyncHandler(async (req, res) => {
+      if (!(await isOwner(req))) {
+        const { data: row } = await db.from('workshop_inventory').select('visitor_created').eq('id', req.params.id).maybeSingle();
+        if (!row?.visitor_created) {
+          res.status(403).json({ error: 'This is the shop’s sample stock. Add your own item to try editing.' });
+          return;
+        }
+      }
       const parsed = realInventorySchema.partial().safeParse(req.body);
       if (!parsed.success) {
         res.status(400).json({ error: parsed.error.issues.map((i: { message: string }) => i.message).join(', ') });
@@ -461,14 +500,84 @@ export function createStitchBookRouter(deps: {
 
   router.delete(
     '/manage/inventory/:id',
-    requireOwner,
     asyncHandler(async (req, res) => {
+      if (!(await isOwner(req))) {
+        const { data: row } = await db.from('workshop_inventory').select('visitor_created').eq('id', req.params.id).maybeSingle();
+        if (!row?.visitor_created) {
+          res.status(403).json({ error: 'This is the shop’s sample stock. Add your own item to try deleting.' });
+          return;
+        }
+      }
       const { error } = await db.from('workshop_inventory').delete().eq('id', req.params.id);
       if (error) {
         res.status(500).json({ error: error.message });
         return;
       }
       res.status(204).end();
+    }),
+  );
+
+  // ---- Orders (Manage tab) ---------------------------------------------------
+  // Open to visitors: they can see every AtelierFit order (customer details masked) and move one through its
+  // stages. Their change is undone after 24 hours; the owner's own changes are permanent.
+
+  const MANAGE_STATUSES = ['New', 'Confirmed', 'Cutting', 'Sewing', 'Embroidery', 'Quality Check', 'Ready', 'Shipped', 'Delivered', 'Cancelled'];
+
+  router.get(
+    '/manage/orders',
+    asyncHandler(async (req, res) => {
+      await cleanupVisitorData().catch((e) => console.error('cleanup', e?.message));
+      const owner = await isOwner(req);
+      const { data, error } = await db.from('atelierfit_orders').select('*').order('created_at', { ascending: false }).limit(LIVE_ORDER_LIMIT);
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.json(
+        (data || []).map((o: any) =>
+          owner
+            ? o
+            : { ...o, customer_name: maskName(o.customer_name), customer_email: maskEmail(o.customer_email), customer_phone: maskPhone(o.customer_phone), shipping_address: null, measurements: null },
+        ),
+      );
+    }),
+  );
+
+  router.patch(
+    '/manage/orders/:id',
+    asyncHandler(async (req, res) => {
+      const status = typeof req.body?.status === 'string' ? req.body.status : null;
+      const trackingNumber = typeof req.body?.trackingNumber === 'string' ? req.body.trackingNumber.trim().slice(0, 60) : null;
+      if (!status || !MANAGE_STATUSES.includes(status)) {
+        res.status(400).json({ error: `status must be one of ${MANAGE_STATUSES.join(', ')}` });
+        return;
+      }
+      if (status === 'Shipped' && !trackingNumber) {
+        res.status(400).json({ error: 'trackingNumber is required when marking an order Shipped' });
+        return;
+      }
+      const owner = await isOwner(req);
+      if (!owner) {
+        const { data: before } = await db.from('atelierfit_orders').select('status, tracking_number, shipped_at, delivered_at').eq('id', req.params.id).maybeSingle();
+        if (!before) {
+          res.status(404).json({ error: 'Order not found' });
+          return;
+        }
+        const { data: pending } = await db.from('stitchbook_visitor_edits').select('id').eq('order_id', req.params.id).is('reverted_at', null).limit(1);
+        if (!pending || pending.length === 0) {
+          await db.from('stitchbook_visitor_edits').insert({ order_id: req.params.id, original: { ...before, updated_at: new Date().toISOString() } });
+        }
+      }
+      const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+      if (trackingNumber) update.tracking_number = trackingNumber;
+      if (status === 'Shipped') update.shipped_at = new Date().toISOString();
+      if (status === 'Delivered') update.delivered_at = new Date().toISOString();
+      const { data, error } = await db.from('atelierfit_orders').update(update).eq('id', req.params.id).select().single();
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.json(data);
     }),
   );
 
