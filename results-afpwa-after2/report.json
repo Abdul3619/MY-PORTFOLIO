@@ -1,0 +1,417 @@
+{
+  "when": "2026-10-10T16:18:37.924Z",
+  "qr": {
+    "status": 200,
+    "decoded": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit"
+  },
+  "raw": {
+    "status": 200,
+    "finalUrl": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "headManifest": true,
+    "headTitle": "AtelierFit — Tailor Orders",
+    "appleCapable": true
+  },
+  "asset /atelierfit-manifest.webmanifest": {
+    "status": 200,
+    "type": "application/manifest+json; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /atelierfit-sw.js": {
+    "status": 200,
+    "type": "application/javascript; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /icons/atelierfit-192.png": {
+    "status": 200,
+    "type": "image/png",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /icons/atelierfit-512.png": {
+    "status": 200,
+    "type": "image/png",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "asset /icons/atelierfit-180.png": {
+    "status": 200,
+    "type": "image/png",
+    "cache": "public, max-age=0, must-revalidate"
+  },
+  "chromium android360": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "AtelierFit — Tailor Orders",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-180.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 360,
+    "innerHeight": 780,
+    "scrollWidth": 360,
+    "rootBox": {
+      "x": 0,
+      "w": 360,
+      "h": 780
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "frameBox": {
+      "x": 0,
+      "w": 360,
+      "h": 780
+    },
+    "installButton": "Install app",
+    "skeletonCard": false,
+    "status": 200,
+    "errors": [
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za208zd9266263876xf1&_p=1791649125984&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=208311486.1791649126&frm=0&ngs=1&pscdl=noapi&rcb=18&sr=360x780&uaa=arm&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=1&uap=Android&uapv=14&uaw=0&ul=en-us%40posix&_s=1&tag_exp=115938465~115938469~118897920~118897930~120213116~120385423~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649126&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&tfd=441",
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za200zd9266263876xf1&_p=1791649125984&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=208311486.1791649126&frm=0&ngs=1&pscdl=noapi&rcb=18&sr=360x780&uaa=arm&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=1&uap=Android&uapv=14&uaw=0&ul=en-us%40posix&_s=2&tag_exp=115938465~115938469~118897920~118897930~120213116~120385423~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649126&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=scroll&epn.percent_scrolled=90&_et=8&tfd=5452"
+    ],
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "id": "/atelierfit",
+      "lang": "en",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "chromium android390": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "AtelierFit — Tailor Orders",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-180.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "scrollWidth": 390,
+    "rootBox": {
+      "x": 0,
+      "w": 390,
+      "h": 844
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "frameBox": {
+      "x": 0,
+      "w": 390,
+      "h": 844
+    },
+    "installButton": "Install app",
+    "skeletonCard": false,
+    "status": 200,
+    "errors": [
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za208zd9266263876xf1&_p=1791649140266&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1588226953.1791649141&frm=0&ngs=1&pscdl=noapi&rcb=18&sr=390x844&uaa=arm&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=1&uap=Android&uapv=14&uaw=0&ul=en-us%40posix&_s=1&tag_exp=115616986~115938466~115938469~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649140&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&tfd=393",
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za200zd9266263876xf1&_p=1791649140266&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1588226953.1791649141&frm=0&ngs=1&pscdl=noapi&rcb=18&sr=390x844&uaa=arm&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=1&uap=Android&uapv=14&uaw=0&ul=en-us%40posix&_s=2&tag_exp=115616986~115938466~115938469~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649140&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=scroll&epn.percent_scrolled=90&_et=12&tfd=5409"
+    ],
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "id": "/atelierfit",
+      "lang": "en",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "chromium android430": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "AtelierFit — Tailor Orders",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-180.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 430,
+    "innerHeight": 932,
+    "scrollWidth": 430,
+    "rootBox": {
+      "x": 0,
+      "w": 430,
+      "h": 932
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "frameBox": {
+      "x": 0,
+      "w": 430,
+      "h": 932
+    },
+    "installButton": "Install app",
+    "skeletonCard": false,
+    "status": 200,
+    "errors": [
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za208zd9266263876xf1&_p=1791649151738&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1914703873.1791649152&frm=0&ngs=1&pscdl=noapi&rcb=0&sr=430x932&uaa=arm&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=1&uap=Android&uapv=14&uaw=0&ul=en-us%40posix&_s=1&tag_exp=115616985~115938466~115938469~118897920~118897930~120213116~120385423~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649152&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&tfd=365",
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za200zd9266263876xf1&_p=1791649151738&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1914703873.1791649152&frm=0&ngs=1&pscdl=noapi&rcb=0&sr=430x932&uaa=arm&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=1&uap=Android&uapv=14&uaw=0&ul=en-us%40posix&_s=2&tag_exp=115616985~115938466~115938469~118897920~118897930~120213116~120385423~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649152&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=scroll&epn.percent_scrolled=90&_et=10&tfd=5377"
+    ],
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "id": "/atelierfit",
+      "lang": "en",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "chromium desktop1440": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "AtelierFit — Tailor Orders",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-180.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "scrollWidth": 1440,
+    "rootBox": {
+      "x": 506,
+      "w": 428,
+      "h": 850
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\n\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\nContinue as guest\n\nSigning in just saves you retyping your name and email late",
+    "frameBox": {
+      "x": 505,
+      "w": 430,
+      "h": 852
+    },
+    "installButton": null,
+    "skeletonCard": false,
+    "status": 200,
+    "errors": [
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za208zd9266263876xf1&_p=1791649163659&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1770820950.1791649164&frm=0&ngs=1&pscdl=noapi&rcb=9&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=0&uap=Linux&uapv=6.17.0&uaw=0&ul=en-us%40posix&_s=1&tag_exp=115616986~115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649163&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&tfd=384",
+      "failed https://www.google-analytics.com/g/collect?v=2&tid=G-Q5E0ZZMW47&gtm=45je6a72v9266263876za200zd9266263876xf1&_p=1791649163659&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1770820950.1791649164&frm=0&ngs=1&pscdl=noapi&rcb=9&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uam=&uamb=0&uap=Linux&uapv=6.17.0&uaw=0&ul=en-us%40posix&_s=2&tag_exp=115616986~115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791649163&sct=1&seg=0&dl=https%3A%2F%2Fabdulwahab-portfolio-tau.vercel.app%2Fatelierfit&dt=AtelierFit%20%E2%80%94%20Tailor%20Orders&en=scroll&epn.percent_scrolled=90&_et=9&tfd=5397"
+    ],
+    "installabilityErrors": [],
+    "manifestErrors": [],
+    "manifestParsed": {
+      "name": "AtelierFit — Tailor Orders",
+      "short_name": "AtelierFit",
+      "description": "Order a tailored garment, get measured by camera or by hand, and pay your deposit.",
+      "id": "/atelierfit",
+      "lang": "en",
+      "start_url": "/atelierfit",
+      "scope": "/atelierfit",
+      "display": "standalone",
+      "orientation": "portrait",
+      "background_color": "#0B0A08",
+      "theme_color": "#0B0A08",
+      "icons": [
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any"
+        },
+        {
+          "src": "/icons/atelierfit-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "maskable"
+        },
+        {
+          "src": "/icons/atelierfit-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "maskable"
+        }
+      ]
+    }
+  },
+  "stitchbook": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/stitchbook?tab=manage",
+    "qrShown": 1,
+    "qrText": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit"
+  },
+  "webkit iPhone 13": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "AtelierFit — Tailor Orders",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-180.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 390,
+    "innerHeight": 664,
+    "scrollWidth": 390,
+    "rootBox": {
+      "x": 0,
+      "w": 390,
+      "h": 664
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\n\nContinue as guest\nSigning in just saves you retyping your name and email later",
+    "frameBox": {
+      "x": 0,
+      "w": 390,
+      "h": 664
+    },
+    "installButton": "Add to Home Screen",
+    "skeletonCard": false
+  },
+  "webkit iPhone 15 Pro Max": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "AtelierFit — Tailor Orders",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-180.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 430,
+    "innerHeight": 739,
+    "scrollWidth": 430,
+    "rootBox": {
+      "x": 0,
+      "w": 430,
+      "h": 739
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\n\nContinue as guest\nSigning in just saves you retyping your name and email later",
+    "frameBox": {
+      "x": 0,
+      "w": 430,
+      "h": 739
+    },
+    "installButton": "Add to Home Screen",
+    "skeletonCard": false
+  },
+  "webkit iPhone SE": {
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "title": "AtelierFit — Tailor Orders",
+    "manifest": "/atelierfit-manifest.webmanifest",
+    "sw": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "displayStandalone": false,
+    "viewport": "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    "appleCapable": true,
+    "appleIcon": "/icons/atelierfit-180.png",
+    "hasPortfolioHeader": false,
+    "innerWidth": 320,
+    "innerHeight": 568,
+    "scrollWidth": 328,
+    "rootBox": {
+      "x": 0,
+      "w": 320,
+      "h": 641
+    },
+    "bodyText": "BY ATELIER NOIR\nAtelierFit\nAI-measured, made-to-fit tailoring -- from your phone, to our workshop.\n\nContinue with Google\n\nContinue as guest\nSigning in just saves you retyping your name and email later",
+    "frameBox": {
+      "x": 0,
+      "w": 320,
+      "h": 641
+    },
+    "installButton": "Add to Home Screen",
+    "skeletonCard": false
+  }
+}
