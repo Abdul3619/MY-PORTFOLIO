@@ -139,9 +139,9 @@ export function Navbar() {
       {/* Phones and small tablets: name on the left, a menu button on the right. */}
       <div
         className={cn(
-          "lg:hidden glass-panel rounded-full w-full max-w-xl pl-5 pr-2 py-2 flex items-center justify-between transition-all duration-500",
-          isScrolled ? "bg-white/10" : ""
+          "lg:hidden rounded-full w-full max-w-xl pl-5 pr-2 py-2 flex items-center justify-between border border-white/10 shadow-lg"
         )}
+        style={{ backgroundColor: "rgba(11, 11, 16, 0.92)", backdropFilter: "blur(16px)" }}
       >
         <Link to="/" className="font-display font-bold tracking-wide text-white text-sm">
           Abdulwahab Abdullahi
