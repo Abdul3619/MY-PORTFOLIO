@@ -144,10 +144,33 @@ function getClient() {
   return anthropic;
 }
 
-let gemini: GoogleGenAI | null = null;
+// Free-tier Gemini keys each carry their own small daily quota (~20 chats/day on the newer models). Setting
+// GEMINI_API_KEYS to several comma-separated keys (each from a DIFFERENT Google project -- keys in the same
+// project share one quota) multiplies the free allowance; GEMINI_API_KEY (single) keeps working unchanged.
+// A key that just hit its quota is skipped for a cooldown so visitors don't wait on a known-dead key.
+function geminiKeys(): string[] {
+  const list = `${env('GEMINI_API_KEYS')},${env('GEMINI_API_KEY')}`
+    .split(/[,\s]+/)
+    .map((k) => k.trim())
+    .filter(Boolean);
+  return Array.from(new Set(list));
+}
+const geminiClients = new Map<string, GoogleGenAI>();
+const geminiKeyCooldown = new Map<string, number>(); // key -> epoch ms until which it is skipped
+const GEMINI_KEY_COOLDOWN_MS = 10 * 60 * 1000;
+function clientForKey(key: string) {
+  let c = geminiClients.get(key);
+  if (!c) geminiClients.set(key, (c = new GoogleGenAI({ apiKey: key })));
+  return c;
+}
+function liveGeminiKeys(): string[] {
+  const now = Date.now();
+  const all = geminiKeys();
+  const live = all.filter((k) => (geminiKeyCooldown.get(k) ?? 0) <= now);
+  return live.length ? live : all; // everything cooling down: try them all anyway rather than fail outright
+}
 function getGeminiClient() {
-  if (!gemini) gemini = new GoogleGenAI({ apiKey: env('GEMINI_API_KEY') });
-  return gemini;
+  return clientForKey(liveGeminiKeys()[0] ?? '');
 }
 
 // Google's free-tier models occasionally return a transient 503 ("model is currently experiencing high demand")
@@ -197,7 +220,7 @@ async function withOverloadRetry<T>(fn: () => Promise<T>): Promise<T> {
 type ChatProvider = 'anthropic' | 'gemini';
 function activeProvider(): ChatProvider | null {
   if (env('ANTHROPIC_API_KEY')) return 'anthropic';
-  if (env('GEMINI_API_KEY')) return 'gemini';
+  if (geminiKeys().length) return 'gemini';
   return null;
 }
 
@@ -649,30 +672,34 @@ async function runGeminiTurn({ entries, projects, history, message, visitorKeyVa
   let stream: Awaited<ReturnType<typeof client.models.generateContentStream>> | undefined;
   let lastErr: any;
   const attempts: string[] = [];
-  for (const candidate of candidates) {
-    try {
-      stream = await withOverloadRetry(() =>
-        client.models.generateContentStream({
-          model: candidate,
-          contents,
-          config: {
-            systemInstruction,
-            maxOutputTokens: MAX_OUTPUT_TOKENS,
-            tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
-            httpOptions: { timeout: GEMINI_CALL_TIMEOUT_MS },
-            ...(thinkingConfigFor(candidate) ? { thinkingConfig: thinkingConfigFor(candidate) } : {}),
-          },
-        }),
-      );
-      model = candidate;
-      break;
-    } catch (err: any) {
-      attempts.push(`${candidate}: ${err?.status ?? err?.error?.code ?? ''} ${String(err?.message ?? '').slice(0, 300)}`);
-      // Keep the most useful error to report: a model that exists but refused (quota, bad request) says more
-      // than "this retired model is not found".
-      if (!lastErr || (isModelUnavailable(lastErr) && !isModelUnavailable(err))) lastErr = err;
-      if (isModelUnavailable(err) || isProviderOverloaded(err)) continue; // try the next candidate
-      break; // some other error (bad key, bad request, etc.) -- no point trying more models
+  outer: for (const candidate of candidates) {
+    for (const key of liveGeminiKeys()) {
+      const keyClient = clientForKey(key);
+      try {
+        stream = await withOverloadRetry(() =>
+          keyClient.models.generateContentStream({
+            model: candidate,
+            contents,
+            config: {
+              systemInstruction,
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
+              tools: [{ functionDeclarations: geminiFunctionDeclarations() }],
+              httpOptions: { timeout: GEMINI_CALL_TIMEOUT_MS },
+              ...(thinkingConfigFor(candidate) ? { thinkingConfig: thinkingConfigFor(candidate) } : {}),
+            },
+          }),
+        );
+        model = candidate;
+        break outer;
+      } catch (err: any) {
+        attempts.push(`${candidate}@key${geminiKeys().indexOf(key) + 1}: ${err?.status ?? err?.error?.code ?? ''} ${String(err?.message ?? '').slice(0, 300)}`);
+        if (!lastErr || (isModelUnavailable(lastErr) && !isModelUnavailable(err))) lastErr = err;
+        const quota = isProviderOverloaded(err) && /quota|RESOURCE_EXHAUSTED|429/i.test(`${err?.status} ${err?.message}`);
+        if (quota && !/PerMinute|per minute/i.test(String(err?.message ?? ''))) geminiKeyCooldown.set(key, Date.now() + GEMINI_KEY_COOLDOWN_MS);
+        if (isModelUnavailable(err)) continue outer; // model gone for every key -> next model
+        if (isProviderOverloaded(err)) continue; // this key is limited -> try the next key, then next model
+        break outer; // bad request etc. -- no point trying more
+      }
     }
   }
   if (!stream) {
@@ -795,7 +822,7 @@ export function createVoiceLiveRouter() {
   // sounds like the same assistant, just briefed to talk instead of write (see VOICE_SESSION_SYSTEM_SUFFIX).
   router.post('/session', sessionLimiter, express.json({ limit: '4kb' }), async (req, res) => {
     if (!originAllowed(req)) return res.status(403).json({ error: 'Not allowed.' });
-    if (!env('GEMINI_API_KEY')) {
+    if (!geminiKeys().length) {
       return res.status(503).json({ error: 'Voice calls need a Gemini API key configured on the server.' });
     }
     if (!isKnowledgeConfigured()) {
@@ -943,7 +970,7 @@ export function createChatRouter() {
       } catch (primaryErr: any) {
         const backup: ChatProvider = provider === 'gemini' ? 'anthropic' : 'gemini';
         const backupKey = backup === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY';
-        if (closed || streamed || !env(backupKey)) throw primaryErr;
+        if (closed || streamed || !(backup === 'gemini' ? geminiKeys().length > 0 : env(backupKey))) throw primaryErr;
         console.error(`Chat ${provider} failed, falling back to ${backup}:`, primaryErr?.status ?? '', primaryErr?.message);
         Sentry.captureException(primaryErr, { tags: { area: 'chat', provider: provider ?? 'none', fallback: backup }, extra: { attempts: primaryErr?.geminiAttempts } });
         await runWith(backup);
