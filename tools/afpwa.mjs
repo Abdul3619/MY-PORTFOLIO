@@ -54,6 +54,9 @@ async function inspect(page, name) {
       scrollWidth: document.documentElement.scrollWidth,
       rootBox: rr ? { x: Math.round(rr.x), w: Math.round(rr.width), h: Math.round(rr.height) } : null,
       bodyText: document.body.innerText.slice(0, 200),
+      frameBox: (() => { const f = document.querySelector('.af-shell-frame')?.getBoundingClientRect(); return f ? { x: Math.round(f.x), w: Math.round(f.width), h: Math.round(f.height) } : null; })(),
+      installButton: Array.from(document.querySelectorAll('button')).map(b => b.textContent.trim()).find(t => /Install app|Add to Home/.test(t)) || null,
+      skeletonCard: !!document.querySelector('#initial-skeleton .isk-card'),
     };
   });
   return info;
@@ -82,6 +85,7 @@ for (const s of sizes) {
     try { const am = await cdp.send('Page.getAppManifest'); info.manifestErrors = am.errors; info.manifestParsed = am.data ? JSON.parse(am.data) : null; } catch (e) { info.manifestErrors = 'n/a ' + e.message; }
     log('chromium ' + s.name, info);
     await page.screenshot({ path: `${OUT}/atelierfit_${s.name}.jpg`, type: 'jpeg', quality: 70 });
+    try { await page.getByText('Continue as guest').click({ timeout: 5000 }); await page.waitForTimeout(2000); await page.screenshot({ path: `${OUT}/atelierfit_${s.name}_home.jpg`, type: 'jpeg', quality: 70 }); } catch {}
   } catch (e) { log('chromium ' + s.name, { error: String(e) }); }
   await ctx.close();
 }
@@ -113,6 +117,7 @@ for (const d of ['iPhone 13', 'iPhone 15 Pro Max', 'iPhone SE']) {
     const info = await inspect(page, d);
     log('webkit ' + d, info);
     await page.screenshot({ path: `${OUT}/atelierfit_${d.replace(/ /g, '')}.jpg`, type: 'jpeg', quality: 70 });
+    try { await page.getByText('Add to Home Screen').click({ timeout: 5000 }); await page.waitForTimeout(800); await page.screenshot({ path: `${OUT}/atelierfit_${d.replace(/ /g, '')}_install_help.jpg`, type: 'jpeg', quality: 70 }); } catch {}
   } catch (e) { log('webkit ' + d, { error: String(e) }); }
   await ctx.close();
 }
