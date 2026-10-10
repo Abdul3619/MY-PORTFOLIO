@@ -76,10 +76,11 @@ for (const s of sizes) {
     userAgent: s.mobile ? 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36' : undefined,
   });
   const page = await ctx.newPage();
+  const errs = []; page.on('pageerror', e => errs.push('pageerror ' + e.message)); page.on('console', m => { if (m.type() === 'error') errs.push('console ' + m.text()); }); page.on('requestfailed', r => errs.push('failed ' + r.url()));
   try {
     const resp = await page.goto(target, { waitUntil: 'networkidle', timeout: 60000 });
     const info = await inspect(page, s.name);
-    info.status = resp?.status();
+    info.status = resp?.status(); info.errors = errs;
     const cdp = await ctx.newCDPSession(page);
     try { info.installabilityErrors = (await cdp.send('Page.getInstallabilityErrors')).installabilityErrors; } catch (e) { info.installabilityErrors = 'n/a ' + e.message; }
     try { const am = await cdp.send('Page.getAppManifest'); info.manifestErrors = am.errors; info.manifestParsed = am.data ? JSON.parse(am.data) : null; } catch (e) { info.manifestErrors = 'n/a ' + e.message; }
