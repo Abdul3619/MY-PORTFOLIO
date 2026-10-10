@@ -1,0 +1,90 @@
+[
+  {
+    "q": "What is your contact email?",
+    "status": 200,
+    "ms": 7197,
+    "answer": "",
+    "ev": [
+      {
+        "type": "error",
+        "message": "The AI model is getting a lot of requests right now. Please try again in a few seconds, or use the contact form at /contact."
+      }
+    ]
+  },
+  {
+    "q": "What are his main skills?",
+    "status": 200,
+    "ms": 2962,
+    "answer": "",
+    "ev": [
+      {
+        "type": "error",
+        "message": "The AI model is getting a lot of requests right now. Please try again in a few seconds, or use the contact form at /contact."
+      }
+    ]
+  },
+  {
+    "q": "Give me the live link for every project.",
+    "status": 200,
+    "ms": 2938,
+    "answer": "",
+    "ev": [
+      {
+        "type": "error",
+        "message": "The AI model is getting a lot of requests right now. Please try again in a few seconds, or use the contact form at /contact."
+      }
+    ]
+  },
+  {
+    "slug": "shin-orne",
+    "status": 200,
+    "body": {
+      "url": "https://shin-orne.vercel.app/admin/magic/<token>"
+    },
+    "landed": "200 "
+  },
+  {
+    "slug": "atelier-noir",
+    "status": 200,
+    "body": {
+      "url": "https://atelier-noir-official.vercel.app/admin/magic/<token>"
+    },
+    "landed": "200 "
+  },
+  {
+    "slug": "h-orizon-hotel",
+    "status": 200,
+    "body": {
+      "url": "https://horizon-br6n.vercel.app/admin/magic/<token>"
+    },
+    "landed": "404 "
+  },
+  {
+    "u": "https://horizon-br6n.vercel.app/admin",
+    "status": 404,
+    "server": "Vercel",
+    "xvc": "NOT_FOUND",
+    "body": "The page could not be found\n\nNOT_FOUND\n\niad1::w9jlp-1791645047026-0e9ddcf40dbf\n"
+  },
+  {
+    "u": "https://horizon-br6n.vercel.app/admin/magic/test123",
+    "status": 404,
+    "server": "Vercel",
+    "xvc": "NOT_FOUND",
+    "body": "The page could not be found\n\nNOT_FOUND\n\niad1::kfbmt-1791645047040-67250df2f4fc\n"
+  },
+  {
+    "u": "https://shin-orne.vercel.app/admin/magic/test123",
+    "status": 200,
+    "server": "Vercel",
+    "xvc": null,
+    "body": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>SHIN ORNE by CHARM AURA | Handcrafted Bea"
+  },
+  {
+    "u": "https://atelier-noir-official.vercel.app/admin/magic/test123",
+    "status": 200,
+    "server": "Vercel",
+    "xvc": null,
+    "body": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>Atelier Noir — Bespoke Tailoring, Worldwi"
+  }
+]
