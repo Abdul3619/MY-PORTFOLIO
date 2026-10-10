@@ -42,7 +42,7 @@ const SITE_TITLE = 'Abdul Wahab | Web Developer &amp; Solar Technician';
 const SECRET = 'ssr-check-secret-key';
 
 const PAGES = [
-  { path: '/', title: SITE_TITLE, mustContain: ['Abdul Wahab', 'Web Developer', 'Completed Projects', '<meta property="og:title"', '<meta property="og:description"', '<link rel="canonical"', 'application/ld+json'] },
+  { path: '/', title: SITE_TITLE, mustContain: ['Abdul Wahab', 'Web Developer', 'Business websites', '<meta property="og:title"', '<meta property="og:description"', '<link rel="canonical"', 'application/ld+json'] },
   { path: '/about', title: `About | ${SITE_TITLE}`, mustContain: ['Abdul Wahab', 'Web Developer', '<meta name="description"', '<meta property="og:url"'] },
 ];
 

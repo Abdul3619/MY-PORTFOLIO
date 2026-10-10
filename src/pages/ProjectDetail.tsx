@@ -54,6 +54,15 @@ export default function ProjectDetail() {
     };
   }, [project?.title, project?.seo_title, seo, profile]);
 
+  // Sites on Render's free plan go to sleep after a quiet spell and take close to a minute to start again. When a
+  // visitor opens one of those project pages, start waking the site straight away so it is ready (or nearly)
+  // by the time they press the live button.
+  const sleepsWhenIdle = typeof project?.live_url === "string" && project.live_url.includes(".onrender.com");
+  useEffect(() => {
+    if (!sleepsWhenIdle || !project?.live_url) return;
+    fetch(project.live_url, { mode: "no-cors", cache: "no-store" }).catch(() => {});
+  }, [sleepsWhenIdle, project?.live_url]);
+
   // Keyboard support for the lightbox: Escape closes, arrow keys navigate
   useEffect(() => {
     if (activeImgIndex === null || galleryCount === 0) return;
@@ -365,6 +374,11 @@ export default function ProjectDetail() {
                       <span className="ml-2">{t("project_detail.live_deployment", "Live Deployment")}</span>
                     </MagneticButton>
                   </a>
+                )}
+                {sleepsWhenIdle && (
+                  <p className="text-xs text-gray-400 leading-relaxed -mt-1">
+                    {t("project_detail.cold_start_note", "Hosted on a free server that sleeps when idle. The first visit can take up to a minute to load.")}
+                  </p>
                 )}
 
                 {project.has_dashboard && (

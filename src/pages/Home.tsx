@@ -36,63 +36,43 @@ import { MagneticButton } from "@/components/MagneticButton";
 import { PLACEHOLDER_IMAGE } from "@/lib/placeholders";
 import { isPublicProject } from "@/lib/projectStatus";
 import * as Icons from "lucide-react";
-import { useProfile, useServices, useTestimonials, useCertificates, useContactInfo, useProjects, useSkills, trackEvent } from "@/hooks/useApi";
+import { useProfile, useTestimonials, useCertificates, useContactInfo, useProjects } from "@/hooks/useApi";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const roles = [
-  "Web Developer",
-  "Frontend Engineer",
-  "Full Stack Learner",
-  "Solar Technician",
-  "Creative Builder"
-];
-
-let differentCards = [
+// The three things on offer, in plain words. Each has a live example in the projects section.
+const offerCards = [
   {
-    icon: Cpu,
-    title: "Problem Solver",
-    description: "My background in solar engineering trained me to approach complex problems systematically. In physical electrical grids, troubleshooting requires absolute precision; I apply that exact same methodical diagnostics flow to debugging code and resolving backend logic bottlenecks.",
-    tag: "Systematic Approach"
+    key: "sites",
+    icon: Code,
+    title: "Business websites",
+    description: "Fast, mobile-first sites for hotels, salons, shops and service firms, in one or more languages.",
+    example: "Example: Azure Hotel, Voltway Electrical",
   },
   {
-    icon: BookOpen,
-    title: "Self-Taught",
-    description: "Without a formal computer science degree, I learned to code by reading documentation, parsing source code, and building real-world software from scratch. This self-reliance has given me the ability to quickly master new technologies and adapt to any stack with ease.",
-    tag: "High Initiative"
-  },
-  {
+    key: "stores",
     icon: ShieldCheck,
-    title: "Attention to Detail",
-    description: "In solar tech, one misaligned connection can compromise an entire array. I bring this level of perfectionism to software engineering, ensuring pixel-perfect layout spacing, type-safe robust codebases, clean components, and highly optimized web assets.",
-    tag: "Pristine Execution"
+    title: "Online stores and booking",
+    description: "Catalogues, carts, appointment calendars and payments, with order and booking emails.",
+    example: "Example: Atelier Noir, Shin Orne",
   },
   {
-    icon: Zap,
-    title: "Continuous Learning",
-    description: "The tech industry never stands still, and neither do I. I dedicate time every single day to researching modern development patterns, mastering state management, and playing with new tools. I treat learning as a professional lifestyle.",
-    tag: "Never Stagnant"
+    key: "dashboards",
+    icon: Cpu,
+    title: "Dashboards and internal tools",
+    description: "Admin panels to run the business: orders, stock, bookings, customers and reports.",
+    example: "Example: StitchBook, H'orizon admin",
   },
-  {
-    icon: Sparkles,
-    title: "Clean Design Philosophy",
-    description: "A truly premium application must be as intuitive as it is powerful. I believe in minimalism, readable typography, generous white space, and subtle, purposeful micro-animations that guide users naturally without visual clutter.",
-    tag: "Premium Aesthetics"
-  }
 ];
 
 export default function Home() {
   const { t } = useTranslation();
   const { data: profile, isLoading: isProfileLoading } = useProfile();
-  const { data: services } = useServices();
   const { data: testimonials, isLoading: isTestimonialsLoading } = useTestimonials();
   const { data: certificates, isLoading: isCertificatesLoading } = useCertificates();
   const { data: projects, isLoading: isProjectsLoading } = useProjects();
   const { data: contact } = useContactInfo();
-  const { data: skillsData, isLoading: isSkillsLoading } = useSkills();
 
-  const dynamicRoles = profile?.title ? profile.title.split(',').map((s: string) => s.trim()) : roles;
-  const displayServices = services && services.length > 0 ? services : differentCards;
   // Only real CMS entries are shown; there is no placeholder content presented as genuine
   const displayTestimonials: any[] = Array.isArray(testimonials) ? testimonials : [];
   const displayCertificates: any[] = Array.isArray(certificates) ? certificates : [];
@@ -111,9 +91,6 @@ export default function Home() {
     whatsapp: contact?.whatsapp ? `https://wa.me/${contact.whatsapp.replace(/\D/g, '')}` : "#"
   };
 
-  const [currentRoleIndex, setCurrentRoleIndex] = useState(0);
-  const aboutSectionRef = useRef<HTMLDivElement>(null);
-  const skillsSectionRef = useRef<HTMLDivElement>(null);
   const projectsSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -130,54 +107,8 @@ export default function Home() {
     }
   }, [projects]);
 
-  const roleCount = dynamicRoles.length;
-  useEffect(() => {
-    setCurrentRoleIndex(0);
-    if (roleCount < 2) return;
-    const interval = setInterval(() => {
-      setCurrentRoleIndex((prev) => (prev + 1) % roleCount);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [roleCount]);
-
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // About Section Animation
-      gsap.fromTo(
-        ".gsap-about-animate",
-        { opacity: 0, y: 40 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          stagger: 0.15,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: aboutSectionRef.current,
-            start: "top 80%",
-            toggleActions: "play none none reverse",
-          }
-        }
-      );
-      
-      // Skills Section Animation
-      gsap.fromTo(
-        ".gsap-skills-animate",
-        { opacity: 0, y: 50 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          stagger: 0.12,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: skillsSectionRef.current,
-            start: "top 80%",
-            toggleActions: "play none none reverse",
-          }
-        }
-      );
-
       // Projects Section Animation
       gsap.fromTo(
         ".gsap-projects-animate",
@@ -258,7 +189,7 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-xs font-semibold tracking-wider uppercase mb-6"
               >
                 <Zap size={12} className="animate-pulse" />
-                <span>{t("home.status_tag", "Now Open for Select Commissions")}</span>
+                <span>{t("home.available_tag", "Available for new projects")}</span>
               </motion.div>
               
               <motion.p 
@@ -271,45 +202,22 @@ export default function Home() {
               </motion.p>
               
               <motion.h1 
-                className="text-4xl md:text-5xl lg:text-7xl font-display font-bold tracking-tight mb-4 leading-tight"
+                className="text-4xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight mb-5 leading-tight"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
               >
-                {t("home.self_taught_label", "SELF-TAUGHT")}
-                <br />
-                <span className="text-gradient font-extrabold">{t("home.developer_label", "DEVELOPER")}</span>
+                {t("home.headline_part1", "Websites and web apps")}{" "}
+                <span className="text-gradient font-extrabold">{t("home.headline_part2", "for growing businesses")}</span>
               </motion.h1>
 
-              {/* Typing/Rotating Roles */}
-              <motion.div 
-                className="h-10 mb-8 overflow-hidden relative w-full flex justify-center lg:justify-start"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-              >
-                <AnimatePresence mode="popLayout">
-                  <motion.span
-                    key={currentRoleIndex}
-                    initial={{ y: 30, opacity: 0, filter: "blur(5px)" }}
-                    animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                    exit={{ y: -30, opacity: 0, filter: "blur(5px)" }}
-                    transition={{ type: "spring", stiffness: 260, damping: 25 }}
-                    className="text-xl md:text-2xl text-gray-400 font-display font-medium absolute text-center lg:text-left"
-                  >
-                    {dynamicRoles[currentRoleIndex % roleCount]}
-                  </motion.span>
-                </AnimatePresence>
-              </motion.div>
-
-              {/* Sub-description */}
               <motion.p
-                className="text-gray-400 max-w-lg mb-8 text-sm md:text-base leading-relaxed text-center lg:text-left"
+                className="text-gray-400 max-w-lg mb-8 text-base md:text-lg leading-relaxed text-center lg:text-left"
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35, duration: 0.6 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
               >
-                {profile?.bio || t("home.hero_subtitle", "I build fast, responsive, and reliable websites that combine clean, modern design with practical functionality. From custom business platforms to management systems, my focus is on delivering premium web experiences that perform exceptionally and solve real problems.")}
+                {t("home.hero_offer", "I'm a full-stack developer. I build booking sites, online stores and admin dashboards, and every project below is live for you to try.")}
               </motion.p>
               
               <motion.div 
@@ -321,34 +229,13 @@ export default function Home() {
                 <Link to="/projects" className="interactive">
                   <MagneticButton variant="primary">
                     <FolderOpen size={18} />
-                    <span>{t("home.cta_projects", "View Projects")}</span>
+                    <span>{t("home.cta_see_work", "See my work")}</span>
                   </MagneticButton>
                 </Link>
-                
-                <a 
-                  href={profile?.resume_url || '/resume'} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  download={profile?.resume_url ? "resume.pdf" : undefined}
-                  onClick={(e) => {
-                    trackEvent('download_resume', window.location.pathname);
-                    if (!profile?.resume_url) {
-                      e.preventDefault();
-                      window.location.href = '/resume';
-                    }
-                  }}
-                  className="interactive"
-                >
-                  <MagneticButton variant="secondary">
-                    <Download size={18} />
-                    <span>{t("home.cta_resume", "Download Resume")}</span>
-                  </MagneticButton>
-                </a>
-                
                 <Link to="/contact" className="interactive">
                   <MagneticButton variant="outline">
                     <Mail size={18} />
-                    <span>{t("home.cta_hire", "Get In Touch")}</span>
+                    <span>{t("home.cta_start", "Start a project")}</span>
                   </MagneticButton>
                 </Link>
               </motion.div>
@@ -358,199 +245,33 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 2. ABOUT PREVIEW SECTION */}
-      <section ref={aboutSectionRef} data-assistant-section="about" className="relative py-12">
+      {/* 2. WHAT I OFFER */}
+      <section data-assistant-section="services" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            {/* Left intro details */}
-            <div className="lg:col-span-5 space-y-6">
-              <div className="gsap-about-animate inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase opacity-0">
-                <span>{t("about.storyteller_tag", "The Storyteller")}</span>
-              </div>
-              <h2 className="gsap-about-animate text-4xl md:text-5xl font-display font-bold text-white tracking-tight leading-tight opacity-0">
-                {t("about.title_crafting_part1", "Crafting With")} <br /><span className="text-gradient font-extrabold">{t("about.title_crafting_part2", "Intent & Passion")}</span>
-              </h2>
-              <p className="gsap-about-animate text-gray-400 leading-relaxed text-sm md:text-base opacity-0">
-                {t("about.journey_description", "From mounting physical solar arrays on the hot roofs of renewable infrastructure, to engineering clean responsive algorithms behind sleek web interfaces. Abdul's journey is one of non-traditional excellence.")}
-              </p>
-              <div className="gsap-about-animate pt-4 opacity-0">
-                <Link to="/about" className="inline-flex items-center gap-2 group text-gold font-medium hover:text-white transition-colors duration-300 interactive">
-                  <span>{t("about.read_journey", "Read the Full Journey")}</span>
-                  <ArrowRight size={18} className="transform group-hover:translate-x-1.5 transition-transform duration-300" />
-                </Link>
-              </div>
-            </div>
-
-            {/* Right Card Panel */}
-            <div className="lg:col-span-7 gsap-about-animate opacity-0">
-              <GlassCard className="p-8 md:p-10 space-y-8 border-white/10" glowOnHover>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-3 hover:border-gold/20 transition-colors duration-300">
-                    <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
-                      <Code size={20} />
-                    </div>
-                    <h3 className="text-lg font-bold text-white font-display">{t("about.elite_dev", "Elite Developer")}</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">{t("about.elite_dev_desc", "Dedicated to functional state patterns, crisp micro-interactions, and pristine Tailwind designs.")}</p>
-                  </div>
-
-                  <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-3 hover:border-gold/20 transition-colors duration-300">
-                    <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
-                      <Sun size={20} />
-                    </div>
-                    <h3 className="text-lg font-bold text-white font-display">{t("about.solar_spec", "Solar Specialist")}</h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">{t("about.solar_spec_desc", "A certified technician with experience building reliable physical off-grid systems and hybrid load layouts.")}</p>
-                  </div>
+          <div className="text-center space-y-4 mb-12">
+            <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
+              {t("home.offer_title_part1", "What I")} <span className="text-gradient font-extrabold">{t("home.offer_title_part2", "offer")}</span>
+            </h2>
+            <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+              {t("home.offer_desc", "I handle the whole build myself: design, frontend, database, payments and hosting.")}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {offerCards.map((card, index) => (
+              <GlassCard key={card.key} className="p-8 flex flex-col space-y-4 border-white/10" glowOnHover>
+                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gold">
+                  <card.icon size={24} />
                 </div>
-
-                <div className="border-t border-white/10 pt-6 flex items-center justify-between">
-                  <div>
-                    <h4 className="text-2xl font-bold font-display text-white">2+ Years</h4>
-                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.coding_exp", "Coding Experience")}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-2xl font-bold font-display text-white">100%</h4>
-                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.self_taught", "Self-Taught")}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-2xl font-bold font-display text-white">{completedProjectsLabel}</h4>
-                    <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">{t("about.completed_proj", "Completed Projects")}</p>
-                  </div>
-                </div>
+                <h3 className="text-xl font-bold font-display text-white">{t(`home.offer_${card.key}_title`, card.title)}</h3>
+                <p className="text-sm text-gray-400 leading-relaxed flex-grow">{t(`home.offer_${card.key}_desc`, card.description)}</p>
+                <span className="text-xs text-gold/80">{t(`home.offer_${card.key}_example`, card.example)}</span>
               </GlassCard>
-            </div>
-
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 3. SKILLS PREVIEW SECTION */}
-      <section ref={skillsSectionRef} data-assistant-section="skills" className="relative py-12">
-        <div className="w-full max-w-5xl mx-auto px-4">
-          <div className="text-center space-y-4 mb-16 gsap-skills-animate opacity-0">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-              <span>{t("skills.expertise", "Expertise")}</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
-              {t("skills.title_part1", "Technical")} <span className="text-gradient font-extrabold">{t("skills.title_part2", "Capability")}</span>
-            </h2>
-            <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
-              {t("skills.subtitle", "Meticulously curated technologies and hardware knowledge built from continuous practice.")}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {(() => {
-              if (isSkillsLoading) {
-                return [1, 2, 3].map((i) => (
-                  <div key={i} className="gsap-skills-animate opacity-0" aria-hidden="true">
-                    <div className="p-6 md:p-8 space-y-6 h-full rounded-2xl border border-white/10 bg-white/5">
-                      <div className="w-12 h-12 rounded-xl silver-shimmer" />
-                      <div className="h-5 w-2/3 silver-shimmer rounded" />
-                      <div className="space-y-2">
-                        <div className="h-3 w-full silver-shimmer rounded" />
-                        <div className="h-3 w-4/5 silver-shimmer rounded" />
-                      </div>
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {[1, 2, 3, 4].map((j) => (
-                          <div key={j} className="h-6 w-16 silver-shimmer rounded-md" />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ));
-              }
-              if (!skillsData || skillsData.length === 0) {
-                // Genuinely nothing configured yet -- not a loading state, so show nothing rather than a
-                // skeleton that would never resolve into real content.
-                return null;
-              }
-              
-              const grouped = skillsData.reduce((acc: any, skill: any) => {
-                if (!acc[skill.category]) acc[skill.category] = { iconName: skill.icon, skills: [] };
-                acc[skill.category].skills.push(skill.name);
-                return acc;
-              }, {});
-
-              const categories = Object.keys(grouped).slice(0, 3);
-              const fallbackIcons = [Icons.Code, Icons.Database, Icons.Cpu];
-
-              return categories.map((cat, idx) => {
-                const iconName = grouped[cat].iconName;
-                const IconComp = (iconName ? (Icons as any)[iconName] : null) || fallbackIcons[idx % fallbackIcons.length] || Icons.Code;
-                
-                return (
-                  <div key={cat} className="gsap-skills-animate opacity-0">
-                    <GlassCard className="p-6 md:p-8 space-y-6 h-full" glowOnHover>
-                      <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold">
-                        <IconComp size={24} />
-                      </div>
-                      <h3 className="text-xl font-bold text-white font-display">{cat}</h3>
-                      <p className="text-xs text-gray-400 leading-relaxed">
-                        Technologies and tools I actively use in production environments.
-                      </p>
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {grouped[cat].skills.slice(0, 8).map((skillName: string) => (
-                          <span key={skillName} className="px-2.5 py-1 text-xs rounded-md bg-white/5 border border-white/5 text-gray-300">
-                            {skillName}
-                          </span>
-                        ))}
-                      </div>
-                    </GlassCard>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-
-          <div className="text-center mt-12 gsap-skills-animate opacity-0">
-            <Link to="/skills" className="interactive">
-              <MagneticButton variant="secondary">
-                <span>{t("skills.explore_arsenal", "Explore Full Arsenal")}</span>
-                <ArrowRight size={16} />
-              </MagneticButton>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. WHAT MAKES ME DIFFERENT SECTION */}
-      <section data-assistant-section="differentiators" className="relative py-12">
-        <div className="w-full max-w-5xl mx-auto px-4">
-          <div className="text-center space-y-4 mb-16">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs tracking-wider uppercase">
-              <span>{t("home.strengths_tag", "Distinctive Strengths")}</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-display font-bold text-white">
-              {t("home.strengths_title_part1", "What Makes Me")} <span className="text-gradient font-extrabold">{t("home.strengths_title_part2", "Different")}</span>
-            </h2>
-            <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
-              {t("home.strengths_desc", "A unique fusion of systematic physical engineering discipline and modern full-stack development.")}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {displayServices.map((card: any, index: number) => {
-              // CMS services store the icon as a lucide icon name; built-in cards use the component directly
-              const Icon = typeof card.icon === "string" ? (Icons as any)[card.icon] : card.icon;
-              return (
-                <GlassCard key={index} className="p-8 flex flex-col space-y-6 border-white/10" glowOnHover>
-                  <span className="text-xs font-bold text-gold/80 tracking-widest uppercase">{card.tag ? (t(`home.strengths_card_tag_${index}`, card.tag) as string) : ""}</span>
-                  {Icon && (
-                    <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white">
-                      <Icon size={24} />
-                    </div>
-                  )}
-                  <h3 className="text-2xl font-bold font-display text-white">{t(`home.strengths_card_title_${index}`, card.title) as string}</h3>
-                  <p className="text-sm text-gray-400 leading-relaxed flex-grow">{t(`home.strengths_card_desc_${index}`, card.description) as string}</p>
-                </GlassCard>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* 5. FEATURED PROJECTS PREVIEW SECTION */}
+      {/* 3. FEATURED PROJECTS */}
       <section ref={projectsSectionRef} data-assistant-section="projects" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 gsap-projects-animate opacity-0">
@@ -573,7 +294,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {isProjectsLoading ? (
               <>
-                {[1, 2].map((i) => (
+                {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col h-full" aria-hidden="true">
                     <div className="relative h-60 silver-shimmer w-full">
                       <div className="absolute top-4 right-4 flex gap-2">
@@ -595,7 +316,7 @@ export default function Home() {
                 ))}
               </>
             ) : (
-              displayProjects.slice(0, 2).map((project, index) => (
+              displayProjects.slice(0, 4).map((project, index) => (
                 <div key={project.id || project.slug} className="gsap-projects-animate opacity-0">
                   <GlassCard className="group flex flex-col h-full border-white/10" glowOnHover>
                     <div className="relative h-60 overflow-hidden rounded-t-2xl">
@@ -778,30 +499,6 @@ export default function Home() {
       </section>
       )}
 
-      {/* 8. RESUME CTA SECTION */}
-      <section data-assistant-section="resume-cta" className="relative py-12">
-        <div className="w-full max-w-4xl mx-auto px-4">
-          <GlassCard className="p-8 md:p-12 text-center space-y-6 border-gold/10 bg-gradient-to-br from-white/5 to-gold/5" glowOnHover>
-            <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-gold mx-auto">
-              <Download size={24} />
-            </div>
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
-              {t("resume.title", "Curriculum Vitae")}
-            </h2>
-            <p className="text-gray-400 max-w-lg mx-auto text-sm md:text-base">
-              {t("resume.subtitle", "A comprehensive view of my academic qualifications, professional journey, certifications, and complete hardware-software design history.")}
-            </p>
-            <div className="pt-4 flex justify-center gap-4">
-              <Link to="/resume" className="interactive">
-                <MagneticButton variant="primary">
-                  <span>{t("resume.explore_interactive", "Explore Interactive Resume")}</span>
-                </MagneticButton>
-              </Link>
-            </div>
-          </GlassCard>
-        </div>
-      </section>
-
       {/* 9. CONTACT CTA SECTION */}
       <section data-assistant-section="contact-cta" className="relative py-12">
         <div className="w-full max-w-5xl mx-auto px-4">
@@ -858,7 +555,7 @@ export default function Home() {
                 <li><Link to="/about" className="hover:text-white transition-colors">{t("nav.about", "About Story")}</Link></li>
                 <li><Link to="/skills" className="hover:text-white transition-colors">{t("nav.skills", "Skills Library")}</Link></li>
                 <li><Link to="/projects" className="hover:text-white transition-colors">{t("nav.projects", "Projects Showroom")}</Link></li>
-                <li><Link to="/certificates" className="hover:text-white transition-colors">{t("nav.certificates", "Certificates")}</Link></li>
+                <li><Link to="/contact" className="hover:text-white transition-colors">{t("nav.contact", "Contact")}</Link></li>
               </ul>
             </div>
 

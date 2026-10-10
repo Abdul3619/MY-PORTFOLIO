@@ -62,7 +62,25 @@
     "strengths_card_desc_3": "The tech industry never stands still, and neither do I. I dedicate time every single day to researching modern development patterns, mastering state management, and playing with new tools. I treat learning as a professional lifestyle.",
     "strengths_card_tag_4": "Premium Aesthetics",
     "strengths_card_title_4": "Clean Design Philosophy",
-    "strengths_card_desc_4": "A truly premium application must be as intuitive as it is powerful. I believe in minimalism, readable typography, generous white space, and subtle, purposeful micro-animations that guide users naturally without visual clutter."
+    "strengths_card_desc_4": "A truly premium application must be as intuitive as it is powerful. I believe in minimalism, readable typography, generous white space, and subtle, purposeful micro-animations that guide users naturally without visual clutter.",
+    "available_tag": "Available for new projects",
+    "headline_part1": "Websites and web apps",
+    "headline_part2": "for growing businesses",
+    "hero_offer": "I'm a full-stack developer. I build booking sites, online stores and admin dashboards, and every project below is live for you to try.",
+    "cta_see_work": "See my work",
+    "cta_start": "Start a project",
+    "offer_title_part1": "What I",
+    "offer_title_part2": "offer",
+    "offer_desc": "I handle the whole build myself: design, frontend, database, payments and hosting.",
+    "offer_sites_title": "Business websites",
+    "offer_sites_desc": "Fast, mobile-first sites for hotels, salons, shops and service firms, in one or more languages.",
+    "offer_sites_example": "Example: Azure Hotel, Voltway Electrical",
+    "offer_stores_title": "Online stores and booking",
+    "offer_stores_desc": "Catalogues, carts, appointment calendars and payments, with order and booking emails.",
+    "offer_stores_example": "Example: Atelier Noir, Shin Orne",
+    "offer_dashboards_title": "Dashboards and internal tools",
+    "offer_dashboards_desc": "Admin panels to run the business: orders, stock, bookings, customers and reports.",
+    "offer_dashboards_example": "Example: StitchBook, H'orizon admin"
   },
   "about": {
     "title": "MY JOURNEY",
@@ -229,7 +247,8 @@
     "access_points": "Access Points",
     "live_deployment": "Live Deployment",
     "source_code": "Source Code",
-    "restricted_codebase": "Restricted codebase."
+    "restricted_codebase": "Restricted codebase.",
+    "cold_start_note": "Hosted on a free server that sleeps when idle. The first visit can take up to a minute to load."
   },
   "maintenance": {
     "title": "System Update",
@@ -237,8 +256,8 @@
     "returning_shortly": "Returning Shortly"
   },
   "contact": {
-    "title": "GET IN TOUCH",
-    "subtitle": "Have a project in mind, need a developer, or want to discuss solar tech? Reach out to me directly.",
+    "title": "Let's work",
+    "subtitle": "Tell me about your project and I'll get back to you by email.",
     "form_title": "Send a Message",
     "name": "Full Name",
     "email": "Email Address",
@@ -253,7 +272,8 @@
     "lets_build_part1": "LET'S BUILD",
     "lets_build_part2": "SOMETHING",
     "lets_build_part3": "GREAT.",
-    "initiate_conv": "Initiate Conversation"
+    "initiate_conv": "Initiate Conversation",
+    "title_bold": "together"
   },
   "assistant": {
     "title": "Portfolio assistant",

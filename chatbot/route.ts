@@ -16,6 +16,7 @@
 import crypto from 'crypto';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import * as Sentry from '@sentry/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI, Type, type FunctionDeclaration } from '@google/genai';
 import { z } from 'zod';
@@ -912,15 +913,33 @@ export function createChatRouter() {
     const visitorKeyValue = visitorKey(req.ip || req.socket.remoteAddress || 'unknown');
     const provider = activeProvider();
 
+    // Tracks whether any text reached the visitor, so a provider that fails before its first word can hand the
+    // turn to the other provider instead of showing an error.
+    let streamed = false;
+    const trackedSend = (data: Record<string, unknown>) => {
+      if (data.type === 'delta') streamed = true;
+      send(data);
+    };
+    const runWith = (p: ChatProvider) => {
+      const args = { entries, projects, history, message, visitorKeyValue, send: trackedSend, isClosed: () => closed, res };
+      return p === 'gemini' ? runGeminiTurn(args) : runAnthropicTurn(args);
+    };
+
     try {
-      if (provider === 'gemini') {
-        await runGeminiTurn({ entries, projects, history, message, visitorKeyValue, send, isClosed: () => closed, res });
-      } else {
-        await runAnthropicTurn({ entries, projects, history, message, visitorKeyValue, send, isClosed: () => closed, res });
+      try {
+        await runWith(provider ?? 'anthropic');
+      } catch (primaryErr: any) {
+        const backup: ChatProvider = provider === 'gemini' ? 'anthropic' : 'gemini';
+        const backupKey = backup === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY';
+        if (closed || streamed || !env(backupKey)) throw primaryErr;
+        console.error(`Chat ${provider} failed, falling back to ${backup}:`, primaryErr?.status ?? '', primaryErr?.message);
+        Sentry.captureException(primaryErr, { tags: { area: 'chat', provider: provider ?? 'none', fallback: backup } });
+        await runWith(backup);
       }
       send({ type: 'done' });
     } catch (err: any) {
       if (closed) return;
+      Sentry.captureException(err, { tags: { area: 'chat', provider: provider ?? 'none' } });
       if (err instanceof Anthropic.RateLimitError || err instanceof Anthropic.InternalServerError) {
         console.error('Chat model busy:', err.status);
       } else {
@@ -933,6 +952,8 @@ export function createChatRouter() {
           ? "The AI model is getting a lot of requests right now. Please try again in a few seconds, or use the contact form at /contact."
           : 'Something went wrong on my side. Please try again in a moment, or use the contact form at /contact.',
       });
+      // Serverless functions can freeze as soon as the response ends, so make sure the error report leaves first.
+      await Sentry.flush(2000).catch(() => false);
     } finally {
       if (!closed) res.end();
     }

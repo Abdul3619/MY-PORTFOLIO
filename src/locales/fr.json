@@ -62,7 +62,25 @@
     "strengths_card_desc_3": "Le secteur technologique ne s'arrête jamais, et moi non plus. Je consacre du temps chaque jour à la recherche de modèles de développement modernes, à la maîtrise de la gestion des états et à la découverte de nouveaux outils. Je considère l'apprentissage comme un style de vie professionnel.",
     "strengths_card_tag_4": "Esthétique haut de gamme",
     "strengths_card_title_4": "Design épuré",
-    "strengths_card_desc_4": "Une application de qualité supérieure doit être aussi intuitive que puissante. Je crois au minimalisme, à une typographie lisible, à des espaces généreux et à des micro-animations subtiles et ciblées qui guident les utilisateurs naturellement sans encombrement visuel."
+    "strengths_card_desc_4": "Une application de qualité supérieure doit être aussi intuitive que puissante. Je crois au minimalisme, à une typographie lisible, à des espaces généreux et à des micro-animations subtiles et ciblées qui guident les utilisateurs naturellement sans encombrement visuel.",
+    "available_tag": "Disponible pour de nouveaux projets",
+    "headline_part1": "Sites et applications web",
+    "headline_part2": "pour les entreprises en croissance",
+    "hero_offer": "Je suis développeur full-stack. Je crée des sites de réservation, des boutiques en ligne et des tableaux de bord, et chaque projet ci-dessous est en ligne pour que vous puissiez l'essayer.",
+    "cta_see_work": "Voir mes réalisations",
+    "cta_start": "Démarrer un projet",
+    "offer_title_part1": "Ce que je",
+    "offer_title_part2": "propose",
+    "offer_desc": "Je réalise tout le projet moi-même : design, interface, base de données, paiements et hébergement.",
+    "offer_sites_title": "Sites vitrines",
+    "offer_sites_desc": "Des sites rapides et adaptés au mobile pour hôtels, salons, boutiques et artisans, en une ou plusieurs langues.",
+    "offer_sites_example": "Exemple : Azure Hotel, Voltway Electrical",
+    "offer_stores_title": "Boutiques en ligne et réservations",
+    "offer_stores_desc": "Catalogues, paniers, calendriers de rendez-vous et paiements, avec e-mails de commande et de réservation.",
+    "offer_stores_example": "Exemple : Atelier Noir, Shin Orne",
+    "offer_dashboards_title": "Tableaux de bord et outils internes",
+    "offer_dashboards_desc": "Des espaces d'administration pour gérer l'activité : commandes, stock, réservations, clients et rapports.",
+    "offer_dashboards_example": "Exemple : StitchBook, administration H'orizon"
   },
   "about": {
     "title": "MON PARCOURS",
@@ -229,7 +247,8 @@
     "access_points": "Points d'Accès",
     "live_deployment": "Déploiement en Direct",
     "source_code": "Code Source",
-    "restricted_codebase": "Code source restreint."
+    "restricted_codebase": "Code source restreint.",
+    "cold_start_note": "Hébergé sur un serveur gratuit qui se met en veille. La première visite peut prendre jusqu'à une minute."
   },
   "maintenance": {
     "title": "Mise à Jour du Système",
@@ -237,8 +256,8 @@
     "returning_shortly": "De retour très bientôt"
   },
   "contact": {
-    "title": "ME CONTACTER",
-    "subtitle": "Vous avez un projet en tête, besoin d'un développeur, ou souhaitez discuter de technologie solaire? Contactez-moi directement.",
+    "title": "Travaillons",
+    "subtitle": "Parlez-moi de votre projet, je vous répondrai par e-mail.",
     "form_title": "Envoyer un message",
     "name": "Nom complet",
     "email": "Adresse e-mail",
@@ -253,7 +272,8 @@
     "lets_build_part1": "CONSTRUISONS",
     "lets_build_part2": "QUELQUE CHOSE",
     "lets_build_part3": "DE GRAND.",
-    "initiate_conv": "Initier la conversation"
+    "initiate_conv": "Initier la conversation",
+    "title_bold": "ensemble"
   },
   "assistant": {
     "title": "Assistant du portfolio",

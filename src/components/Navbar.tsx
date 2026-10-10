@@ -3,8 +3,9 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, useScroll, useMotionValueEvent } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Lock } from "lucide-react";
+import { Lock, Menu, X } from "lucide-react";
 import { setManualLanguage } from "@/lib/i18n";
+import { useCertificates, useTestimonials } from "@/hooks/useApi";
 
 const navLinks = [
   { name: "Home", key: "home", path: "/" },
@@ -20,8 +21,11 @@ const navLinks = [
 export function Navbar() {
   const { scrollY } = useScroll();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const { t, i18n } = useTranslation();
+  const { data: certificates } = useCertificates();
+  const { data: testimonials } = useTestimonials();
 
   const currentLang = (i18n.language || "en").split("-")[0].toLowerCase();
 
@@ -29,35 +33,88 @@ export function Navbar() {
     setIsScrolled(latest > 50);
   });
 
+  // Close the phone menu whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  // Certificates and Testimonials only show in the menu once they have something in them, so a visitor never
+  // lands on an empty page from the navigation.
+  const hasItems = (data: unknown) => Array.isArray(data) && data.length > 0;
+  const visibleLinks = navLinks.filter((link) => {
+    if (link.key === "certificates") return hasItems(certificates);
+    if (link.key === "testimonials") return hasItems(testimonials);
+    return true;
+  });
+
+  const isActivePath = (path: string) =>
+    location.pathname === path || (path !== "/" && location.pathname.startsWith(path));
+
   const languages = [
     { code: "en", label: "EN" },
     { code: "fr", label: "FR" },
     { code: "ar", label: "AR" }
   ];
 
+  const languageSwitcher = (
+    <div className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/5 flex-shrink-0">
+      {languages.map((lang) => (
+        <button
+          key={lang.code}
+          type="button"
+          onClick={() => setManualLanguage(lang.code)}
+          aria-pressed={currentLang === lang.code}
+          aria-label={`Switch language to ${lang.label}`}
+          className={cn(
+            "px-2 py-1 rounded-full text-[10px] font-bold tracking-wider transition-all duration-300 cursor-pointer",
+            currentLang === lang.code
+              ? "bg-gold text-bg-dark shadow-[0_0_8px_rgba(212,175,55,0.4)]"
+              : "text-gray-400 hover:text-white"
+          )}
+        >
+          {lang.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const dashboardLink = (
+    <Link
+      to="/admin"
+      className={cn(
+        "relative px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-300 whitespace-nowrap flex items-center gap-1.5",
+        location.pathname.startsWith("/admin")
+          ? "bg-[#00F0FF]/20 text-white border border-[#00F0FF]/40"
+          : "bg-[#00F0FF]/5 text-[#00F0FF] hover:bg-[#00F0FF]/15 border border-[#00F0FF]/20 hover:border-[#00F0FF]/40"
+      )}
+    >
+      <Lock size={12} className="text-[#00F0FF]" />
+      <span>{t("nav.dashboard", "Dashboard")}</span>
+    </Link>
+  );
+
   return (
     <motion.header
-      className="fixed top-0 left-0 right-0 z-50 flex justify-center py-6 px-4"
+      className="fixed top-0 left-0 right-0 z-50 flex justify-center py-4 md:py-6 px-4"
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
     >
+      {/* Desktop and tablet: one pill with every link. */}
       <motion.nav
         aria-label="Main navigation"
         className={cn(
-          "glass-panel rounded-full px-6 py-3 flex items-center gap-1 md:gap-2 transition-all duration-500 overflow-x-auto no-scrollbar",
+          "hidden lg:flex glass-panel rounded-full px-6 py-3 items-center gap-1 md:gap-2 transition-all duration-500",
           isScrolled ? "scale-95 bg-white/10" : "scale-100"
         )}
       >
-        {navLinks.map((link) => {
-          const isActive = 
-          location.pathname === link.path || 
-          (link.path !== "/" && location.pathname.startsWith(link.path));
-
+        {visibleLinks.map((link) => {
+          const isActive = isActivePath(link.path);
           return (
             <Link
               key={link.key}
               to={link.path}
+              aria-current={isActive ? "page" : undefined}
               className="relative px-3 py-2 rounded-full text-sm font-medium transition-colors interactive whitespace-nowrap"
             >
               <span className={cn("relative z-10", isActive ? "text-white" : "text-gray-400 hover:text-gray-200")}>
@@ -73,44 +130,63 @@ export function Navbar() {
             </Link>
           );
         })}
-
-        {/* Dynamic Admin Dashboard Access Link */}
         <div className="h-4 w-[1px] bg-white/10 mx-2 flex-shrink-0 self-center" />
-        <Link
-          to="/admin"
-          className={cn(
-            "relative px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-300 whitespace-nowrap flex items-center gap-1.5",
-            location.pathname.startsWith("/admin")
-              ? "bg-[#00F0FF]/20 text-white border border-[#00F0FF]/40 shadow-[0_0_12px_rgba(0,240,255,0.3)]"
-              : "bg-[#00F0FF]/5 text-[#00F0FF] hover:bg-[#00F0FF]/15 border border-[#00F0FF]/20 hover:border-[#00F0FF]/40 hover:shadow-[0_0_10px_rgba(0,240,255,0.25)]"
-          )}
-        >
-          <Lock size={12} className="text-[#00F0FF]" />
-          <span>{t("nav.dashboard", "Dashboard")}</span>
-        </Link>
-
-        {/* Dynamic Language Switcher Group */}
+        {dashboardLink}
         <div className="h-4 w-[1px] bg-white/10 mx-2 flex-shrink-0 self-center" />
-        <div className="flex items-center gap-1 bg-white/5 rounded-full p-0.5 border border-white/5 flex-shrink-0">
-          {languages.map((lang) => (
-            <button
-              key={lang.code}
-              type="button"
-              onClick={() => setManualLanguage(lang.code)}
-              aria-pressed={currentLang === lang.code}
-              aria-label={`Switch language to ${lang.label}`}
-              className={cn(
-                "px-2 py-1 rounded-full text-[10px] font-bold tracking-wider transition-all duration-300 cursor-pointer",
-                currentLang === lang.code
-                  ? "bg-gold text-bg-dark shadow-[0_0_8px_rgba(212,175,55,0.4)]"
-                  : "text-gray-400 hover:text-white"
-              )}
-            >
-              {lang.label}
-            </button>
-          ))}
-        </div>
+        {languageSwitcher}
       </motion.nav>
+
+      {/* Phones and small tablets: name on the left, a menu button on the right. */}
+      <div
+        className={cn(
+          "lg:hidden glass-panel rounded-full w-full max-w-xl pl-5 pr-2 py-2 flex items-center justify-between transition-all duration-500",
+          isScrolled ? "bg-white/10" : ""
+        )}
+      >
+        <Link to="/" className="font-display font-bold tracking-wide text-white text-sm">
+          Abdulwahab Abdullahi
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-menu"
+          aria-label={menuOpen ? t("nav.close_menu", "Close menu") : t("nav.open_menu", "Open menu")}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white bg-white/5 border border-white/10"
+        >
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+
+      {menuOpen && (
+        <nav
+          id="mobile-menu"
+          aria-label="Main navigation"
+          className="lg:hidden fixed left-4 right-4 top-[76px] glass-panel rounded-3xl p-4 flex flex-col gap-1 bg-[#0b0b10]/95 backdrop-blur-xl max-h-[calc(100vh-96px)] overflow-y-auto"
+        >
+          {visibleLinks.map((link) => {
+            const isActive = isActivePath(link.path);
+            return (
+              <Link
+                key={link.key}
+                to={link.path}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "px-4 py-3 rounded-2xl text-base font-medium",
+                  isActive ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/5"
+                )}
+              >
+                {t(`nav.${link.key}`, link.name)}
+              </Link>
+            );
+          })}
+          <div className="h-[1px] bg-white/10 my-2" />
+          <div className="flex items-center justify-between gap-3 px-2 pb-1">
+            {dashboardLink}
+            {languageSwitcher}
+          </div>
+        </nav>
+      )}
     </motion.header>
   );
 }

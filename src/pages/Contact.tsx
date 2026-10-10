@@ -47,7 +47,7 @@ export default function Contact() {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-6 uppercase">
-            {t("contact.title", "Let's Build Something")} <span className="text-gradient">{t("contact.title_bold", "Great.")}</span>
+            {t("contact.title", "Let's work")} <span className="text-gradient">{t("contact.title_bold", "together")}</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
             {t("contact.subtitle", "Open for freelance opportunities, collaborations, and ambitious projects.")}
@@ -254,7 +254,7 @@ export default function Contact() {
                     <p role="alert" className="text-sm text-red-400">{submitError}</p>
                   )}
 
-                  <button disabled={submitContact.isPending} className={`w-full py-4 interactive glass-button rounded-lg font-bold flex justify-center items-center gap-2 disabled:opacity-50 transition-colors duration-300 ${formReady ? "bg-gold text-black" : "bg-white/10 text-gray-400"}`} type="submit">
+                  <button disabled={submitContact.isPending} className={`w-full py-4 interactive rounded-lg font-bold flex justify-center items-center gap-2 border disabled:opacity-50 transition-colors duration-300 ${formReady ? "bg-gold text-black border-gold hover:brightness-110" : "bg-white/5 text-gray-400 border-white/10"}`} type="submit">
                     <span>{submitContact.isPending ? t("contact.button_sending", "Sending...") : t("contact.button_send", "Send Message")}</span>
                     <Send size={18} />
                   </button>
