@@ -274,7 +274,6 @@ export const AdminLayout: React.FC = () => {
       case '/admin/projects': return 'Projects Manager';
       case '/admin/leads': return 'Leads / CRM Engine';
       case '/admin/outreach': return 'AI Outreach';
-      case '/admin/inventory': return 'Real Inventory';
       case '/admin/messages': return 'Messages Inbox';
       case '/admin/analytics': return 'Visitor & Project Analytics';
       case '/admin/resume': return 'Resume Manager';

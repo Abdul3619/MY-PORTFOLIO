@@ -2412,94 +2412,10 @@ app.use('/api/admin/inbox', createInboxRouter({ requireAuth, supabaseUrl, supaba
 // gated inside the router itself -- see atelierfit/route.ts.
 app.use('/api/atelierfit', createAtelierFitRouter({ requireAuth, supabaseUrl, supabaseServiceKey }));
 // StitchBook: the desktop-app project -- a live, public tailor-shop management demo, plus (on the same
-// router) real, read-only Live data from AtelierFit/Atelier Noir/inventory. Every route there is
-// intentionally public (no requireAuth); see stitchbook/route.ts for why.
-app.use('/api/stitchbook', createStitchBookRouter({ supabaseUrl, supabaseServiceKey }));
+// router) real Live data from AtelierFit/Atelier Noir and the Real Inventory. Reads are public (customer
+// details masked for visitors); writes to real stock need the signed-in owner. See stitchbook/route.ts.
+app.use('/api/stitchbook', createStitchBookRouter({ supabaseUrl, supabaseServiceKey, getOwner: getAdminUser }));
 
-// Real fabric/supplies inventory management -- locked (requireAuth), unlike everything else StitchBook-
-// related above. The public /stitchbook Live tab only ever reads this table; this is the one place it's
-// actually written, so a site visitor can look at real stock levels but never change them.
-const inventoryItemSchema = z.object({
-  itemName: z.string().min(1).max(120),
-  category: z.enum(['Fabric', 'Thread', 'Button/Zip', 'Lining', 'Embroidery Supplies', 'Other']).default('Fabric'),
-  quantity: z.number().min(0),
-  unit: z.enum(['yards', 'meters', 'rolls', 'pieces', 'sets', 'spools']).default('yards'),
-  reorderLevel: z.number().min(0).default(5),
-  costNaira: z.number().int().min(0).max(100000000).optional().nullable(),
-  supplier: z.string().max(160).optional().nullable(),
-  notes: z.string().max(2000).optional().nullable(),
-});
-
-app.get('/api/admin/inventory', requireAuth, async (_req, res) => {
-  const { data, error } = await supabaseAdmin.from('workshop_inventory').select('*').order('item_name', { ascending: true });
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-  res.json(data);
-});
-
-app.post('/api/admin/inventory', requireAuth, async (req, res) => {
-  const parsed = inventoryItemSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues.map((i) => i.message).join(', ') });
-    return;
-  }
-  const b = parsed.data;
-  const { data, error } = await supabaseAdmin
-    .from('workshop_inventory')
-    .insert({
-      item_name: b.itemName,
-      category: b.category,
-      quantity: b.quantity,
-      unit: b.unit,
-      reorder_level: b.reorderLevel,
-      cost_naira: b.costNaira ?? null,
-      supplier: b.supplier || null,
-      notes: b.notes || null,
-    })
-    .select()
-    .single();
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-  res.status(201).json(data);
-});
-
-app.put('/api/admin/inventory/:id', requireAuth, async (req, res) => {
-  const parsed = inventoryItemSchema.partial().safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues.map((i) => i.message).join(', ') });
-    return;
-  }
-  const b = parsed.data;
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (b.itemName !== undefined) patch.item_name = b.itemName;
-  if (b.category !== undefined) patch.category = b.category;
-  if (b.quantity !== undefined) patch.quantity = b.quantity;
-  if (b.unit !== undefined) patch.unit = b.unit;
-  if (b.reorderLevel !== undefined) patch.reorder_level = b.reorderLevel;
-  if (b.costNaira !== undefined) patch.cost_naira = b.costNaira;
-  if (b.supplier !== undefined) patch.supplier = b.supplier;
-  if (b.notes !== undefined) patch.notes = b.notes;
-
-  const { data, error } = await supabaseAdmin.from('workshop_inventory').update(patch).eq('id', req.params.id).select().single();
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-  res.json(data);
-});
-
-app.delete('/api/admin/inventory/:id', requireAuth, async (req, res) => {
-  const { error } = await supabaseAdmin.from('workshop_inventory').delete().eq('id', req.params.id);
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-  res.status(204).end();
-});
 // Gallery: read-only bridge onto the Atelier Noir / Agbada Luxe product catalog (a separate app's table in this
 // same Supabase project). No writes happen here -- see gallery/route.ts for why.
 app.use('/api/gallery', createGalleryRouter({ supabaseUrl, supabaseServiceKey }));

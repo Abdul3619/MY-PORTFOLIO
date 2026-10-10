@@ -6,10 +6,43 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard, Radio, ExternalLink, Lock } from "lucide-react";
+import { Scissors, Package, Plus, Trash2, AlertTriangle, LayoutDashboard, Radio, ExternalLink, Lock, Download, ClipboardList } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { ADMIN_EMAIL } from "../../components/admin/AdminLayout";
-import AdminAtelierFit from "../admin/AdminAtelierFit";
+import { supabase } from "../../lib/supabase";
+import ManageOrders from "./ManageOrders";
+import RealInventory from "./RealInventory";
+
+// Desktop installers are built by .github/workflows/stitchbook-desktop.yml and attached to this release.
+const DESKTOP_RELEASE = "https://github.com/Abdul3619/MY-PORTFOLIO/releases/tag/stitchbook-v0.1.0";
+const DESKTOP_ASSET_BASE = "https://github.com/Abdul3619/MY-PORTFOLIO/releases/download/stitchbook-v0.1.0";
+const DESKTOP_DOWNLOADS = [
+  { os: "Windows", file: "StitchBook_0.1.0_x64-setup.exe" },
+  { os: "macOS", file: "StitchBook_0.1.0_universal.dmg" },
+  { os: "Linux", file: "StitchBook_0.1.0_amd64.AppImage" },
+] as const;
+
+// Picks the installer for the visitor's OS; falls back to the release page (all installers) when unsure.
+function desktopDownloadFor(): { label: string; href: string } {
+  if (typeof navigator === "undefined") return { label: "Download desktop app", href: DESKTOP_RELEASE };
+  const ua = navigator.userAgent;
+  const match = /Windows/i.test(ua)
+    ? DESKTOP_DOWNLOADS[0]
+    : /Macintosh|Mac OS X/i.test(ua)
+      ? DESKTOP_DOWNLOADS[1]
+      : /Linux/i.test(ua) && !/Android/i.test(ua)
+        ? DESKTOP_DOWNLOADS[2]
+        : null;
+  return match
+    ? { label: `Download for ${match.os}`, href: `${DESKTOP_ASSET_BASE}/${match.file}` }
+    : { label: "Download desktop app", href: DESKTOP_RELEASE };
+}
+
+// Sends the owner's session (if any) so the server returns unmasked customer details to the owner only.
+async function ownerFetch(url: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  return fetch(url, session?.access_token ? { headers: { Authorization: `Bearer ${session.access_token}` } } : undefined);
+}
 
 type OrderStatus = "New" | "Cutting" | "Sewing" | "Fitting" | "Ready" | "Delivered" | "Cancelled";
 
@@ -119,13 +152,11 @@ export default function StitchBook() {
     return (t === "orders" || t === "inventory" || t === "live" || t === "manage") ? t : "dashboard";
   };
   const [tab, setTab] = useState<Tab>(initialTab);
-  // Manage is the one real, write-capable tab -- it's the actual AtelierFit order-management screen
-  // (formerly its own locked /admin/atelierfit page), now folded into StitchBook since this is meant to
-  // be the one shared dashboard for the Atelier Noir / AtelierFit family. Writes still go through the
-  // same requireAuth-gated /api/atelierfit/admin/* routes either way, so showing/hiding this tab is a
-  // UX nicety, not the actual security boundary -- but there's no reason to render it, or send the
-  // authed fetches it makes on mount, to a visitor who isn't signed in as the real admin.
+  // Manage holds the real AtelierFit order management and the Real Inventory (both used to be pages in the
+  // portfolio /admin). Everyone can open it; the write controls only appear for the signed-in owner, and the
+  // server checks the same thing on every write.
   const { user: adminUser, loading: adminLoading } = useAuth();
+  const desktopDownload = useMemo(desktopDownloadFor, []);
   const isRealAdmin = !adminLoading && adminUser?.email?.toLowerCase() === ADMIN_EMAIL;
   const [orders, setOrders] = useState<Order[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -174,8 +205,8 @@ export default function StitchBook() {
       try {
         const [overviewRes, ordersRes, noirRes, invRes] = await Promise.all([
           fetch("/api/stitchbook/live/overview"),
-          fetch("/api/stitchbook/live/atelierfit-orders"),
-          fetch("/api/stitchbook/live/atelier-noir"),
+          ownerFetch("/api/stitchbook/live/atelierfit-orders"),
+          ownerFetch("/api/stitchbook/live/atelier-noir"),
           fetch("/api/stitchbook/live/inventory"),
         ]);
         if (!overviewRes.ok || !ordersRes.ok || !noirRes.ok || !invRes.ok) throw new Error("Could not load live data.");
@@ -268,7 +299,7 @@ export default function StitchBook() {
     { id: "orders", label: "Orders", icon: Scissors },
     { id: "inventory", label: "Inventory", icon: Package },
     { id: "live", label: "Live", icon: Radio },
-    { id: "manage", label: "Manage", icon: Lock },
+    { id: "manage", label: "Manage", icon: ClipboardList },
   ];
 
   return (
@@ -291,10 +322,20 @@ export default function StitchBook() {
             {label}
           </button>
         ))}
-        <div className="mt-auto px-2 py-3 text-[11px] text-gray-500 leading-relaxed">
-          Dashboard/Orders/Inventory: a live demo &mdash; edits are visible to every visitor and old rows are
-          pruned automatically. Live is real, read-only data from AtelierFit &amp; Atelier Noir, intentionally
-          left unlocked. Manage is the one real write screen, for the shop owner only.
+        <div className="mt-auto space-y-3">
+          <a
+            href={desktopDownload.href}
+            className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gold text-black text-sm font-medium interactive"
+          >
+            <Download size={15} /> {desktopDownload.label}
+          </a>
+          <a href={DESKTOP_RELEASE} target="_blank" rel="noreferrer" className="block text-center text-[11px] text-gray-500 hover:text-gray-300">
+            All installers (Windows, macOS, Linux)
+          </a>
+          <p className="px-2 text-[11px] text-gray-500 leading-relaxed">
+            Dashboard, Orders and Inventory are a sandbox you can edit freely. Live shows real orders placed in
+            AtelierFit and Atelier Noir. Manage is the owner&apos;s order and stock screen.
+          </p>
         </div>
       </aside>
 
@@ -313,6 +354,14 @@ export default function StitchBook() {
       </div>
 
       <main className="flex-1 p-6 sm:p-10 pb-20 sm:pb-10 overflow-x-auto">
+        <div className="sm:hidden mb-6 flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+          <span className="flex items-center gap-2 text-sm font-medium">
+            <Scissors size={16} className="text-gold" /> StitchBook
+          </span>
+          <a href={DESKTOP_RELEASE} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-gold">
+            <Download size={13} /> Desktop app
+          </a>
+        </div>
         {error && <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm">{error}</div>}
 
         {tab === "dashboard" && (
@@ -519,10 +568,9 @@ export default function StitchBook() {
               </span>
             </div>
             <p className="text-sm text-gray-400 max-w-2xl">
-              This tab is genuinely connected to Abdulwahab's actual AtelierFit and Atelier Noir businesses &mdash;
-              real orders, real bookings, real stock. It's intentionally left unlocked, read-only, so you can see
-              it's really wired up rather than take that on faith. (The Dashboard/Orders/Inventory tabs are the
-              separate, editable demo &mdash; this one can't be edited by visitors.)
+              Orders placed in AtelierFit and bookings made in Atelier Noir land here, along with the shop&apos;s real
+              stock. Place a test order in either shop and refresh this tab to see it arrive. Customer contact
+              details are masked for privacy.
             </p>
 
             {liveError && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm">{liveError}</div>}
@@ -671,27 +719,26 @@ export default function StitchBook() {
         )}
 
         {tab === "manage" && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
             {isRealAdmin ? (
-              <AdminAtelierFit />
+              <ManageOrders />
             ) : (
-              <div className="flex flex-col items-center justify-center text-center py-20 gap-3">
-                <Lock size={28} className="text-gray-500" />
-                <h1 className="text-xl font-display font-semibold">Manage is for the shop owner</h1>
-                <p className="text-sm text-gray-400 max-w-md">
-                  This is the real order-management screen for AtelierFit &mdash; the same one that used to
-                  live at <code className="text-gray-300">/admin/atelierfit</code>, now folded into StitchBook
-                  since this is meant to be the one shared dashboard for the business. Sign in as the owner to
-                  see and update real customer orders.
-                </p>
-                <Link
-                  to="/admin/login"
-                  className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gold text-black text-sm font-medium"
-                >
+              <div className="p-5 rounded-xl bg-white/[0.03] border border-white/10 flex flex-col sm:flex-row sm:items-center gap-4">
+                <Lock size={22} className="text-gray-500 shrink-0" />
+                <div className="flex-1">
+                  <h2 className="text-lg font-display font-semibold">AtelierFit orders</h2>
+                  <p className="text-sm text-gray-400">
+                    Moving real customer orders through their stages is for the shop owner. You can see every
+                    order, including your own test order, in the{" "}
+                    <button onClick={() => setTab("live")} className="text-gold underline underline-offset-2">Live tab</button>.
+                  </p>
+                </div>
+                <Link to="/admin/login" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm">
                   Owner sign-in
                 </Link>
               </div>
             )}
+            {!adminLoading && <RealInventory isOwner={isRealAdmin} />}
           </motion.div>
         )}
       </main>

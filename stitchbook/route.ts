@@ -1,22 +1,19 @@
-// StitchBook: a desktop-oriented tailor-shop management demo, mounted at /api/stitchbook.
+// StitchBook: a desktop-oriented tailor-shop management tool, mounted at /api/stitchbook. It is the shared owner
+// dashboard for AtelierFit and Atelier Noir.
 //
-// This is the "desktop app" project -- unlike atelierfit (a real customer intake form), every route here is
-// public, no auth, by design: it's a live portfolio demo of a desktop management tool, and visitors are meant
-// to add/edit/delete rows to see how it behaves. RLS on the tables already allows anon full CRUD (see the
-// migration); this router just adds basic shape validation and prunes each table back to MAX_ROWS on insert
-// so the demo can't grow without bound.
+// Dashboard/Orders/Inventory are a public demo on their own tables (stitchbook_orders, stitchbook_inventory):
+// visitors can add, edit and delete rows freely. Writes are rate limited per visitor and each table is pruned
+// back to MAX_ROWS on insert, so the demo can't grow without bound.
 //
-// The /live/* routes below are a second, deliberately separate thing added later: real, read-only data from
-// the actual AtelierFit and Atelier Noir businesses, plus a real fabric/supplies inventory. Abdulwahab's own
-// explicit instruction was to NOT lock any of this behind a login -- the whole point is that a visitor (a
-// prospective client) can see this is genuinely connected to real, live data, not a mockup -- so these stay
-// public and unauthenticated exactly like the demo routes above, on the same /api/stitchbook mount as a single
-// project with one real-life URL. They are GET-only, though: nothing here lets a visitor write to real
-// customer orders or real stock -- that's intentionally still managed from the locked /admin area (see
-// server.ts's requireAuth-gated /api/admin/inventory and the existing /api/atelierfit/admin routes), since
-// "don't lock the dashboard" was about viewing it, not about handing public write access to real business data.
+// The /live/* routes show the real AtelierFit orders, Atelier Noir bookings/catalog and the Real Inventory.
+// They are public so a visitor can see a test order they just placed arrive here, but customer names, emails,
+// phones and addresses are masked unless the signed-in owner is asking.
+//
+// The /manage/* routes are the Real Inventory (workshop_inventory), which used to live in the portfolio /admin.
+// Anyone can read it; only the signed-in owner can change it.
 
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
@@ -43,11 +40,28 @@ const inventorySchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
 });
 
-export function createStitchBookRouter(deps: { supabaseUrl: string; supabaseServiceKey: string }) {
+export function createStitchBookRouter(deps: {
+  supabaseUrl: string;
+  supabaseServiceKey: string;
+  // Resolves the signed-in owner (portfolio admin) for a request, or null for a visitor.
+  getOwner: (req: express.Request) => Promise<unknown | null>;
+}) {
   const router = express.Router();
   const db: SupabaseClient = createClient(deps.supabaseUrl, deps.supabaseServiceKey, {
     auth: { persistSession: false },
   });
+
+  // Abuse protection for the public demo tabs: each visitor gets a modest budget of writes, on top of the
+  // site-wide /api limiter in server.ts.
+  router.use(
+    rateLimit({
+      windowMs: 10 * 60 * 1000,
+      max: 60,
+      skip: (req) => req.method === 'GET',
+      validate: { xForwardedForHeader: false, trustProxy: false, default: false },
+      message: { error: 'You have made a lot of changes in a short time. Please wait a few minutes and try again.' },
+    }),
+  );
 
   const asyncHandler =
     (fn: (req: express.Request, res: express.Response) => Promise<void>) =>
@@ -246,9 +260,27 @@ export function createStitchBookRouter(deps: { supabaseUrl: string; supabaseServ
 
   const LIVE_ORDER_LIMIT = 100;
 
+  // Visitors see that real orders exist, not who placed them: names are cut to first name + initial, email
+  // and phone are masked, and shipping addresses are hidden. The signed-in owner gets the full rows.
+  function maskName(name: string | null) {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    return parts.length === 1 ? parts[0] : `${parts[0]} ${parts[parts.length - 1][0]}.`;
+  }
+  function maskEmail(email: string | null) {
+    if (!email) return email;
+    const [user, domain] = email.split('@');
+    return domain ? `${user.slice(0, 2)}***@${domain}` : '***';
+  }
+  function maskPhone(phone: string | null) {
+    if (!phone) return phone;
+    const digits = phone.replace(/\D/g, '');
+    return digits.length > 3 ? `***${digits.slice(-3)}` : '***';
+  }
+
   router.get(
     '/live/atelierfit-orders',
-    asyncHandler(async (_req, res) => {
+    asyncHandler(async (req, res) => {
       const { data, error } = await db
         .from('atelierfit_orders')
         .select(
@@ -260,13 +292,25 @@ export function createStitchBookRouter(deps: { supabaseUrl: string; supabaseServ
         res.status(500).json({ error: error.message });
         return;
       }
-      res.json(data);
+      if (await deps.getOwner(req)) {
+        res.json(data);
+        return;
+      }
+      res.json(
+        (data || []).map((o: any) => ({
+          ...o,
+          customer_name: maskName(o.customer_name),
+          customer_email: maskEmail(o.customer_email),
+          customer_phone: maskPhone(o.customer_phone),
+          shipping_address: null,
+        })),
+      );
     }),
   );
 
   router.get(
     '/live/atelier-noir',
-    asyncHandler(async (_req, res) => {
+    asyncHandler(async (req, res) => {
       const [productsRes, bookingsRes] = await Promise.all([
         db
           .from('agbada_products')
@@ -288,7 +332,17 @@ export function createStitchBookRouter(deps: { supabaseUrl: string; supabaseServ
         res.status(500).json({ error: bookingsRes.error.message });
         return;
       }
-      res.json({ products: productsRes.data, bookings: bookingsRes.data });
+      const isOwner = Boolean(await deps.getOwner(req));
+      const bookings = isOwner
+        ? bookingsRes.data
+        : (bookingsRes.data || []).map((b: any) => ({
+            ...b,
+            full_name: maskName(b.full_name),
+            email: maskEmail(b.email),
+            phone: maskPhone(b.phone),
+            message: null,
+          }));
+      res.json({ products: productsRes.data, bookings });
     }),
   );
 
@@ -304,6 +358,117 @@ export function createStitchBookRouter(deps: { supabaseUrl: string; supabaseServ
         return;
       }
       res.json(data);
+    }),
+  );
+
+  // ---- Real Inventory (Manage tab) ------------------------------------------
+  //
+  // The real fabric/supplies stock (workshop_inventory) is managed here, inside StitchBook, instead of the
+  // portfolio /admin. Anyone can read it (the Live tab already shows it); only the signed-in owner can write.
+
+  const realInventorySchema = z.object({
+    itemName: z.string().min(1).max(120),
+    category: z.enum(['Fabric', 'Thread', 'Button/Zip', 'Lining', 'Embroidery Supplies', 'Other']).default('Fabric'),
+    quantity: z.number().min(0),
+    unit: z.enum(['yards', 'meters', 'rolls', 'pieces', 'sets', 'spools']).default('yards'),
+    reorderLevel: z.number().min(0).default(5),
+    costNaira: z.number().int().min(0).max(100000000).optional().nullable(),
+    supplier: z.string().max(160).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  });
+
+  const requireOwner: express.RequestHandler = (req, res, next) => {
+    deps
+      .getOwner(req)
+      .then((owner) => (owner ? next() : res.status(401).json({ error: 'Sign in as the shop owner to change real stock.' })))
+      .catch(() => res.status(503).json({ error: 'Authentication service unavailable' }));
+  };
+
+  router.get(
+    '/manage/inventory',
+    asyncHandler(async (_req, res) => {
+      const { data, error } = await db
+        .from('workshop_inventory')
+        .select('id, item_name, category, quantity, unit, reorder_level, cost_naira, supplier, notes, updated_at')
+        .order('item_name', { ascending: true });
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.json(data);
+    }),
+  );
+
+  router.post(
+    '/manage/inventory',
+    requireOwner,
+    asyncHandler(async (req, res) => {
+      const parsed = realInventorySchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.issues.map((i: { message: string }) => i.message).join(', ') });
+        return;
+      }
+      const b = parsed.data;
+      const { data, error } = await db
+        .from('workshop_inventory')
+        .insert({
+          item_name: b.itemName,
+          category: b.category,
+          quantity: b.quantity,
+          unit: b.unit,
+          reorder_level: b.reorderLevel,
+          cost_naira: b.costNaira ?? null,
+          supplier: b.supplier || null,
+          notes: b.notes || null,
+        })
+        .select()
+        .single();
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.status(201).json(data);
+    }),
+  );
+
+  router.patch(
+    '/manage/inventory/:id',
+    requireOwner,
+    asyncHandler(async (req, res) => {
+      const parsed = realInventorySchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.issues.map((i: { message: string }) => i.message).join(', ') });
+        return;
+      }
+      const b = parsed.data;
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (b.itemName !== undefined) patch.item_name = b.itemName;
+      if (b.category !== undefined) patch.category = b.category;
+      if (b.quantity !== undefined) patch.quantity = b.quantity;
+      if (b.unit !== undefined) patch.unit = b.unit;
+      if (b.reorderLevel !== undefined) patch.reorder_level = b.reorderLevel;
+      if (b.costNaira !== undefined) patch.cost_naira = b.costNaira;
+      if (b.supplier !== undefined) patch.supplier = b.supplier;
+      if (b.notes !== undefined) patch.notes = b.notes;
+      const { data, error } = await db.from('workshop_inventory').update(patch).eq('id', req.params.id).select().single();
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.json(data);
+    }),
+  );
+
+  router.delete(
+    '/manage/inventory/:id',
+    requireOwner,
+    asyncHandler(async (req, res) => {
+      const { error } = await db.from('workshop_inventory').delete().eq('id', req.params.id);
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.status(204).end();
     }),
   );
 

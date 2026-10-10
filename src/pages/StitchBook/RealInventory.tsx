@@ -1,3 +1,7 @@
+// Real Inventory: the shop's actual fabric/supplies stock, managed inside StitchBook (it used to be a page in
+// the portfolio /admin). Everyone can see it; only the signed-in owner gets the add/adjust/delete controls,
+// and the server enforces the same rule (see stitchbook/route.ts's /manage/inventory routes).
+
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { GlassCard } from "@/components/GlassCard";
@@ -27,14 +31,14 @@ async function authedFetch(url: string, init?: RequestInit) {
   });
 }
 
-export default function AdminInventory() {
+export default function RealInventory({ isOwner }: { isOwner: boolean }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [newItem, setNewItem] = useState({ item_name: "", category: "Fabric", quantity: "", unit: "yards", reorder_level: "5", supplier: "" });
 
   const load = async () => {
     setLoading(true);
-    const res = await authedFetch("/api/admin/inventory");
+    const res = await authedFetch("/api/stitchbook/manage/inventory");
     if (res.ok) setItems(await res.json());
     setLoading(false);
   };
@@ -45,7 +49,7 @@ export default function AdminInventory() {
 
   const addItem = async () => {
     if (!newItem.item_name.trim()) return;
-    const res = await authedFetch("/api/admin/inventory", {
+    const res = await authedFetch("/api/stitchbook/manage/inventory", {
       method: "POST",
       body: JSON.stringify({
         itemName: newItem.item_name,
@@ -67,12 +71,12 @@ export default function AdminInventory() {
     if (!item) return;
     const quantity = Math.max(0, item.quantity + delta);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, quantity } : i)));
-    await authedFetch(`/api/admin/inventory/${id}`, { method: "PUT", body: JSON.stringify({ quantity }) });
+    await authedFetch(`/api/stitchbook/manage/inventory/${id}`, { method: "PATCH", body: JSON.stringify({ quantity }) });
   };
 
   const deleteItem = async (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-    await authedFetch(`/api/admin/inventory/${id}`, { method: "DELETE" });
+    await authedFetch(`/api/stitchbook/manage/inventory/${id}`, { method: "DELETE" });
   };
 
   if (loading) {
@@ -83,10 +87,11 @@ export default function AdminInventory() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-display font-semibold text-white">Real Inventory</h1>
+      <h2 className="text-xl font-display font-semibold text-white">Real Inventory</h2>
       <p className="text-sm text-gray-400">
-        Your actual fabric/supplies stock -- this feeds the real, read-only "Live" tab on the public StitchBook
-        project page. Visitors can see these numbers; only you can change them, here.
+        {isOwner
+          ? "Your actual fabric and supplies stock. Changes here show up in the Live tab straight away."
+          : "The shop's actual fabric and supplies stock. Only the shop owner can change these numbers."}
       </p>
 
       {lowStock.length > 0 && (
@@ -96,6 +101,7 @@ export default function AdminInventory() {
         </div>
       )}
 
+      {isOwner && (
       <GlassCard className="p-5 border-white/10">
         <div className="flex flex-wrap gap-2">
           <input
@@ -147,6 +153,7 @@ export default function AdminInventory() {
           </button>
         </div>
       </GlassCard>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="w-full text-sm">
@@ -166,29 +173,35 @@ export default function AdminInventory() {
                 <td className="px-4 py-3 text-gray-400">{i.category}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => adjustStock(i.id, -1)} className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white interactive">
-                      &minus;
-                    </button>
+                    {isOwner && (
+                      <button onClick={() => adjustStock(i.id, -1)} className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white interactive">
+                        &minus;
+                      </button>
+                    )}
                     <span className={i.quantity <= i.reorder_level ? "text-amber-300 font-medium" : "text-white"}>
                       {i.quantity} {i.unit}
                     </span>
-                    <button onClick={() => adjustStock(i.id, 1)} className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white interactive">
-                      +
-                    </button>
+                    {isOwner && (
+                      <button onClick={() => adjustStock(i.id, 1)} className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-white interactive">
+                        +
+                      </button>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-400">{i.supplier || "—"}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => deleteItem(i.id)} className="text-gray-500 hover:text-red-400 interactive">
-                    <Trash2 size={14} />
-                  </button>
+                  {isOwner && (
+                    <button onClick={() => deleteItem(i.id)} className="text-gray-500 hover:text-red-400 interactive">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  No real stock tracked yet -- add an item above.
+                  {isOwner ? "No real stock tracked yet -- add an item above." : "No real stock tracked yet."}
                 </td>
               </tr>
             )}

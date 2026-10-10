@@ -25,7 +25,6 @@ import NotFound from "./pages/NotFound";
 import { AdminLayout, ProtectedRoute, AdminLogin } from "./components/admin/AdminLayout";
 import Maintenance from "./pages/Maintenance";
 const AtelierFit = lazy(() => import("./pages/AtelierFit"));
-const AdminInventory = lazy(() => import("./pages/admin/AdminInventory"));
 const StitchBook = lazy(() => import("./pages/StitchBook"));
 const PhoneFrameShowcase = lazy(() => import("./pages/PhoneFrameShowcase"));
 
@@ -171,7 +170,7 @@ function AnimatedRoutes() {
           <Route path="/admin/account" element={adminPage(AdminAccount)} />
           {/* Folded into StitchBook's own Manage tab -- redirect any old bookmark/link there. */}
           <Route path="/admin/atelierfit" element={<Navigate to="/stitchbook?tab=manage" replace />} />
-          <Route path="/admin/inventory" element={adminPage(AdminInventory)} />
+          <Route path="/admin/inventory" element={<Navigate to="/stitchbook?tab=manage" replace />} />
         </Route>
       </Route>
     </Routes>

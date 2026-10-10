@@ -44,7 +44,8 @@ async function authedFetch(url: string, init?: RequestInit) {
   });
 }
 
-export default function AdminAtelierFit() {
+// AtelierFit order management for the shop owner, shown in StitchBook's Manage tab when the owner is signed in.
+export default function ManageOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
