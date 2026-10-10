@@ -67,18 +67,18 @@ export default function Contact() {
               <h2 className="text-3xl font-display font-semibold text-white mb-8">{t("contact.reach_out_title", "Reach Out directly")}</h2>
               
               <div className="space-y-6">
-                <a href={`mailto:${email}`} className="flex items-center gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
-                  <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform">
+                <a href={`mailto:${email}`} className="flex items-center gap-4 sm:gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
+                  <div className="w-14 h-14 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform">
                     <Mail size={24} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm text-gray-400 mb-1">{t("contact.email", "Email")}</p>
-                    <p className="text-lg text-white font-medium">{email}</p>
+                    <p className="text-base sm:text-lg text-white font-medium break-all">{email}</p>
                   </div>
                 </a>
                 
-                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
-                  <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform border-green-400/20 group-hover:bg-green-400/10">
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 sm:gap-6 p-4 rounded-2xl hover:bg-white/5 transition-colors group interactive">
+                  <div className="w-14 h-14 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform border-green-400/20 group-hover:bg-green-400/10">
                     <MessageCircle size={24} />
                   </div>
                   <div>
