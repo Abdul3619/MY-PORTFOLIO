@@ -1,0 +1,92 @@
+{
+  "atelier-noir": [
+    200,
+    "image/png"
+  ],
+  "stitchbook": [
+    200,
+    "image/png"
+  ],
+  "atelierfit": [
+    200,
+    "image/png"
+  ],
+  "phoneframe": [
+    200,
+    "image/png"
+  ],
+  "h-orizon-hotel": [
+    200,
+    "image/png"
+  ],
+  "Azure-hotel": [
+    200,
+    "image/png"
+  ],
+  "crouchend-electrical": [
+    200,
+    "image/png"
+  ],
+  "lamasat-salon": [
+    200,
+    "image/png"
+  ],
+  "val-car": [
+    200,
+    "image/png"
+  ],
+  "daqn-plus": [
+    200,
+    "image/png"
+  ],
+  "imgs": [
+    [
+      "/projects/atelierfit-cover.png",
+      1376
+    ],
+    [
+      "/projects/atelier-noir-cover.png",
+      1376
+    ],
+    [
+      "/projects/phoneframe-cover.png",
+      1376
+    ],
+    [
+      "/projects/stitchbook-cover.png",
+      1376
+    ],
+    [
+      "/projects/Azure-hotel-cover.png",
+      1376
+    ],
+    [
+      "/projects/h-orizon-hotel-cover.png",
+      1376
+    ],
+    [
+      "/projects/crouchend-electrical-cover.png",
+      1376
+    ],
+    [
+      "/projects/lamasat-salon-cover.png",
+      1376
+    ],
+    [
+      "/projects/daqn-plus-cover.png",
+      1376
+    ],
+    [
+      "/projects/val-car-cover.png",
+      1376
+    ],
+    [
+      "/projects/shin-orne-cover.png",
+      1376
+    ],
+    [
+      "/projects/ai-outreach-cover.png",
+      1200
+    ]
+  ]
+}
