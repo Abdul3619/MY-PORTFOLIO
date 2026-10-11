@@ -1,0 +1,73 @@
+[
+  {
+    "slug": "h-orizon-hotel",
+    "url": "https://horizon-br6n.vercel.app",
+    "status": 200,
+    "title": "L'Horizon Royal | Five-Star Luxury Resort",
+    "h1": [
+      "Experience\nthe Infinite"
+    ],
+    "bg": [
+      "linear-gradient(to top, rgb(5, 5, 5) 0%, oklab(0.114918 0.00000522286 0.00000230223 / 0.4) 50%, rgba(0, 0, 0, 0) 100%)",
+      "linear-gradient(in oklab, rgb(197, 168, 128) 0%, rgba(0, 0, 0, 0) 100%)"
+    ],
+    "imgs": [
+      [
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80",
+        1200,
+        456
+      ],
+      [
+        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80",
+        1200,
+        371
+      ],
+      [
+        "https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=1200&q=80",
+        1200,
+        371
+      ],
+      [
+        "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=1200&q=80",
+        1200,
+        371
+      ],
+      [
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
+        1200,
+        560
+      ]
+    ],
+    "text": "Home\nSuites & Villas\nHeritage\nStaff Portal\nL'HORIZON\nRIVIERA EXCELLENCE\nEN\n|\nFR\nRESERVE SUITE\nH\n\nThe Royal Suite\n\nL'HORIZON ROYAL, FRANCE\n\nA FIVE-STAR MEDITERRANEAN EXPERIENCE\nExperience\nthe Infinite\n\nSTEP INTO L'HORIZON ROYAL, A COASTAL SANCTUARY WHERE MODERN ARCHITECTURAL MARVELS BLEND SEAMLESSLY WITH TRADITIONAL FIVE-STAR SERVICE.\n\nSCROLL TO DISCOVER\nARRIVAL DATE\nDEPARTURE DATE\nGUESTS COUNT\n1 Guest\n2 Guests\n3 Guests\n4 Guests\n6 Guests\nEXPLORE AVAILABILITY\nOUR NOBLE HERITAGE\nThe Philosophy of Timeless Craft\n\nFounded in 1924 along the rugged cliffs of the French Riviera, L'Horizon Royal has served as a sanctuary for distinguished global citizens, artists, and nobility seeking uncompromised luxury.\n\nEvery marble column, every tailored linen thread, and each custom gourmet plate tells our enduring story: a century-long romance with absolute visual harmony and peerless legendary hospitality.\n\n\"True elegance does not demand attention, it resides quietly in the perfection of details.\"\n\n— Henri de Laurent, Founder\n\n100\n\nYEARS OF LUXURY\n\nCURATED SUITES\nExquisite Residences of the Royal Court\nVIEW ALL ACCOMMODATIONS\nPENTHOUSES\nRoyal Horizon Penthouse\n\nSuspended between sea and sky, our crown jewel penthouse offers unparalleled ocean panoramas, a heated private deck pool, and bespoke luxury details selected by master European artisans.\n\nFROM RATE\n$2400 / night\nAREA\n180 m²\nEXPLORE HIGHLIGHTS\nSUITES\nL'Horizon Ocean Suite\n\nEnjoy serene mornings looking out at the endless horizon. Features an open-plan lounge, hand-crafted Italian marble bathrooms, and a deep soaking terrace jacuzzi.\n\nFROM RATE\n$1650 / night\nAREA\n120 m²\nEXPLORE HIGHLIGHTS\nPENTHOUSES\nRiviera Presidential Suite\n\nThe pinnacle of global prestige. A sprawling dual-wing presidential suite hosting an exquisite formal dining room, a private wellness studio, and sweeping 360-degree views of the coastline.\n\nFROM RATE\n$3200 / night\nAREA\n240 m²\nEXPLORE HIGHLIGHTS\nUNCOMPROMISED EXPERIENCES\nSignature Services of L'Horizon\nThermal Senses Spa\n\nRejuvenating hammam, tailored bio-essential oil massage rituals, and marble ice-baths.\n\nL'Or Rouge Gastronomy\n\nThree Michelin-star marine culinary creations overseen by Executive Chef Jean-Pierre.\n\nILLUSTRATIVE EXAMPLE\n\nRoyal Infinity Edge Pool\n\nHeated sea-water pool looking out at the endless horizon with private cabanas.\n\nBespoke Yacht Charter\n\nA customized carbon-hull yacht ready at the port for private island escapes.\n\nCURATED STAYS\nPackages\n\nEverything arranged, from arriva",
+    "buttons": [
+      "Home",
+      "Suites & Villas",
+      "Heritage",
+      "Staff Portal",
+      "L'HORIZON\nRIVIERA EXCELLENCE",
+      "EN",
+      "FR",
+      "RESERVE SUITE",
+      "EXPLORE AVAILABILITY",
+      "VIEW ALL ACCOMMODATIONS",
+      "EXPLORE HIGHLIGHTS",
+      "EXPLORE HIGHLIGHTS",
+      "EXPLORE HIGHLIGHTS",
+      "PLAN THIS STAY",
+      "PLAN THIS STAY",
+      "PLAN THIS STAY",
+      "EXPLORE MENU",
+      "Home",
+      "Suites & Villas",
+      "Reservations",
+      "Terms of Pure Luxury",
+      "Privacy Policy Safeguards",
+      "Cookie Configurations",
+      "reservations@lhorizon-royal.example",
+      "Contact the developer"
+    ],
+    "errs": [
+      "FAIL https://horizon-br6n.vercel.app/hotel-hero.mp4"
+    ]
+  }
+]
