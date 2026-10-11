@@ -39,6 +39,7 @@ for (const t of targets) {
       if (step.goto) await page.goto(step.goto, { waitUntil: 'domcontentloaded' });
       if (step.wait) await page.waitForTimeout(step.wait);
       if (step.eval) await page.evaluate(step.eval).catch(e => errs.push(String(e).slice(0, 120)));
+      if (step.shot) { await page.waitForTimeout(1500); await page.screenshot({ path: `${OUT}/${step.shot}.png` }); }
       await settle(page);
     }
     await page.waitForTimeout(1500);
@@ -54,7 +55,7 @@ for (const t of targets) {
   report.push(r);
   await ctx.close();
 }
-// download current covers for comparison
+/* download current covers for comparison
 for (const t of targets) for (const [k, u] of Object.entries(t.current || {})) {
   try {
     const full = u.startsWith('/') ? PF + u : u;
@@ -63,5 +64,6 @@ for (const t of targets) for (const [k, u] of Object.entries(t.current || {})) {
     fs.writeFileSync(`${OUT}/old-${t.slug}-${k}.${ext}`, buf);
   } catch (e) {}
 }
+*/
 fs.writeFileSync(`${OUT}/report.json`, JSON.stringify(report, null, 2));
 await browser.close();
