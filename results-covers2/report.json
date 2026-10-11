@@ -1,0 +1,127 @@
+[
+  {
+    "slug": "atelierfit",
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/atelierfit",
+    "status": 200,
+    "title": "AtelierFit — Tailor Orders",
+    "h1": [
+      "Good morning."
+    ],
+    "text": "AtelierFit\nReady to help\nBY ATELIER NOIR\nGood morning.\n\nReady to start your next fit?\n\nScan Measurements\nBook Outfit\nBrowse Styles\nTrack Order\n🇮🇳 FEATURED COLLECTION\nIndian Silk Sari & Lehenga\nBespoke crimson and gold silk sari lehenga with intricate hand-embroidered zardozi and architectural draping.\n🇳🇬 FEATURED COLLECTION\nCeremonial Obsidian Agbada\nFour-piece grand agbada tailored from heavy textured wool and damask with intricate geometric chest embroidery.\n🇯🇵 FEATURED COLLECTION\nTailored Silk Kimono\nContemporary silk kimono in deep indigo and silver weaves with structured obi sash and modern drape.\n🇬🇧 FEATURED COLLECTION\nSavile Row Double-Breasted Suit\nImpeccably structured double-breasted charcoal wool suit with fine chalk stripe and precision hand-canvassed chest.\n🇸🇳 FEATURED COLLECTION\nSenegalese Grand Boubou & Aso-Oke Gown\nOpulent emerald and gold damask grand boubou with sculpted neckline, fluid draping, and hand-woven aso-oke finish.\nBegin fitting\nMeasuring · Fitting · Creating\nCamera measurements are estimated entirely on your own phone. No photo is ever uploaded or stored -- you confirm every number before anything is charged.\nWHAT WE MAKE\nSee all\nIndian Silk Sari & Lehenga\nWomen's Couture\nTailored Silk Kimono\nWomen's Couture\nSenegalese Grand Boubou & Aso-Oke Gown\nWomen's Couture\nMoroccan Royal Kaftan\nWomen's Couture\nHome\nGallery\nFitting\nProfile",
+    "buttons": [
+      "Scan Measurements",
+      "Book Outfit",
+      "Browse Styles",
+      "Track Order",
+      "🇮🇳 FEATURED COLLECTION\nIndian Silk Sari & Lehenga\nBespoke crimson and gold silk sari lehenga with intricate hand-embroidered zardozi and architectural draping.",
+      "🇳🇬 FEATURED COLLECTION\nCeremonial Obsidian Agbada\nFour-piece grand agbada tailored from heavy textured wool and damask with intricate geometric chest embroidery.",
+      "🇯🇵 FEATURED COLLECTION\nTailored Silk Kimono\nContemporary silk kimono in deep indigo and silver weaves with structured obi sash and modern drape.",
+      "🇬🇧 FEATURED COLLECTION\nSavile Row Double-Breasted Suit\nImpeccably structured double-breasted charcoal wool suit with fine chalk stripe and precision hand-canvassed chest.",
+      "🇸🇳 FEATURED COLLECTION\nSenegalese Grand Boubou & Aso-Oke Gown\nOpulent emerald and gold damask grand boubou with sculpted neckline, fluid draping, and hand-woven aso-oke finish.",
+      "See all",
+      "Indian Silk Sari & Lehenga\nWomen's Couture",
+      "Tailored Silk Kimono\nWomen's Couture",
+      "Senegalese Grand Boubou & Aso-Oke Gown\nWomen's Couture",
+      "Moroccan Royal Kaftan\nWomen's Couture",
+      "Home",
+      "Gallery",
+      "Fitting",
+      "Profile"
+    ],
+    "errs": []
+  },
+  {
+    "slug": "stitchbook",
+    "url": "https://abdulwahab-portfolio-tau.vercel.app/stitchbook",
+    "status": 200,
+    "title": "Abdulwahab Abdullahi | Web Developer",
+    "h1": [
+      "Shop overview"
+    ],
+    "text": "StitchBook\nDashboard\nOrders\nInventory\nLive\nManage\nDownload for Linux\nAll installers (Windows, macOS, Linux)\n\nDashboard, Orders and Inventory are a sandbox you can edit freely. Live shows real orders placed in AtelierFit and Atelier Noir. Manage is the owner's order and stock screen.\n\nShop overview\n\nACTIVE ORDERS\n\n3\n\nBALANCE OUTSTANDING\n\n₦64,000\n\nLOW STOCK\n\n2\n\nRunning low: Aso-Oke (gold), Gold embroidery thread.",
+    "buttons": [
+      "Dashboard",
+      "Orders",
+      "Inventory",
+      "Live",
+      "Manage",
+      "Download for Linux",
+      "All installers (Windows, macOS, Linux)",
+      "Dashboard",
+      "Orders",
+      "Inventory",
+      "Live",
+      "Manage",
+      "Desktop app"
+    ],
+    "errs": [
+      "click nav >> text=Orders: TimeoutError: locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for locator('nav').locator('text=Orders').fi"
+    ]
+  },
+  {
+    "slug": "h-orizon-hotel",
+    "url": "https://horizon-br6n.vercel.app",
+    "status": 200,
+    "title": "L'Horizon Royal | Five-Star Luxury Resort",
+    "h1": [
+      "Experience\nthe Infinite"
+    ],
+    "text": "Home\nSuites & Villas\nHeritage\nStaff Portal\nL'HORIZON\nRIVIERA EXCELLENCE\nEN\n|\nFR\nRESERVE SUITE\nH\n\nThe Royal Suite\n\nL'HORIZON ROYAL, FRANCE\n\nA FIVE-STAR MEDITERRANEAN EXPERIENCE\nExperience\nthe Infinite\n\nSTEP INTO L'HORIZON ROYAL, A COASTAL SANCTUARY WHERE MODERN ARCHITECTURAL MARVELS BLEND SEAMLESSLY WITH TRADITIONAL FIVE-STAR SERVICE.\n\nSCROLL TO DISCOVER\nARRIVAL DATE\nDEPARTURE DATE\nGUESTS COUNT\n1 Guest\n2 Guests\n3 Guests\n4 Guests\n6 Guests\nEXPLORE AVAILABILITY\nOUR NOBLE HERITAGE\nThe Philosophy of Timeless Craft\n\nFounded in 1924 along the rugged cliffs of the French Riviera, L'Horizon Royal has served as a sanctuary for distinguished global citizens, artists, and nobility seeking uncompromised luxury.\n\nEvery marble column, every tailored linen thread, and each custom gourmet plate tells our enduring story: a century-long romance with absolute visual harmony and peerless legendary hospitality.\n\n\"True elegance does not demand attention, it resides quietly in the perfection of details.\"\n\n— Henri de Laurent, Founder\n\n100\n\nYEARS OF LUXURY\n\nCURATED SUITES\nExquisite Residences of the Royal Court\nVIEW ALL ACCOMMODATIONS\nPENTHOUSES\nRoyal Horizon Penthouse\n\nSuspended between sea and sky, our crown jewel penthouse offers unparalleled ocean panoramas, a heated private deck pool, and bespoke luxury details selected by master European artisans.\n\nFROM RATE\n$2400 / night\nAREA\n180 m²\nEXPLORE HIGHLIGHTS\nSUITES\nL'Horizon Ocean Suite\n\nEnjoy serene mornings looking out at the endless horizon. Features an open-plan lounge, hand-crafted Italian marble bathrooms, and a deep soaking terrace jacuzzi.\n\nFROM RATE\n$1650 / night\nAREA\n120 m²\nEXPLORE HIGHLIGHTS\nPENTHOUSES\nRiviera Presidential Suite\n\nThe pinnacle of global prestige. A sprawling dual-wing presidential suite hosting an exquisite formal dining room, a private wellness studio, and sweeping 360-degree views of the coastline.\n\nFROM RATE\n$3200 / night\nAREA\n240 m²\nEXPLORE HIGHLIGHTS\nUNCOMPROMISED EXPERIENCES\nSignature Services of L'Horizon\nThermal Senses Spa\n\nRejuvenating hammam, tailored bio-essential oil massage rituals, and marble ice-baths.\n\nL'Or Rouge Gastronomy\n\nThree Michelin-star marine culinary creations overseen by Executive Chef Jean-Pierre.\n\nILLUSTRATIVE EXAMPLE\n\nRoyal Infinity Edge Pool\n\nHeated sea-water pool looking out at the endless horizon with private cabanas.\n\nBespoke Yacht Charter\n\nA customized carbon-hull yacht ready at the port for private island escapes.\n\nCURATED STAYS\nPackages\n\nEverything arranged, from arriva",
+    "buttons": [
+      "Home",
+      "Suites & Villas",
+      "Heritage",
+      "Staff Portal",
+      "L'HORIZON\nRIVIERA EXCELLENCE",
+      "EN",
+      "FR",
+      "RESERVE SUITE",
+      "EXPLORE AVAILABILITY",
+      "VIEW ALL ACCOMMODATIONS",
+      "EXPLORE HIGHLIGHTS",
+      "EXPLORE HIGHLIGHTS",
+      "EXPLORE HIGHLIGHTS",
+      "PLAN THIS STAY",
+      "PLAN THIS STAY",
+      "PLAN THIS STAY",
+      "EXPLORE MENU",
+      "Home",
+      "Suites & Villas",
+      "Reservations",
+      "Terms of Pure Luxury",
+      "Privacy Policy Safeguards",
+      "Cookie Configurations",
+      "reservations@lhorizon-royal.example",
+      "Contact the developer"
+    ],
+    "errs": []
+  },
+  {
+    "slug": "horizon-admin",
+    "url": "https://horizon-br6n.vercel.app/admin",
+    "status": 200,
+    "title": "L'Horizon Royal | Five-Star Luxury Resort",
+    "h1": [
+      "Admin access is locked"
+    ],
+    "text": "Admin access is locked\n\nThis dashboard only opens from a one-time link. Ask Abdulwahab to generate one, or reuse the link you were sent -- it works once and expires after 10 minutes.\n\nBack to the hotel site",
+    "buttons": [
+      "Back to the hotel site"
+    ],
+    "errs": []
+  },
+  {
+    "slug": "ai-outreach",
+    "url": "https://ai-outreach-flpr.onrender.com",
+    "status": 200,
+    "title": "Log in · AI Outreach",
+    "h1": [
+      "AI Outreach"
+    ],
+    "text": "AI Outreach\n\nThis tool is private. Enter the password to continue.\n\nPassword\nLog in",
+    "buttons": [
+      "Log in"
+    ],
+    "errs": []
+  }
+]
