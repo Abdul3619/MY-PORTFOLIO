@@ -1,7 +1,4 @@
 [
- {"slug":"atelierfit","url":"https://abdulwahab-portfolio-tau.vercel.app/atelierfit","steps":[{"click":"text=Continue as guest","wait":4000}]},
- {"slug":"stitchbook","url":"https://abdulwahab-portfolio-tau.vercel.app/stitchbook","steps":[{"click":"nav >> text=Orders","wait":2500,"shot":"stitchbook-orders"},{"click":"text=Live","wait":4000,"shot":"stitchbook-live"},{"click":"text=Inventory","wait":2500,"shot":"stitchbook-inventory"},{"click":"text=Dashboard","wait":2500}]},
- {"slug":"h-orizon-hotel","url":"https://horizon-br6n.vercel.app","wait":9000},
- {"slug":"horizon-admin","url":"https://horizon-br6n.vercel.app/admin","wait":6000},
- {"slug":"ai-outreach","url":"https://ai-outreach-flpr.onrender.com","wait":5000,"steps":[{"wait":80000},{"goto":"https://ai-outreach-flpr.onrender.com","wait":8000}]}
+ {"slug":"stitchbook","url":"https://abdulwahab-portfolio-tau.vercel.app/stitchbook","steps":[{"click":"text=\"Orders\"","wait":3000}]},
+ {"slug":"h-orizon-hotel","url":"https://horizon-br6n.vercel.app","wait":12000}
 ]

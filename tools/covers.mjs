@@ -27,6 +27,8 @@ for (const t of targets) {
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push(String(e).slice(0, 200)));
+  page.on('response', x => { if (x.status() >= 400) errs.push(x.status() + ' ' + x.url().slice(0, 160)); });
+  page.on('requestfailed', x => errs.push('FAIL ' + x.url().slice(0, 160)));
   const r = { slug: t.slug, url: t.url };
   try {
     const resp = await page.goto(t.url, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -48,6 +50,8 @@ for (const t of targets) {
     await page.screenshot({ path: `${OUT}/${t.slug}-cover.png` });
     r.title = await page.title();
     r.h1 = await page.locator('h1').allInnerTexts().catch(() => []);
+    r.bg = await page.evaluate(() => [...document.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).filter(b => b && b !== 'none').slice(0, 15)).catch(() => []);
+    r.imgs = await page.evaluate(() => [...document.images].map(i => [i.src.slice(0,140), i.naturalWidth, i.getBoundingClientRect().width|0])).catch(() => []);
     r.text = (await page.locator('body').innerText().catch(() => '')).slice(0, 2500);
     r.buttons = (await page.locator('button, a').allInnerTexts().catch(() => [])).map(s => s.trim()).filter(Boolean).slice(0, 80);
   } catch (e) { r.error = String(e).slice(0, 300); }
