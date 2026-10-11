@@ -1,0 +1,15 @@
+[
+ {"slug":"atelier-noir","url":"https://atelier-noir-official.vercel.app","current":{"thumb":"/projects/agbada-luxe-cover.jpg"}},
+ {"slug":"stitchbook","url":"https://abdulwahab-portfolio-tau.vercel.app/stitchbook","current":{"thumb":"/projects/stitchbook-cover.jpg"}},
+ {"slug":"atelierfit","url":"https://abdulwahab-portfolio-tau.vercel.app/atelierfit","current":{"thumb":"/projects/atelierfit-cover.jpg"}},
+ {"slug":"phoneframe","url":"https://abdulwahab-portfolio-tau.vercel.app/phoneframe","current":{"thumb":"/projects/phoneframe-cover.jpg"}},
+ {"slug":"h-orizon-hotel","url":"https://horizon-br6n.vercel.app","current":{"thumb":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/media/portfolio/h-orizon-hotel/cover.png"}},
+ {"slug":"hotel-booking","url":"https://abdulwahab-portfolio-tau.vercel.app/projects/hotel-booking","current":{"thumb":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/media/portfolio/hotel-booking/cover.webp","hero":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/media/portfolio/hotel-booking/hero.webp"}},
+ {"slug":"azure-hotel","url":"https://hotel-demo-ruby.vercel.app/","current":{"thumb":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/portfolio/project-azure.png","hero":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/portfolio/Azure-hero.png"}},
+ {"slug":"crouchend-electrical","url":"https://crouch-end.vercel.app/","current":{"thumb":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/media/portfolio/crouchend-electrical/cover.png"}},
+ {"slug":"lamasat-salon","url":"https://lamasat-al-joud.vercel.app/","current":{"thumb":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/media/portfolio/lamasat-salon/cover.png"}},
+ {"slug":"val-car","url":"https://valcar-rental.vercel.app/","current":{"thumb":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/media/portfolio/val-car/cover.png"}},
+ {"slug":"daqn-plus","url":"https://redfine.vercel.app/","current":{"thumb":"https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public/media/portfolio/daqn-plus/cover.png"}},
+ {"slug":"shin-orne","url":"https://shin-orne.vercel.app/","current":{"thumb":"/projects/shin-orne-cover.png"}},
+ {"slug":"ai-outreach","url":"https://ai-outreach-flpr.onrender.com","wait":15000,"current":{"thumb":"/projects/ai-outreach-cover.png"}}
+]
