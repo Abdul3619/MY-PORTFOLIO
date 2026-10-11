@@ -6,7 +6,7 @@ const SB = 'https://aqilclozwukdnogqcmsy.supabase.co/storage/v1/object/public';
 const PF = 'https://abdulwahab-portfolio-tau.vercel.app';
 const targets = JSON.parse(fs.readFileSync('tools/targets.json', 'utf8'));
 const report = [];
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHANNEL ? { channel: process.env.CHANNEL } : {});
 async function settle(page) {
   await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
   await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {});
